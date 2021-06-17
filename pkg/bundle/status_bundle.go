@@ -22,7 +22,6 @@ type TimestampedObject struct {
 func NewStatusBundle() *StatusBundle {
 	return &StatusBundle{
 		Objects:             make([]*TimestampedObject, 0),
-		DeletedObjectsUIDs:  make([]types.UID, 0),
 		lastUpdateTimestamp: &time.Time{},
 		lock:                sync.Mutex{},
 	}
@@ -30,7 +29,6 @@ func NewStatusBundle() *StatusBundle {
 
 type StatusBundle struct {
 	Objects             []*TimestampedObject `json:"objects"`
-	DeletedObjectsUIDs  []types.UID          `json:"deletedObjectsUids"`
 	lastUpdateTimestamp *time.Time
 	lock                sync.Mutex
 }
@@ -38,6 +36,7 @@ type StatusBundle struct {
 func (bundle *StatusBundle) UpdateObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
+
 	lastObjUpdateTimestamp := getLastUpdateTimestamp(object)
 	cleanObject(object)
 	index, err := bundle.getObjectIndexByUID(object.GetUID())
@@ -47,7 +46,7 @@ func (bundle *StatusBundle) UpdateObject(object Object) {
 		return
 	}
 
-	// if we reached here, object uid already exists in the bundle
+	// if we reached here, object already exists in the bundle.. need to update both object and timestamp
 	if !lastObjUpdateTimestamp.After(*(bundle.Objects[index].lastUpdateTimestamp)) {
 		return // update object only if something has changed. check for changes using timestamps
 	}
@@ -59,12 +58,12 @@ func (bundle *StatusBundle) UpdateObject(object Object) {
 func (bundle *StatusBundle) DeleteObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
+
 	index, err := bundle.getObjectIndexByUID(object.GetUID())
 	if err != nil { // trying to delete object which doesn't exist - return with no error
 		return
 	}
 	lastObjUpdateTimestamp := getLastUpdateTimestamp(object)
-	bundle.DeletedObjectsUIDs = append(bundle.DeletedObjectsUIDs, bundle.Objects[index].object.GetUID())
 	bundle.Objects = append(bundle.Objects[:index], bundle.Objects[index+1:]...) // remove from objects
 	bundle.updateBundleTimestamp(lastObjUpdateTimestamp)
 }
