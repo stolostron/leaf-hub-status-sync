@@ -56,7 +56,7 @@ type genericStatusSyncController struct {
 	transport            transport.Transport
 	transportBundleKey   string
 	bundle               *bundle.StatusBundle
-	lastBundleTimestamp  *time.Time
+	lastBundleTimestamp  time.Time
 	finalizerName        string
 	createObjFunc        CreateObjectFunction
 	periodicSyncInterval time.Duration
@@ -67,8 +67,8 @@ type genericStatusSyncController struct {
 
 func (c *genericStatusSyncController) init() {
 	c.startOnce.Do(func() {
-		c.bundle = bundle.NewStatusBundle() // TODO, init bundle from transport layer including timestamp
-		c.lastBundleTimestamp = c.bundle.GetBundleTimestamp()
+		c.bundle = bundle.NewStatusBundle()
+		c.lastBundleTimestamp = *(c.bundle.GetBundleTimestamp())
 		go c.periodicSync()
 	})
 }
@@ -115,22 +115,11 @@ func (c *genericStatusSyncController) isObjectBeingDeleted(object bundle.Object)
 	return !object.GetDeletionTimestamp().IsZero()
 }
 
-func (c *genericStatusSyncController) cleanObject(object bundle.Object) {
-	object.SetResourceVersion("")
-	object.SetManagedFields(nil)
-	object.SetFinalizers(nil)
-	object.SetGeneration(0)
-	object.SetOwnerReferences(nil)
-	object.SetSelfLink("")
-	object.SetClusterName("")
-}
-
 func (c *genericStatusSyncController) updateObjectAndFinalizer(ctx context.Context, object bundle.Object,
 	log logr.Logger) error {
 	if err := c.addFinalizer(ctx, object, log); err != nil {
 		return err
 	}
-	c.cleanObject(object)
 	c.bundle.UpdateObject(object)
 	return nil
 }
@@ -175,9 +164,9 @@ func (c *genericStatusSyncController) periodicSync() {
 			return
 		case <-ticker.C:
 			bundleTimestamp := c.bundle.GetBundleTimestamp()
-			if bundleTimestamp.After(*(c.lastBundleTimestamp)) { // send to transport only if bundle has changed
+			if bundleTimestamp.After(c.lastBundleTimestamp) { // send to transport only if bundle has changed
 				c.syncToTransport(c.transportBundleKey, datatypes.StatusBundle, bundleTimestamp, c.bundle)
-				c.lastBundleTimestamp = bundleTimestamp
+				c.lastBundleTimestamp = *bundleTimestamp
 			}
 		}
 	}

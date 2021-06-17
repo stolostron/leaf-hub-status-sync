@@ -39,6 +39,7 @@ func (bundle *StatusBundle) UpdateObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 	lastObjUpdateTimestamp := getLastUpdateTimestamp(object)
+	cleanObject(object)
 	index, err := bundle.getObjectIndexByUID(object.GetUID())
 	if err != nil { // object not found, need to add it to the bundle
 		bundle.Objects = append(bundle.Objects, &TimestampedObject{object, lastObjUpdateTimestamp})
@@ -103,6 +104,7 @@ func (bundle *StatusBundle) getObjectIndexByUID(uid types.UID) (int, error) {
 	return -1, errors.New("object not found")
 }
 
+// make sure to call this function before calling clean object which removes the managed fields
 func getLastUpdateTimestamp(object Object) *time.Time {
 	lastUpdateTimestamp := object.GetCreationTimestamp().Time // init last update of an object with creation timestamp
 	// all changes of a CR are specified in the managed fields timestamps, each change is a different entry
@@ -112,8 +114,18 @@ func getLastUpdateTimestamp(object Object) *time.Time {
 		}
 	}
 	// compare with deletion timestamp as well
-	if object.GetDeletionTimestamp().After(lastUpdateTimestamp) {
+	if !object.GetDeletionTimestamp().IsZero() && object.GetDeletionTimestamp().After(lastUpdateTimestamp) {
 		lastUpdateTimestamp = object.GetDeletionTimestamp().Time
 	}
 	return &lastUpdateTimestamp
+}
+
+func cleanObject(object Object) {
+	object.SetResourceVersion("")
+	object.SetManagedFields(nil)
+	object.SetFinalizers(nil)
+	object.SetGeneration(0)
+	object.SetOwnerReferences(nil)
+	object.SetSelfLink("")
+	object.SetClusterName("")
 }

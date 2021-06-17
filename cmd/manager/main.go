@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"github.com/go-logr/logr"
@@ -60,7 +59,8 @@ func doMain() int {
 
 	syncIntervalStr := os.Getenv(periodicSyncInterval)
 	if syncIntervalStr == "" {
-		log.Error(errors.New("failed to initialize, missing environment variable"), periodicSyncInterval)
+		log.Error(fmt.Errorf("failed to initialize, missing environment variable %s", periodicSyncInterval),
+			"failed to initialize")
 		return 1
 	}
 	interval, err := time.ParseDuration(syncIntervalStr)
