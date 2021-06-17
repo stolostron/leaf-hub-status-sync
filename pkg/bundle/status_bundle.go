@@ -15,8 +15,8 @@ type Object interface {
 }
 
 type TimestampedObject struct {
-	object              Object
-	lastUpdateTimestamp *time.Time
+	Object              Object     `json:"object"`
+	LastUpdateTimestamp *time.Time `json:"lastUpdateTimestamp"`
 }
 
 func NewStatusBundle() *StatusBundle {
@@ -47,11 +47,11 @@ func (bundle *StatusBundle) UpdateObject(object Object) {
 	}
 
 	// if we reached here, object already exists in the bundle.. need to update both object and timestamp
-	if !lastObjUpdateTimestamp.After(*(bundle.Objects[index].lastUpdateTimestamp)) {
+	if !lastObjUpdateTimestamp.After(*(bundle.Objects[index].LastUpdateTimestamp)) {
 		return // update object only if something has changed. check for changes using timestamps
 	}
-	bundle.Objects[index].object = object
-	bundle.Objects[index].lastUpdateTimestamp = lastObjUpdateTimestamp
+	bundle.Objects[index].Object = object
+	bundle.Objects[index].LastUpdateTimestamp = lastObjUpdateTimestamp
 	bundle.updateBundleTimestamp(lastObjUpdateTimestamp)
 }
 
@@ -96,7 +96,7 @@ func (bundle *StatusBundle) updateBundleTimestamp(timestamp *time.Time) {
 
 func (bundle *StatusBundle) getObjectIndexByUID(uid types.UID) (int, error) {
 	for i, timestampedObject := range bundle.Objects {
-		if timestampedObject.object.GetUID() == uid {
+		if timestampedObject.Object.GetUID() == uid {
 			return i, nil
 		}
 	}
