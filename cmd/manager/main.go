@@ -28,9 +28,10 @@ import (
 )
 
 const (
-	metricsHost                = "0.0.0.0"
-	metricsPort          int32 = 8527
-	periodicSyncInterval       = "PERIODIC_SYNC_INTERVAL"
+	metricsHost              = "0.0.0.0"
+	metricsPort        int32 = 8527
+	syncIntervalEnvVar       = "PERIODIC_SYNC_INTERVAL"
+	leafHubIdEnvVar          = "LH_ID"
 )
 
 func printVersion(log logr.Logger) {
@@ -57,15 +58,20 @@ func doMain() int {
 		return 1
 	}
 
-	syncIntervalStr := os.Getenv(periodicSyncInterval)
+	syncIntervalStr := os.Getenv(syncIntervalEnvVar)
 	if syncIntervalStr == "" {
-		log.Error(fmt.Errorf("failed to initialize, missing environment variable %s", periodicSyncInterval),
-			"failed to initialize")
+		log.Error(fmt.Errorf("missing environment variable %s", syncIntervalEnvVar), "failed to initialize")
 		return 1
 	}
 	interval, err := time.ParseDuration(syncIntervalStr)
 	if err != nil {
-		log.Error(err, fmt.Sprintf("the expected var %s is not valid duration", periodicSyncInterval))
+		log.Error(err, fmt.Sprintf("the expected var %s is not valid duration", syncIntervalEnvVar))
+		return 1
+	}
+
+	leafHubId := os.Getenv(leafHubIdEnvVar)
+	if leafHubId == "" {
+		log.Error(fmt.Errorf("missing environment variable %s", leafHubIdEnvVar), "failed to initialize")
 		return 1
 	}
 
@@ -82,7 +88,7 @@ func doMain() int {
 		return 1
 	}
 
-	mgr, err := createManager(namespace, metricsHost, metricsPort, syncServiceObj, interval)
+	mgr, err := createManager(namespace, metricsHost, metricsPort, syncServiceObj, interval, leafHubId)
 	if err != nil {
 		log.Error(err, "Failed to create manager")
 		return 1
@@ -99,7 +105,7 @@ func doMain() int {
 }
 
 func createManager(namespace, metricsHost string, metricsPort int32, transport transport.Transport,
-	syncInterval time.Duration) (ctrl.Manager, error) {
+	syncInterval time.Duration, leafHubId string) (ctrl.Manager, error) {
 	options := ctrl.Options{
 		Namespace:          namespace,
 		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
@@ -123,7 +129,7 @@ func createManager(namespace, metricsHost string, metricsPort int32, transport t
 		return nil, fmt.Errorf("failed to add schemes: %w", err)
 	}
 
-	if err := controller.AddControllers(mgr, transport, syncInterval); err != nil {
+	if err := controller.AddControllers(mgr, transport, syncInterval, leafHubId); err != nil {
 		return nil, fmt.Errorf("failed to add controllers: %w", err)
 	}
 

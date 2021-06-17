@@ -26,12 +26,14 @@ const (
 type CreateObjectFunction func() bundle.Object
 
 func newGenericStatusSyncController(mgr ctrl.Manager, logName string, transport transport.Transport,
-	finalizerName string, bundleKey string, createObjFunc CreateObjectFunction, syncInterval time.Duration) error {
+	finalizerName string, bundleKey string, createObjFunc CreateObjectFunction, syncInterval time.Duration,
+	leafHubId string) error {
 	statusSyncCtrl := &genericStatusSyncController{
 		client:               mgr.GetClient(),
 		log:                  ctrl.Log.WithName(logName),
 		transport:            transport,
 		transportBundleKey:   bundleKey,
+		leafHubId:            leafHubId,
 		finalizerName:        finalizerName,
 		createObjFunc:        createObjFunc,
 		periodicSyncInterval: syncInterval,
@@ -55,6 +57,7 @@ type genericStatusSyncController struct {
 	log                  logr.Logger
 	transport            transport.Transport
 	transportBundleKey   string
+	leafHubId            string
 	bundle               *bundle.StatusBundle
 	lastBundleTimestamp  time.Time
 	finalizerName        string
@@ -67,7 +70,7 @@ type genericStatusSyncController struct {
 
 func (c *genericStatusSyncController) init() {
 	c.startOnce.Do(func() {
-		c.bundle = bundle.NewStatusBundle()
+		c.bundle = bundle.NewStatusBundle(c.leafHubId)
 		c.lastBundleTimestamp = *(c.bundle.GetBundleTimestamp())
 		go c.periodicSync()
 	})

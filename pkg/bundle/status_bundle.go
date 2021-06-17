@@ -19,9 +19,10 @@ type TimestampedObject struct {
 	LastUpdateTimestamp *time.Time `json:"lastUpdateTimestamp"`
 }
 
-func NewStatusBundle() *StatusBundle {
+func NewStatusBundle(leafHubId string) *StatusBundle {
 	return &StatusBundle{
 		Objects:             make([]*TimestampedObject, 0),
+		LeafHubId:           leafHubId,
 		lastUpdateTimestamp: &time.Time{},
 		lock:                sync.Mutex{},
 	}
@@ -29,6 +30,7 @@ func NewStatusBundle() *StatusBundle {
 
 type StatusBundle struct {
 	Objects             []*TimestampedObject `json:"objects"`
+	LeafHubId           string               `json:"leafHubId"`
 	lastUpdateTimestamp *time.Time
 	lock                sync.Mutex
 }

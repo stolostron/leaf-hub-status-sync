@@ -21,13 +21,14 @@ func AddToScheme(s *runtime.Scheme) error {
 	return nil
 }
 
-func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, syncInterval time.Duration) error {
-	addControllerFunctions := []func(ctrl.Manager, transport.Transport, time.Duration) error{
+func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, syncInterval time.Duration,
+	leafHubId string) error {
+	addControllerFunctions := []func(ctrl.Manager, transport.Transport, time.Duration, string) error{
 		addClustersStatusController,
 	}
 
 	for _, addControllerFunction := range addControllerFunctions {
-		if err := addControllerFunction(mgr, transportImpl, syncInterval); err != nil {
+		if err := addControllerFunction(mgr, transportImpl, syncInterval, leafHubId); err != nil {
 			return fmt.Errorf("failed to add controller: %w", err)
 		}
 	}
