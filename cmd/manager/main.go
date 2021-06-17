@@ -75,11 +75,6 @@ func doMain() int {
 		return 1
 	}
 
-	// transport layer initialization
-	syncServiceObj := lhSyncService.NewSyncService()
-	syncServiceObj.Start()
-	defer syncServiceObj.Stop()
-
 	ctx := context.TODO()
 	// Become the leader before proceeding
 	err = leader.Become(ctx, "leaf-hub-status-sync-lock")
@@ -87,6 +82,11 @@ func doMain() int {
 		log.Error(err, "Failed to become leader")
 		return 1
 	}
+
+	// transport layer initialization
+	syncServiceObj := lhSyncService.NewSyncService()
+	syncServiceObj.Start()
+	defer syncServiceObj.Stop()
 
 	mgr, err := createManager(namespace, metricsHost, metricsPort, syncServiceObj, interval, leafHubId)
 	if err != nil {

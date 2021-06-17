@@ -8,7 +8,6 @@ import (
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
-	"log"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sync"
 
@@ -179,7 +178,7 @@ func (c *genericStatusSyncController) syncToTransport(id string, objType string,
 	payload *bundle.StatusBundle) {
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		log.Printf("failed to sync object from type %s with id %s- %s", objType, id, err)
+		c.log.Info("failed to sync object from type %v with id %v- %v", objType, id, err)
 		return
 	}
 	c.transport.SendAsync(id, objType, timestamp.Format(timeFormat), payloadBytes)

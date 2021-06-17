@@ -2,9 +2,11 @@ package sync_service
 
 import (
 	"bytes"
+	"fmt"
+	"github.com/go-logr/logr"
 	"github.com/open-horizon/edge-sync-service-client/client"
-	"log"
 	"os"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"strconv"
 	"sync"
 )
@@ -17,6 +19,7 @@ const (
 
 type SyncService struct {
 	client    *client.SyncServiceClient
+	log       logr.Logger
 	msgChan   chan *syncServiceMessage
 	stopChan  chan struct{}
 	startOnce sync.Once
@@ -24,32 +27,34 @@ type SyncService struct {
 }
 
 func NewSyncService() *SyncService {
-	serverProtocol, host, port := readEnvVars()
+	log := ctrl.Log.WithName("sync-service")
+	serverProtocol, host, port := readEnvVars(log)
 	syncServiceClient := client.NewSyncServiceClient(serverProtocol, host, port)
 	syncServiceClient.SetAppKeyAndSecret("user@myorg", "")
 	return &SyncService{
 		client:   syncServiceClient,
+		log:      log,
 		msgChan:  make(chan *syncServiceMessage),
 		stopChan: make(chan struct{}, 1),
 	}
 }
 
-func readEnvVars() (string, string, uint16) {
+func readEnvVars(log logr.Logger) (string, string, uint16) {
 	protocol := os.Getenv(syncServiceProtocol)
 	if protocol == "" {
-		log.Fatalf("the expected var %s is not set in environment variables", syncServiceProtocol)
+		log.Error(fmt.Errorf("missing environment variable %s", syncServiceProtocol), "failed to initialize")
 	}
 	host := os.Getenv(syncServiceHost)
 	if host == "" {
-		log.Fatalf("the expected var %s is not set in environment variables", syncServiceHost)
+		log.Error(fmt.Errorf("missing environment variable %s", syncServiceHost), "failed to initialize")
 	}
 	portStr := os.Getenv(syncServicePort)
 	if portStr == "" {
-		log.Fatalf("the expected env var %s is not set in environment variables", syncServicePort)
+		log.Error(fmt.Errorf("missing environment variable %s", syncServicePort), "failed to initialize")
 	}
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
-		log.Fatalf("the expected env var %s is not from type int", syncServicePort)
+		log.Error(fmt.Errorf("environment variable %s is not int", syncServicePort), "failed to initialize")
 	}
 	return protocol, host, uint16(port)
 }
@@ -98,16 +103,16 @@ func (s *SyncService) sendMessages() {
 			}
 			err := s.client.UpdateObject(&metaData)
 			if err != nil {
-				log.Printf("Failed to update the object in the Edge Sync Service. Error: %s\n", err)
+				s.log.Error(err, "Failed to update the object in the Edge Sync Service")
 				continue
 			}
 			reader := bytes.NewReader(msg.payload)
 			err = s.client.UpdateObjectData(&metaData, reader)
 			if err != nil {
-				log.Printf("Failed to update the object data in the Edge Sync Service. Error: %s\n", err)
+				s.log.Error(err, "Failed to update the object data in the Edge Sync Service")
 				continue
 			}
-			log.Printf("Message '%s' from type '%s' with version '%s' sent", msg.id, msg.msgType, msg.version)
+			s.log.Info("Message '%v' from type '%v' with version '%v' sent", msg.id, msg.msgType, msg.version)
 		}
 	}
 }
