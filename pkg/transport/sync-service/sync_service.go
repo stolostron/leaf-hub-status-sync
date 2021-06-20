@@ -84,15 +84,6 @@ func (s *SyncService) SendAsync(id string, msgType string, version string, paylo
 	s.msgChan <- message
 }
 
-// if the object doesn't exist or an error occurred returns an empty string
-func (s *SyncService) GetVersion(id string, msgType string) string {
-	objectMetadata, err := s.client.GetObjectMetadata(msgType, id)
-	if err != nil {
-		return ""
-	}
-	return objectMetadata.Version
-}
-
 func (s *SyncService) sendMessages() {
 	for {
 		select {
