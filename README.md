@@ -1,4 +1,4 @@
-[comment]: #( Copyright Contributors to the Open Cluster Management project )
+[comment]: # ( Copyright Contributors to the Open Cluster Management project )
 
 # Leaf-Hub-Status-Sync
 Red Hat Advanced Cluster Management Leaf Hub Status Sync
