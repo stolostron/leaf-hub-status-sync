@@ -159,7 +159,8 @@ func (c *genericStatusSyncController) periodicSync() {
 		case <-ticker.C:
 			bundleTimestamp := c.bundle.GetBundleTimestamp()
 			if bundleTimestamp.After(c.lastBundleTimestamp) { // send to transport only if bundle has changed
-				c.syncToTransport(c.transportBundleKey, datatypes.StatusBundle, bundleTimestamp, c.bundle)
+				c.syncToTransport(fmt.Sprintf("%s.%s", c.leafHubId, c.transportBundleKey),
+					datatypes.StatusBundle, bundleTimestamp, c.bundle)
 				c.lastBundleTimestamp = *bundleTimestamp
 			}
 		}

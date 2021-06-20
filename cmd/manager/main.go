@@ -82,7 +82,11 @@ func doMain() int {
 	}
 
 	// transport layer initialization
-	syncServiceObj := lhSyncService.NewSyncService()
+	syncServiceObj, err := lhSyncService.NewSyncService()
+	if err != nil {
+		log.Error(err, "failed to initialize")
+		return 1
+	}
 	syncServiceObj.Start()
 	defer syncServiceObj.Stop()
 

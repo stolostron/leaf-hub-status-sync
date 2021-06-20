@@ -26,9 +26,12 @@ type SyncService struct {
 	stopOnce  sync.Once
 }
 
-func NewSyncService() *SyncService {
+func NewSyncService() (*SyncService, error) {
 	log := ctrl.Log.WithName("sync-service")
-	serverProtocol, host, port := readEnvVars(log)
+	serverProtocol, host, port, err := readEnvVars(log)
+	if err != nil {
+		return nil, err
+	}
 	syncServiceClient := client.NewSyncServiceClient(serverProtocol, host, port)
 	syncServiceClient.SetAppKeyAndSecret("user@myorg", "")
 	return &SyncService{
@@ -36,27 +39,27 @@ func NewSyncService() *SyncService {
 		log:      log,
 		msgChan:  make(chan *syncServiceMessage),
 		stopChan: make(chan struct{}, 1),
-	}
+	}, nil
 }
 
-func readEnvVars(log logr.Logger) (string, string, uint16) {
+func readEnvVars(log logr.Logger) (string, string, uint16, error) {
 	protocol := os.Getenv(syncServiceProtocol)
 	if protocol == "" {
-		log.Error(fmt.Errorf("missing environment variable %s", syncServiceProtocol), "failed to initialize")
+		return "", "", 0, fmt.Errorf("missing environment variable %s", syncServiceProtocol)
 	}
 	host := os.Getenv(syncServiceHost)
 	if host == "" {
-		log.Error(fmt.Errorf("missing environment variable %s", syncServiceHost), "failed to initialize")
+		return "", "", 0, fmt.Errorf("missing environment variable %s", syncServiceHost)
 	}
 	portStr := os.Getenv(syncServicePort)
 	if portStr == "" {
-		log.Error(fmt.Errorf("missing environment variable %s", syncServicePort), "failed to initialize")
+		return "", "", 0, fmt.Errorf("missing environment variable %s", syncServicePort)
 	}
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
-		log.Error(fmt.Errorf("environment variable %s is not int", syncServicePort), "failed to initialize")
+		return "", "", 0, fmt.Errorf("environment variable %s is not int", syncServicePort)
 	}
-	return protocol, host, uint16(port)
+	return protocol, host, uint16(port), nil
 }
 
 func (s *SyncService) Start() {
