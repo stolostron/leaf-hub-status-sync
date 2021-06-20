@@ -36,20 +36,12 @@ func newGenericStatusSyncController(mgr ctrl.Manager, logName string, transport 
 		finalizerName:        finalizerName,
 		createObjFunc:        createObjFunc,
 		periodicSyncInterval: syncInterval,
+		stopChan: make(chan struct{}, 1),
 	}
 	statusSyncCtrl.init()
 
 	return ctrl.NewControllerManagedBy(mgr).For(createObjFunc()).Complete(statusSyncCtrl)
 }
-
-// TODO need to handle race condition in case of failure in controller
-// what happens if the controller updates the bundle with deleted object, removes the finalizer but before the other
-// thread sent the message using transport layer, the controller failed and had to restart?
-// in this scenario the deletion update will be lost since the finalizer was removed and therefore the object was
-// removed from the cluster. the controller will not get any more updates about this object.
-
-// need to come up with solution for this issue - either to persist the bundle from memory to a volume on every change
-// or to remove the finalizers from deleted objects only after the bundle with the deleted objects was sent.
 
 type genericStatusSyncController struct {
 	client               client.Client
