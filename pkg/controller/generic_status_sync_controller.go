@@ -36,7 +36,7 @@ func newGenericStatusSyncController(mgr ctrl.Manager, logName string, transport 
 		finalizerName:        finalizerName,
 		createObjFunc:        createObjFunc,
 		periodicSyncInterval: syncInterval,
-		stopChan: make(chan struct{}, 1),
+		stopChan:             make(chan struct{}, 1),
 	}
 	statusSyncCtrl.init()
 
