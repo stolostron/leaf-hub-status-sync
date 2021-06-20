@@ -1,0 +1,88 @@
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: leaf-hub-status-sync
+subjects:
+- kind: ServiceAccount
+  name: leaf-hub-status-sync
+  namespace: open-cluster-management
+roleRef:
+  kind: ClusterRole
+  name: leaf-hub-status-sync
+  apiGroup: rbac.authorization.k8s.io
+---
+
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: leaf-hub-status-sync
+rules:
+- apiGroups:
+  - "cluster.open-cluster-management.io"
+  resources:
+  - managedclusters
+  - managedclusters/finalizers
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+---
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: leaf-hub-status-sync
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: leaf-hub-status-sync
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: leaf-hub-status-sync
+  template:
+    metadata:
+      labels:
+        name: leaf-hub-status-sync
+    spec:
+      serviceAccountName: leaf-hub-status-sync
+      containers:
+        - name: leaf-hub-status-sync
+          image: $IMAGE
+          command:
+          - leaf-hub-status-sync
+          imagePullPolicy: Always
+          env:
+            - name: WATCH_NAMESPACE
+            - name: SYNC_SERVICE_PROTOCOL
+              value: "http"
+            - name: SYNC_SERVICE_HOST
+              value: sync-service-ess.sync-service.svc.cluster.local
+            - name: SYNC_SERVICE_PORT
+              value: "$SYNC_SERVICE_PORT"
+            - name: LH_ID
+              value: "$LH_ID"
+            - name: PERIODIC_SYNC_INTERVAL
+              value: 5s
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: leaf-hub-status-sync
