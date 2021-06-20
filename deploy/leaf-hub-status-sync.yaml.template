@@ -39,18 +39,33 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - configmaps
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 ---
 
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: leaf-hub-status-sync
+  namespace: open-cluster-management
 ---
 
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: leaf-hub-status-sync
+  namespace: open-cluster-management
 spec:
   replicas: 1
   selector:
@@ -65,8 +80,6 @@ spec:
       containers:
         - name: leaf-hub-status-sync
           image: $IMAGE
-          command:
-          - leaf-hub-status-sync
           imagePullPolicy: Always
           env:
             - name: WATCH_NAMESPACE

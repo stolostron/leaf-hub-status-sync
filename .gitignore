@@ -18,4 +18,4 @@ vendor
 *~
 
 # build binary files
-build/_output
+build/bin

@@ -35,7 +35,7 @@ clean-vendor:
 
 .PHONY: leaf-hub-status-sync			##builds leaf-hub-status-sync as an executable and puts it under build/bin
 leaf-hub-status-sync:
-	@go build -o build/_output/bin/leaf-hub-status-sync cmd/manager/main.go
+	@go build -o build/bin/leaf-hub-status-sync cmd/manager/main.go
 
 .PHONY: docker-build			##builds docker image locally for running the components using docker
 docker-build: all

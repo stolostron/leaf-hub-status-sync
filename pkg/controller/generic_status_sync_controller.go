@@ -87,17 +87,17 @@ func (c *genericStatusSyncController) Reconcile(request ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, nil
 	}
 	if err != nil {
-		reqLogger.Info("Reconciliation failed: %v", err)
+		reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
 		return ctrl.Result{Requeue: true, RequeueAfter: requeuePeriodSeconds * time.Second}, err
 	}
 	if c.isObjectBeingDeleted(object) {
 		if err = c.deleteObjectAndFinalizer(ctx, object, reqLogger); err != nil {
-			reqLogger.Info("Reconciliation failed: %v", err)
+			reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
 			return ctrl.Result{Requeue: true, RequeueAfter: requeuePeriodSeconds * time.Second}, err
 		}
 	} else { // otherwise, the object was not deleted and no error occurred
 		if err = c.updateObjectAndFinalizer(ctx, object, reqLogger); err != nil {
-			reqLogger.Info("Reconciliation failed: %v", err)
+			reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
 			return ctrl.Result{Requeue: true, RequeueAfter: requeuePeriodSeconds * time.Second}, err
 		}
 	}
@@ -171,7 +171,7 @@ func (c *genericStatusSyncController) syncToTransport(id string, objType string,
 	payload *bundle.StatusBundle) {
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		c.log.Info("failed to sync object from type %v with id %v- %v", objType, id, err)
+		c.log.Info(fmt.Sprintf("failed to sync object from type %s with id %s- %s", objType, id, err))
 		return
 	}
 	c.transport.SendAsync(id, objType, timestamp.Format(timeFormat), payloadBytes)

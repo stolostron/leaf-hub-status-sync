@@ -115,7 +115,8 @@ func (s *SyncService) sendMessages() {
 				s.log.Error(err, "Failed to update the object data in the Edge Sync Service")
 				continue
 			}
-			s.log.Info("Message '%v' from type '%v' with version '%v' sent", msg.id, msg.msgType, msg.version)
+			s.log.Info(fmt.Sprintf("Message '%s' from type '%s' with version '%s' sent", msg.id, msg.msgType,
+				msg.version))
 		}
 	}
 }
