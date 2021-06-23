@@ -18,7 +18,6 @@ import (
 
 const (
 	requeuePeriodSeconds = 5
-	timeFormat           = "2006-01-02_15-04-05.000000"
 )
 
 type CreateObjectFunction func() bundle.Object
@@ -43,25 +42,25 @@ func newGenericStatusSyncController(mgr ctrl.Manager, logName string, transport 
 }
 
 type genericStatusSyncController struct {
-	client               client.Client
-	log                  logr.Logger
-	transport            transport.Transport
-	transportBundleKey   string
-	leafHubId            string
-	bundle               *bundle.StatusBundle
-	lastBundleTimestamp  time.Time
-	finalizerName        string
-	createObjFunc        CreateObjectFunction
-	periodicSyncInterval time.Duration
-	stopChan             chan struct{}
-	startOnce            sync.Once
-	stopOnce             sync.Once
+	client                   client.Client
+	log                      logr.Logger
+	transport                transport.Transport
+	transportBundleKey       string
+	leafHubId                string
+	bundle                   *bundle.StatusBundle
+	lastSentBundleGeneration uint64
+	finalizerName            string
+	createObjFunc            CreateObjectFunction
+	periodicSyncInterval     time.Duration
+	stopChan                 chan struct{}
+	startOnce                sync.Once
+	stopOnce                 sync.Once
 }
 
 func (c *genericStatusSyncController) init() {
 	c.startOnce.Do(func() {
 		c.bundle = bundle.NewStatusBundle(c.leafHubId)
-		c.lastBundleTimestamp = *(c.bundle.GetBundleTimestamp())
+		c.lastSentBundleGeneration = c.bundle.GetBundleGeneration()
 		go c.periodicSync()
 	})
 }
@@ -113,6 +112,7 @@ func (c *genericStatusSyncController) updateObjectAndFinalizer(ctx context.Conte
 	if err := c.addFinalizer(ctx, object, log); err != nil {
 		return err
 	}
+	cleanObject(object)
 	c.bundle.UpdateObject(object)
 	return nil
 }
@@ -156,24 +156,33 @@ func (c *genericStatusSyncController) periodicSync() {
 			ticker.Stop()
 			return
 		case <-ticker.C:
-			bundleTimestamp := c.bundle.GetBundleTimestamp()
-			if bundleTimestamp.After(c.lastBundleTimestamp) { // send to transport only if bundle has changed
+			bundleGeneration := c.bundle.GetBundleGeneration()
+			if bundleGeneration > c.lastSentBundleGeneration { // send to transport only if bundle has changed
 				c.syncToTransport(fmt.Sprintf("%s.%s", c.leafHubId, c.transportBundleKey),
-					datatypes.StatusBundle, bundleTimestamp, c.bundle)
-				c.lastBundleTimestamp = *bundleTimestamp
+					datatypes.StatusBundle, string(bundleGeneration), c.bundle)
+				c.lastSentBundleGeneration = bundleGeneration
 			}
 		}
 	}
 }
 
-func (c *genericStatusSyncController) syncToTransport(id string, objType string, timestamp *time.Time,
+func (c *genericStatusSyncController) syncToTransport(id string, objType string, generation string,
 	payload *bundle.StatusBundle) {
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		c.log.Info(fmt.Sprintf("failed to sync object from type %s with id %s- %s", objType, id, err))
 		return
 	}
-	c.transport.SendAsync(id, objType, timestamp.Format(timeFormat), payloadBytes)
+	c.transport.SendAsync(id, objType, generation, payloadBytes)
+}
+
+func cleanObject(object bundle.Object) {
+	object.SetManagedFields(nil)
+	object.SetFinalizers(nil)
+	object.SetGeneration(0)
+	object.SetOwnerReferences(nil)
+	object.SetSelfLink("")
+	object.SetClusterName("")
 }
 
 func containsString(slice []string, s string) bool {

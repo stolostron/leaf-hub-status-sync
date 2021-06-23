@@ -6,7 +6,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sync"
-	"time"
 )
 
 type Object interface {
@@ -14,47 +13,39 @@ type Object interface {
 	runtime.Object
 }
 
-type TimestampedObject struct {
-	Object              Object     `json:"object"`
-	LastUpdateTimestamp *time.Time `json:"lastUpdateTimestamp"`
-}
-
 func NewStatusBundle(leafHubId string) *StatusBundle {
 	return &StatusBundle{
-		Objects:             make([]*TimestampedObject, 0),
-		LeafHubId:           leafHubId,
-		lastUpdateTimestamp: &time.Time{},
-		lock:                sync.Mutex{},
+		Objects:    make([]Object, 0),
+		LeafHubId:  leafHubId,
+		generation: 0,
+		lock:       sync.Mutex{},
 	}
 }
 
 type StatusBundle struct {
-	Objects             []*TimestampedObject `json:"objects"`
-	LeafHubId           string               `json:"leafHubId"`
-	lastUpdateTimestamp *time.Time
-	lock                sync.Mutex
+	Objects    []Object `json:"objects"`
+	LeafHubId  string   `json:"leafHubId"`
+	generation uint64
+	lock       sync.Mutex
 }
 
 func (bundle *StatusBundle) UpdateObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	lastObjUpdateTimestamp := getLastUpdateTimestamp(object)
-	cleanObject(object)
 	index, err := bundle.getObjectIndexByUID(object.GetUID())
 	if err != nil { // object not found, need to add it to the bundle
-		bundle.Objects = append(bundle.Objects, &TimestampedObject{object, lastObjUpdateTimestamp})
-		bundle.updateBundleTimestamp(lastObjUpdateTimestamp)
+		bundle.Objects = append(bundle.Objects, object)
+		bundle.generation++
 		return
 	}
 
-	// if we reached here, object already exists in the bundle.. need to update both object and timestamp
-	if !lastObjUpdateTimestamp.After(*(bundle.Objects[index].LastUpdateTimestamp)) {
-		return // update object only if something has changed. check for changes using timestamps
+	// if we reached here, object already exists in the bundle.. check if we need to update the object
+	if object.GetResourceVersion() == bundle.Objects[index].GetResourceVersion() {
+		return // update object only if something has changed. check for changes using resource version field
 	}
-	bundle.Objects[index].Object = object
-	bundle.Objects[index].LastUpdateTimestamp = lastObjUpdateTimestamp
-	bundle.updateBundleTimestamp(lastObjUpdateTimestamp)
+	bundle.Objects[index] = object
+	bundle.generation++
 }
 
 func (bundle *StatusBundle) DeleteObject(object Object) {
@@ -65,68 +56,21 @@ func (bundle *StatusBundle) DeleteObject(object Object) {
 	if err != nil { // trying to delete object which doesn't exist - return with no error
 		return
 	}
-	lastObjUpdateTimestamp := getLastUpdateTimestamp(object)
 	bundle.Objects = append(bundle.Objects[:index], bundle.Objects[index+1:]...) // remove from objects
-	bundle.updateBundleTimestamp(lastObjUpdateTimestamp)
+	bundle.generation++
 }
 
-func (bundle *StatusBundle) GetBundleTimestamp() *time.Time {
+func (bundle *StatusBundle) GetBundleGeneration() uint64 {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	return bundle.lastUpdateTimestamp
+	return bundle.generation
 }
-
-// in k8s, events can get out of order (for example if reconciliation failed and was re-queued)
-// therefore, it's possible to update a bundle with object A with timestamp A and then object B with timestamp B,
-// such that, timestamp A is after timestamp B. so the last update doesn't have the last update timestamp.
-// because of that, we cannot use the max timestamp inside the bundle as an indication if bundle has changed or not.
-
-// in order to overcome this issue, we take the following approach:
-// if the new update is after the bundle max timestamp - update the bundle last update timestamp
-// otherwise, we increase the bundle timestamp with one microsecond, just to mark that the bundle has changed.
-
-// in a different thread we will check if the bundle has changed based on the timestamp comparison.
-func (bundle *StatusBundle) updateBundleTimestamp(timestamp *time.Time) {
-	if timestamp.After(*(bundle.lastUpdateTimestamp)) {
-		bundle.lastUpdateTimestamp = timestamp
-	} else {
-		newTimestamp := bundle.lastUpdateTimestamp.Add(time.Microsecond)
-		bundle.lastUpdateTimestamp = &newTimestamp
-	}
-}
-
 func (bundle *StatusBundle) getObjectIndexByUID(uid types.UID) (int, error) {
-	for i, timestampedObject := range bundle.Objects {
-		if timestampedObject.Object.GetUID() == uid {
+	for i, object := range bundle.Objects {
+		if object.GetUID() == uid {
 			return i, nil
 		}
 	}
 	return -1, errors.New("object not found")
-}
-
-// make sure to call this function before calling clean object which removes the managed fields
-func getLastUpdateTimestamp(object Object) *time.Time {
-	lastUpdateTimestamp := object.GetCreationTimestamp().Time // init last update of an object with creation timestamp
-	// all changes of a CR are specified in the managed fields timestamps, each change is a different entry
-	for _, managedField := range object.GetManagedFields() {
-		if managedField.Time.After(lastUpdateTimestamp) {
-			lastUpdateTimestamp = managedField.Time.Time
-		}
-	}
-	// compare with deletion timestamp as well
-	if !object.GetDeletionTimestamp().IsZero() && object.GetDeletionTimestamp().After(lastUpdateTimestamp) {
-		lastUpdateTimestamp = object.GetDeletionTimestamp().Time
-	}
-	return &lastUpdateTimestamp
-}
-
-func cleanObject(object Object) {
-	object.SetResourceVersion("")
-	object.SetManagedFields(nil)
-	object.SetFinalizers(nil)
-	object.SetGeneration(0)
-	object.SetOwnerReferences(nil)
-	object.SetSelfLink("")
-	object.SetClusterName("")
 }
