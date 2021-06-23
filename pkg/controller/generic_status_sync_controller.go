@@ -12,6 +12,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -159,7 +160,7 @@ func (c *genericStatusSyncController) periodicSync() {
 			bundleGeneration := c.bundle.GetBundleGeneration()
 			if bundleGeneration > c.lastSentBundleGeneration { // send to transport only if bundle has changed
 				c.syncToTransport(fmt.Sprintf("%s.%s", c.leafHubId, c.transportBundleKey),
-					datatypes.StatusBundle, string(bundleGeneration), c.bundle)
+					datatypes.StatusBundle, strconv.FormatUint(bundleGeneration, 10), c.bundle)
 				c.lastSentBundleGeneration = bundleGeneration
 			}
 		}
