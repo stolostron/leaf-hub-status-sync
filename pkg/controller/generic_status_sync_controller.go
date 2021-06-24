@@ -25,7 +25,7 @@ type CreateObjectFunction func() bundle.Object
 
 func newGenericStatusSyncController(mgr ctrl.Manager, logName string, transport transport.Transport,
 	finalizerName string, bundleKey string, createObjFunc CreateObjectFunction, syncInterval time.Duration,
-	leafHubName string) error {
+	leafHubName string, filterWithPredicate bool) error {
 	statusSyncCtrl := &genericStatusSyncController{
 		client:               mgr.GetClient(),
 		log:                  ctrl.Log.WithName(logName),
@@ -35,10 +35,15 @@ func newGenericStatusSyncController(mgr ctrl.Manager, logName string, transport 
 		finalizerName:        finalizerName,
 		createObjFunc:        createObjFunc,
 		periodicSyncInterval: syncInterval,
+		filterWithPredicate:  filterWithPredicate,
 	}
 	statusSyncCtrl.init()
 
-	return ctrl.NewControllerManagedBy(mgr).For(createObjFunc()).Complete(statusSyncCtrl)
+	controllerBuilder := ctrl.NewControllerManagedBy(mgr).For(createObjFunc())
+	if filterWithPredicate {
+		controllerBuilder = controllerBuilder.WithEventFilter(&GenericPredicate{})
+	}
+	return controllerBuilder.Complete(statusSyncCtrl)
 }
 
 type genericStatusSyncController struct {
@@ -53,6 +58,7 @@ type genericStatusSyncController struct {
 	createObjFunc            CreateObjectFunction
 	periodicSyncInterval     time.Duration
 	startOnce                sync.Once
+	filterWithPredicate      bool
 }
 
 func (c *genericStatusSyncController) init() {

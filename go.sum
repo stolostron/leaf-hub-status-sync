@@ -881,6 +881,8 @@ github.com/open-cluster-management/hub-of-hubs-data-types v0.0.0-20210614112854-
 github.com/open-cluster-management/hub-of-hubs-data-types v0.0.0-20210614120436-17994723498f h1:FJXXrgn18tZz/esPSt99/OLmo1Ss9y6chGWLYLYD/gA=
 github.com/open-cluster-management/hub-of-hubs-data-types v0.0.0-20210616085705-e9f16fdd33b2 h1:7IbmFz7YW/bxw6vhkqsnOxXXJYgELCEesLSbz/kwi94=
 github.com/open-cluster-management/hub-of-hubs-data-types v0.0.0-20210616085705-e9f16fdd33b2/go.mod h1:cShrBqccdSjQWBd0L9n+Gd2aNYSwRVIgPOgztWA/abQ=
+github.com/open-cluster-management/hub-of-hubs-data-types v0.0.0-20210624062738-68673f513a53 h1:KF5mzzFSt++RMSZLyXatEWMO6cYITqVNfH9re5EHvgw=
+github.com/open-cluster-management/hub-of-hubs-data-types v0.0.0-20210624062738-68673f513a53/go.mod h1:cShrBqccdSjQWBd0L9n+Gd2aNYSwRVIgPOgztWA/abQ=
 github.com/open-horizon/edge-sync-service-client v0.0.0-20190711093406-dc3a19905da2 h1:ZmX/tuCgFVbe07pqObNWf14cAYpHN8gVRSkWnbtSUW4=
 github.com/open-horizon/edge-sync-service-client v0.0.0-20190711093406-dc3a19905da2/go.mod h1:rKW01VtqwtwaUQ+zkJ80X5EeGqsTblQE4J9HxPUtTAQ=
 github.com/open-horizon/edge-utilities v0.0.0-20190711093331-0908b45a7152 h1:YEvNOMo3ANOQ3AwsU0cCcBA4nKHDLUlyUCRWk5rBf68=
@@ -1749,6 +1751,7 @@ k8s.io/api v0.20.5 h1:zsMTffV0Le2EiI0aKvlTHEnXGxk1HiqGRhJcCPiI7JI=
 k8s.io/api v0.20.5/go.mod h1:FQjAceXnVaWDeov2YUWhOb6Yt+5UjErkp6UO3nczO1Y=
 k8s.io/api v0.21.1 h1:94bbZ5NTjdINJEdzOkpS4vdPhkb1VFpTYC9zh43f75c=
 k8s.io/api v0.21.1/go.mod h1:FstGROTmsSHBarKc8bylzXih8BLNYTiS3TZcsoEDg2s=
+k8s.io/api v0.21.2 h1:vz7DqmRsXTCSa6pNxXwQ1IYeAZgdIsua+DZU+o+SX3Y=
 k8s.io/apiextensions-apiserver v0.0.0-20190918161926-8f644eb6e783/go.mod h1:xvae1SZB3E17UpV59AWc271W/Ph25N+bjPyR63X6tPY=
 k8s.io/apiextensions-apiserver v0.18.0/go.mod h1:18Cwn1Xws4xnWQNC00FLq1E350b9lUF+aOdIWDOZxgo=
 k8s.io/apiextensions-apiserver v0.18.2 h1:I4v3/jAuQC+89L3Z7dDgAiN4EOjN6sbm6iBqQwHTah8=
@@ -1924,6 +1927,7 @@ sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.15/go.mod h1:LEScyz
 sigs.k8s.io/controller-runtime v0.6.0 h1:Fzna3DY7c4BIP6KwfSlrfnj20DJ+SeMBK8HSFvOk9NM=
 sigs.k8s.io/controller-runtime v0.6.0/go.mod h1:CpYf5pdNY/B352A1TFLAS2JVSlnGQ5O2cftPHndTroo=
 sigs.k8s.io/controller-runtime v0.6.1/go.mod h1:XRYBPdbf5XJu9kpS84VJiZ7h/u1hF3gEORz0efEja7A=
+sigs.k8s.io/controller-runtime v0.6.2 h1:jkAnfdTYBpFwlmBn3pS5HFO06SfxvnTZ1p5PeEF/zAA=
 sigs.k8s.io/controller-runtime v0.6.2/go.mod h1:vhcq/rlnENJ09SIRp3EveTaZ0yqH526hjf9iJdbUJ/E=
 sigs.k8s.io/controller-runtime v0.6.3 h1:SBbr+inLPEKhvlJtrvDcwIpm+uhDvp63Bl72xYJtoOE=
 sigs.k8s.io/controller-runtime v0.6.3/go.mod h1:WlZNXcM0++oyaQt4B7C2lEE5JYRs8vJUzRP4N4JpdAY=
