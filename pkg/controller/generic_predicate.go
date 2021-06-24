@@ -35,7 +35,7 @@ func (p *GenericPredicate) ownerReferenceUidAnnotationExists(obj metav1.Object) 
 	return false
 }
 
-// hasAnnotation returns a bool if the given annotation exists in annotation
+// hasAnnotation returns a bool if the given annotation exists in annotations
 func hasAnnotation(obj metav1.Object, annotation string) bool {
 	_, found := obj.GetAnnotations()[annotation]
 	return found
