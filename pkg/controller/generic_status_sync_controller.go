@@ -23,6 +23,8 @@ const (
 
 type CreateObjectFunction func() bundle.Object
 
+var genericPredicate = &GenericPredicate{}
+
 func newGenericStatusSyncController(mgr ctrl.Manager, logName string, transport transport.Transport,
 	finalizerName string, bundleKey string, createObjFunc CreateObjectFunction, syncInterval time.Duration,
 	leafHubName string, filterWithPredicate bool) error {
@@ -41,7 +43,7 @@ func newGenericStatusSyncController(mgr ctrl.Manager, logName string, transport 
 
 	controllerBuilder := ctrl.NewControllerManagedBy(mgr).For(createObjFunc())
 	if filterWithPredicate {
-		controllerBuilder = controllerBuilder.WithEventFilter(&GenericPredicate{})
+		controllerBuilder = controllerBuilder.WithEventFilter(genericPredicate)
 	}
 	return controllerBuilder.Complete(statusSyncCtrl)
 }
