@@ -13,20 +13,20 @@ type Object interface {
 	runtime.Object
 }
 
-func NewStatusBundle(leafHubId string) *StatusBundle {
+func NewStatusBundle(leafHubName string) *StatusBundle {
 	return &StatusBundle{
-		Objects:    make([]Object, 0),
-		LeafHubId:  leafHubId,
-		generation: 0,
-		lock:       sync.Mutex{},
+		Objects:     make([]Object, 0),
+		LeafHubName: leafHubName,
+		generation:  0,
+		lock:        sync.Mutex{},
 	}
 }
 
 type StatusBundle struct {
-	Objects    []Object `json:"objects"`
-	LeafHubId  string   `json:"leafHubId"`
-	generation uint64
-	lock       sync.Mutex
+	Objects     []Object `json:"objects"`
+	LeafHubName string   `json:"leafHubName"`
+	generation  uint64
+	lock        sync.Mutex
 }
 
 func (bundle *StatusBundle) UpdateObject(object Object) {

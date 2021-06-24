@@ -30,7 +30,7 @@ const (
 	metricsHost              = "0.0.0.0"
 	metricsPort        int32 = 8527
 	syncIntervalEnvVar       = "PERIODIC_SYNC_INTERVAL"
-	leafHubIdEnvVar          = "LH_ID"
+	leafHubNameEnvVar        = "LH_ID"
 )
 
 func printVersion(log logr.Logger) {
@@ -67,9 +67,9 @@ func doMain() int {
 		return 1
 	}
 
-	leafHubId := os.Getenv(leafHubIdEnvVar)
-	if leafHubId == "" {
-		log.Error(fmt.Errorf("missing environment variable %s", leafHubIdEnvVar), "failed to initialize")
+	leafHubName := os.Getenv(leafHubNameEnvVar)
+	if leafHubName == "" {
+		log.Error(fmt.Errorf("missing environment variable %s", leafHubNameEnvVar), "failed to initialize")
 		return 1
 	}
 
@@ -90,7 +90,7 @@ func doMain() int {
 	syncServiceObj.Start()
 	defer syncServiceObj.Stop()
 
-	mgr, err := createManager(namespace, metricsHost, metricsPort, syncServiceObj, interval, leafHubId)
+	mgr, err := createManager(namespace, metricsHost, metricsPort, syncServiceObj, interval, leafHubName)
 	if err != nil {
 		log.Error(err, "Failed to create manager")
 		return 1
@@ -107,7 +107,7 @@ func doMain() int {
 }
 
 func createManager(namespace, metricsHost string, metricsPort int32, transport transport.Transport,
-	syncInterval time.Duration, leafHubId string) (ctrl.Manager, error) {
+	syncInterval time.Duration, leafHubName string) (ctrl.Manager, error) {
 	options := ctrl.Options{
 		Namespace:          namespace,
 		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
@@ -131,7 +131,7 @@ func createManager(namespace, metricsHost string, metricsPort int32, transport t
 		return nil, fmt.Errorf("failed to add schemes: %w", err)
 	}
 
-	if err := controller.AddControllers(mgr, transport, syncInterval, leafHubId); err != nil {
+	if err := controller.AddControllers(mgr, transport, syncInterval, leafHubName); err != nil {
 		return nil, fmt.Errorf("failed to add controllers: %w", err)
 	}
 

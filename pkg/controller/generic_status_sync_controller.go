@@ -25,17 +25,16 @@ type CreateObjectFunction func() bundle.Object
 
 func newGenericStatusSyncController(mgr ctrl.Manager, logName string, transport transport.Transport,
 	finalizerName string, bundleKey string, createObjFunc CreateObjectFunction, syncInterval time.Duration,
-	leafHubId string) error {
+	leafHubName string) error {
 	statusSyncCtrl := &genericStatusSyncController{
 		client:               mgr.GetClient(),
 		log:                  ctrl.Log.WithName(logName),
 		transport:            transport,
 		transportBundleKey:   bundleKey,
-		leafHubId:            leafHubId,
+		leafHubName:          leafHubName,
 		finalizerName:        finalizerName,
 		createObjFunc:        createObjFunc,
 		periodicSyncInterval: syncInterval,
-		stopChan:             make(chan struct{}, 1),
 	}
 	statusSyncCtrl.init()
 
@@ -47,28 +46,20 @@ type genericStatusSyncController struct {
 	log                      logr.Logger
 	transport                transport.Transport
 	transportBundleKey       string
-	leafHubId                string
+	leafHubName              string
 	bundle                   *bundle.StatusBundle
 	lastSentBundleGeneration uint64
 	finalizerName            string
 	createObjFunc            CreateObjectFunction
 	periodicSyncInterval     time.Duration
-	stopChan                 chan struct{}
 	startOnce                sync.Once
-	stopOnce                 sync.Once
 }
 
 func (c *genericStatusSyncController) init() {
 	c.startOnce.Do(func() {
-		c.bundle = bundle.NewStatusBundle(c.leafHubId)
+		c.bundle = bundle.NewStatusBundle(c.leafHubName)
 		c.lastSentBundleGeneration = c.bundle.GetBundleGeneration()
 		go c.periodicSync()
-	})
-}
-
-func (c *genericStatusSyncController) Stop() {
-	c.stopOnce.Do(func() {
-		close(c.stopChan)
 	})
 }
 
@@ -153,13 +144,10 @@ func (c *genericStatusSyncController) periodicSync() {
 	ticker := time.NewTicker(c.periodicSyncInterval)
 	for {
 		select {
-		case <-c.stopChan:
-			ticker.Stop()
-			return
 		case <-ticker.C:
 			bundleGeneration := c.bundle.GetBundleGeneration()
 			if bundleGeneration > c.lastSentBundleGeneration { // send to transport only if bundle has changed
-				c.syncToTransport(fmt.Sprintf("%s.%s", c.leafHubId, c.transportBundleKey),
+				c.syncToTransport(fmt.Sprintf("%s.%s", c.leafHubName, c.transportBundleKey),
 					datatypes.StatusBundle, strconv.FormatUint(bundleGeneration, 10), c.bundle)
 				c.lastSentBundleGeneration = bundleGeneration
 			}

@@ -13,9 +13,9 @@ import (
 )
 
 func addClustersStatusController(mgr ctrl.Manager, transport transport.Transport, syncInterval time.Duration,
-	leafHubId string) error {
+	leafHubName string) error {
 	createObjFunction := func() bundle.Object { return &clusterv1.ManagedCluster{} }
 	finalizerName := "hub-of-hubs.open-cluster-management.io/managed-cluster-cleanup"
 	return newGenericStatusSyncController(mgr, "clusters-status-sync", transport, finalizerName,
-		datatypes.ManagedClustersMsgKey, createObjFunction, syncInterval, leafHubId)
+		datatypes.ManagedClustersMsgKey, createObjFunction, syncInterval, leafHubName)
 }
