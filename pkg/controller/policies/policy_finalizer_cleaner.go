@@ -25,7 +25,8 @@ func newPolicyFinalizerCleanerController(mgr ctrl.Manager, logName string, final
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1.Policy{}).
-		WithEventFilter(ctrlpredicate.And(generic.Predicate, &predicate.NotHohNamespacePredicate{})).
+		WithEventFilter(ctrlpredicate.And(generic.Predicate,
+			&predicate.PolicyFinalizerCleanerPredicate{FinalizerName: finalizerName})).
 		Complete(policyFinalizerCleanerCtrl)
 }
 
@@ -64,7 +65,7 @@ func (c *policyFinalizerCleanerController) removeFinalizer(ctx context.Context, 
 	log.Info("removing finalizer")
 	controllerutil.RemoveFinalizer(policy, c.finalizerName)
 	if err := c.client.Update(ctx, policy); err != nil {
-		return fmt.Errorf("failed to remove a finalizer: %s", err)
+		return fmt.Errorf("failed to remove finalizer %s, requeue in order to retry", c.finalizerName)
 	}
 	return nil
 }

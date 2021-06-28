@@ -140,7 +140,7 @@ func (c *genericStatusSyncController) addFinalizer(ctx context.Context, object b
 	log.Info("adding finalizer")
 	controllerutil.AddFinalizer(object, c.finalizerName)
 	if err := c.client.Update(ctx, object); err != nil {
-		return fmt.Errorf("failed to add a finalizer: %s", err)
+		return fmt.Errorf("failed to add finalizer %s, requeue in order to retry", c.finalizerName)
 	}
 	return nil
 }
@@ -160,7 +160,7 @@ func (c *genericStatusSyncController) removeFinalizer(ctx context.Context, objec
 	log.Info("removing finalizer")
 	controllerutil.RemoveFinalizer(object, c.finalizerName)
 	if err := c.client.Update(ctx, object); err != nil {
-		return fmt.Errorf("failed to remove a finalizer: %s", err)
+		return fmt.Errorf("failed to remove finalizer %s, requeue in order to retry", c.finalizerName)
 	}
 	return nil
 }
