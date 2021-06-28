@@ -20,7 +20,7 @@ func NewClustersPerPolicyBundle(leafHubName string) Bundle {
 type ClustersPerPolicy struct {
 	PolicyId        types.UID `json:"policyId"`
 	Clusters        []string  `json:"clusters"`
-	resourceVersion string
+	ResourceVersion string    `json:"resourceVersion"`
 }
 
 type ClustersPerPolicyBundle struct {
@@ -43,7 +43,7 @@ func (bundle *ClustersPerPolicyBundle) UpdateObject(object Object) {
 	}
 
 	// if we reached here, object already exists in the bundle.. check if the object has changed.
-	if object.GetResourceVersion() <= bundle.Objects[index].resourceVersion {
+	if object.GetResourceVersion() <= bundle.Objects[index].ResourceVersion {
 		return // update object only if there is a newer version. check for changes using resourceVersion field
 	}
 
@@ -51,7 +51,7 @@ func (bundle *ClustersPerPolicyBundle) UpdateObject(object Object) {
 		return //returns true if changed, otherwise false. if cluster list didn't change, don't increment generation.
 	}
 	// if cluster list has changed - update resource version of the object and bundle generation
-	bundle.Objects[index].resourceVersion = object.GetResourceVersion()
+	bundle.Objects[index].ResourceVersion = object.GetResourceVersion()
 	bundle.generation++
 }
 
@@ -94,7 +94,7 @@ func (bundle *ClustersPerPolicyBundle) getClustersPerPolicy(policy *policiesv1.P
 	return &ClustersPerPolicy{
 		PolicyId:        policy.GetUID(),
 		Clusters:        bundle.getClusterNames(policy),
-		resourceVersion: policy.GetResourceVersion(),
+		ResourceVersion: policy.GetResourceVersion(),
 	}
 }
 

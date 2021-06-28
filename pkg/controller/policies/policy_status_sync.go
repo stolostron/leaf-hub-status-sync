@@ -27,6 +27,8 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 	bundleCollection := []*generic.BundleCollectionEntry{ // multiple bundles for policy status
 		generic.NewBundleCollectionEntry(fmt.Sprintf("%s.%s", leafHubName, datatypes.ClustersPerPolicyMsgKey),
 			bundle.NewClustersPerPolicyBundle(leafHubName)),
+		generic.NewBundleCollectionEntry(fmt.Sprintf("%s.%s", leafHubName, datatypes.PolicyComplianceMsgKey),
+			bundle.NewComplianceStatusBundle(leafHubName)),
 	}
 	// initialize policy status controller (sends two bundles, list of clusters per policy and compliance status)
 	err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, transport, policyCleanupFinalizer,

@@ -189,9 +189,6 @@ func (c *genericStatusSyncController) syncToTransport(id string, objType string,
 		c.log.Info(fmt.Sprintf("failed to sync object from type %s with id %s- %s", objType, id, err))
 		return
 	}
-	log.Println("****************************")
-	log.Println(string(payloadBytes))
-	log.Println("****************************")
 	c.transport.SendAsync(id, objType, generation, payloadBytes)
 }
 
