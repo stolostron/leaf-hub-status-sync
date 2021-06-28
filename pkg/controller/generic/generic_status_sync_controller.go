@@ -1,4 +1,4 @@
-package controller
+package generic
 
 import (
 	"context"
@@ -7,66 +7,78 @@ import (
 	"github.com/go-logr/logr"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/predicate"
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"log"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	ctrlpredicate "sigs.k8s.io/controller-runtime/pkg/predicate"
 	"strconv"
 	"sync"
 	"time"
 )
 
 const (
-	requeuePeriodSeconds = 5
+	RequeuePeriodSeconds = 5
 )
 
 type CreateObjectFunction func() bundle.Object
 
-var genericPredicate = &GenericPredicate{}
+var Predicate = &predicate.GenericPredicate{}
 
-func newGenericStatusSyncController(mgr ctrl.Manager, logName string, transport transport.Transport,
-	finalizerName string, bundleKey string, createObjFunc CreateObjectFunction, syncInterval time.Duration,
-	leafHubName string, genericPredicateFilter bool) error {
+func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport transport.Transport,
+	finalizerName string, orderedBundleCollection []*BundleCollectionEntry, createObjFunc CreateObjectFunction,
+	syncInterval time.Duration, genericPredicateFilter bool, additionalPredicate ctrlpredicate.Predicate) error {
 	statusSyncCtrl := &genericStatusSyncController{
-		client:                 mgr.GetClient(),
-		log:                    ctrl.Log.WithName(logName),
-		transport:              transport,
-		transportBundleKey:     bundleKey,
-		leafHubName:            leafHubName,
-		finalizerName:          finalizerName,
-		createObjFunc:          createObjFunc,
-		periodicSyncInterval:   syncInterval,
-		genericPredicateFilter: genericPredicateFilter,
+		client:                  mgr.GetClient(),
+		log:                     ctrl.Log.WithName(logName),
+		transport:               transport,
+		orderedBundleCollection: orderedBundleCollection,
+		finalizerName:           finalizerName,
+		createObjFunc:           createObjFunc,
+		periodicSyncInterval:    syncInterval,
+		genericPredicateFilter:  genericPredicateFilter,
 	}
 	statusSyncCtrl.init()
 
 	controllerBuilder := ctrl.NewControllerManagedBy(mgr).For(createObjFunc())
-	if genericPredicateFilter {
-		controllerBuilder = controllerBuilder.WithEventFilter(genericPredicate)
+	if predicateToSet := getPredicate(genericPredicateFilter, additionalPredicate); predicateToSet != nil {
+		controllerBuilder = controllerBuilder.WithEventFilter(predicateToSet)
 	}
 	return controllerBuilder.Complete(statusSyncCtrl)
 }
 
+func getPredicate(genericPredicateFilter bool, additionalPredicate ctrlpredicate.Predicate) ctrlpredicate.Predicate {
+	if genericPredicateFilter { // generic predicate is true
+		if additionalPredicate != nil {
+			return ctrlpredicate.And(Predicate, additionalPredicate) // both generic and additional predicates
+		}
+		return Predicate
+	}
+	// if we got here, genericPredicateFilter is false
+	if additionalPredicate != nil {
+		return additionalPredicate
+	}
+	return nil
+}
+
 type genericStatusSyncController struct {
-	client                   client.Client
-	log                      logr.Logger
-	transport                transport.Transport
-	transportBundleKey       string
-	leafHubName              string
-	bundle                   *bundle.StatusBundle
-	lastSentBundleGeneration uint64
-	finalizerName            string
-	createObjFunc            CreateObjectFunction
-	periodicSyncInterval     time.Duration
-	startOnce                sync.Once
-	genericPredicateFilter   bool
+	client                  client.Client
+	log                     logr.Logger
+	transport               transport.Transport
+	orderedBundleCollection []*BundleCollectionEntry
+	finalizerName           string
+	createObjFunc           CreateObjectFunction
+	periodicSyncInterval    time.Duration
+	startOnce               sync.Once
+	genericPredicateFilter  bool
 }
 
 func (c *genericStatusSyncController) init() {
 	c.startOnce.Do(func() {
-		c.bundle = bundle.NewStatusBundle(c.leafHubName)
-		c.lastSentBundleGeneration = c.bundle.GetBundleGeneration()
 		go c.periodicSync()
 	})
 }
@@ -86,17 +98,17 @@ func (c *genericStatusSyncController) Reconcile(request ctrl.Request) (ctrl.Resu
 	}
 	if err != nil {
 		reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
-		return ctrl.Result{Requeue: true, RequeueAfter: requeuePeriodSeconds * time.Second}, err
+		return ctrl.Result{Requeue: true, RequeueAfter: RequeuePeriodSeconds * time.Second}, err
 	}
 	if c.isObjectBeingDeleted(object) {
 		if err = c.deleteObjectAndFinalizer(ctx, object, reqLogger); err != nil {
 			reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
-			return ctrl.Result{Requeue: true, RequeueAfter: requeuePeriodSeconds * time.Second}, err
+			return ctrl.Result{Requeue: true, RequeueAfter: RequeuePeriodSeconds * time.Second}, err
 		}
 	} else { // otherwise, the object was not deleted and no error occurred
 		if err = c.updateObjectAndFinalizer(ctx, object, reqLogger); err != nil {
 			reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
-			return ctrl.Result{Requeue: true, RequeueAfter: requeuePeriodSeconds * time.Second}, err
+			return ctrl.Result{Requeue: true, RequeueAfter: RequeuePeriodSeconds * time.Second}, err
 		}
 	}
 	reqLogger.Info("Reconciliation complete.")
@@ -113,12 +125,15 @@ func (c *genericStatusSyncController) updateObjectAndFinalizer(ctx context.Conte
 		return err
 	}
 	cleanObject(object)
-	c.bundle.UpdateObject(object)
+	for _, entry := range c.orderedBundleCollection {
+		entry.bundle.UpdateObject(object) // update in each bundle from the collection according to their order
+	}
+
 	return nil
 }
 
 func (c *genericStatusSyncController) addFinalizer(ctx context.Context, object bundle.Object, log logr.Logger) error {
-	if containsString(object.GetFinalizers(), c.finalizerName) {
+	if helpers.ContainsString(object.GetFinalizers(), c.finalizerName) {
 		return nil
 	}
 
@@ -131,13 +146,15 @@ func (c *genericStatusSyncController) addFinalizer(ctx context.Context, object b
 }
 func (c *genericStatusSyncController) deleteObjectAndFinalizer(ctx context.Context, object bundle.Object,
 	log logr.Logger) error {
-	c.bundle.DeleteObject(object)
+	for _, entry := range c.orderedBundleCollection {
+		entry.bundle.DeleteObject(object) // delete from all bundles
+	}
 	return c.removeFinalizer(ctx, object, log)
 }
 
 func (c *genericStatusSyncController) removeFinalizer(ctx context.Context, object bundle.Object, log logr.Logger) error {
-	if containsString(object.GetFinalizers(), c.finalizerName) {
-		return nil
+	if !helpers.ContainsString(object.GetFinalizers(), c.finalizerName) {
+		return nil // if finalizer is not there, do nothing
 	}
 
 	log.Info("removing finalizer")
@@ -153,23 +170,28 @@ func (c *genericStatusSyncController) periodicSync() {
 	for {
 		select {
 		case <-ticker.C:
-			bundleGeneration := c.bundle.GetBundleGeneration()
-			if bundleGeneration > c.lastSentBundleGeneration { // send to transport only if bundle has changed
-				c.syncToTransport(fmt.Sprintf("%s.%s", c.leafHubName, c.transportBundleKey),
-					datatypes.StatusBundle, strconv.FormatUint(bundleGeneration, 10), c.bundle)
-				c.lastSentBundleGeneration = bundleGeneration
+			for _, entry := range c.orderedBundleCollection {
+				bundleGeneration := entry.bundle.GetBundleGeneration()
+				if bundleGeneration > entry.lastSentBundleGeneration { // send to transport only if bundle has changed
+					c.syncToTransport(entry.transportBundleKey, datatypes.StatusBundle,
+						strconv.FormatUint(bundleGeneration, 10), entry.bundle)
+					entry.lastSentBundleGeneration = bundleGeneration
+				}
 			}
 		}
 	}
 }
 
 func (c *genericStatusSyncController) syncToTransport(id string, objType string, generation string,
-	payload *bundle.StatusBundle) {
+	payload bundle.Bundle) {
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		c.log.Info(fmt.Sprintf("failed to sync object from type %s with id %s- %s", objType, id, err))
 		return
 	}
+	log.Println("****************************")
+	log.Println(string(payloadBytes))
+	log.Println("****************************")
 	c.transport.SendAsync(id, objType, generation, payloadBytes)
 }
 
@@ -180,14 +202,4 @@ func cleanObject(object bundle.Object) {
 	object.SetOwnerReferences(nil)
 	object.SetSelfLink("")
 	object.SetClusterName("")
-}
-
-func containsString(slice []string, s string) bool {
-	for _, item := range slice {
-		if item == s {
-			return true
-		}
-	}
-
-	return false
 }

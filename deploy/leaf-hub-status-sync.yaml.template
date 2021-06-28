@@ -28,6 +28,16 @@ rules:
   - watch
   - update
 - apiGroups:
+  - "policy.open-cluster-management.io"
+  resources:
+  - policies
+  - policies/finalizers
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+- apiGroups:
   - ""
   resources:
   - events

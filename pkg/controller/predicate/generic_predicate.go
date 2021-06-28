@@ -1,4 +1,4 @@
-package controller
+package predicate
 
 import (
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
