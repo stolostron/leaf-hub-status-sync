@@ -24,11 +24,13 @@ const (
 func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport, syncInterval time.Duration,
 	leafHubName string) error {
 	createObjFunction := func() bundle.Object { return &policiesv1.Policy{} }
+	clustersPerPolicyBundle := bundle.NewClustersPerPolicyBundle(leafHubName)
+	complianceStatueBundle := bundle.NewComplianceStatusBundle(leafHubName, clustersPerPolicyBundle)
 	bundleCollection := []*generic.BundleCollectionEntry{ // multiple bundles for policy status
 		generic.NewBundleCollectionEntry(fmt.Sprintf("%s.%s", leafHubName, datatypes.ClustersPerPolicyMsgKey),
-			bundle.NewClustersPerPolicyBundle(leafHubName)),
+			clustersPerPolicyBundle),
 		generic.NewBundleCollectionEntry(fmt.Sprintf("%s.%s", leafHubName, datatypes.PolicyComplianceMsgKey),
-			bundle.NewComplianceStatusBundle(leafHubName)),
+			complianceStatueBundle),
 	}
 	// initialize policy status controller (sends two bundles, list of clusters per policy and compliance status)
 	err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, transport, policyCleanupFinalizer,

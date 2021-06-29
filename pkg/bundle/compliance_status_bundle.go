@@ -8,12 +8,14 @@ import (
 	"sync"
 )
 
-func NewComplianceStatusBundle(leafHubName string) Bundle {
+func NewComplianceStatusBundle(leafHubName string, baseBundle Bundle) Bundle {
 	return &ComplianceStatusBundle{
-		Objects:     make([]*PolicyComplianceStatus, 0),
-		LeafHubName: leafHubName,
-		generation:  0,
-		lock:        sync.Mutex{},
+		Objects:              make([]*PolicyComplianceStatus, 0),
+		LeafHubName:          leafHubName,
+		BaseBundleGeneration: baseBundle.GetBundleGeneration(),
+		baseBundle:           baseBundle,
+		Generation:           0,
+		lock:                 sync.Mutex{},
 	}
 }
 
@@ -26,21 +28,24 @@ type PolicyComplianceStatus struct {
 }
 
 type ComplianceStatusBundle struct {
-	Objects     []*PolicyComplianceStatus `json:"objects"`
-	LeafHubName string                    `json:"leafHubName"`
-	generation  uint64
-	lock        sync.Mutex
+	Objects              []*PolicyComplianceStatus `json:"objects"`
+	LeafHubName          string                    `json:"leafHubName"`
+	BaseBundleGeneration uint64                    `json:"baseBundleGeneration"`
+	Generation           uint64                    `json:"generation"`
+	baseBundle           Bundle
+	lock                 sync.Mutex
 }
 
 func (bundle *ComplianceStatusBundle) UpdateObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
+	bundle.BaseBundleGeneration = bundle.baseBundle.GetBundleGeneration()
 	policy := object.(*v1.Policy)
 	index, err := bundle.getObjectIndexByUID(object.GetUID())
 	if err != nil { // object not found, need to add it to the bundle
 		bundle.Objects = append(bundle.Objects, bundle.getPolicyComplianceStatus(policy))
-		bundle.generation++
+		bundle.Generation++
 		return
 	}
 
@@ -54,13 +59,14 @@ func (bundle *ComplianceStatusBundle) UpdateObject(object Object) {
 	}
 	// if cluster list has changed - update resource version of the object and bundle generation
 	bundle.Objects[index].ResourceVersion = object.GetResourceVersion()
-	bundle.generation++
+	bundle.Generation++
 }
 
 func (bundle *ComplianceStatusBundle) DeleteObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
+	bundle.BaseBundleGeneration = bundle.baseBundle.GetBundleGeneration()
 	index, err := bundle.getObjectIndexByUID(object.GetUID())
 	if err != nil { // trying to delete object which doesn't exist - return with no error
 		return
@@ -73,7 +79,7 @@ func (bundle *ComplianceStatusBundle) GetBundleGeneration() uint64 {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	return bundle.generation
+	return bundle.Generation
 }
 func (bundle *ComplianceStatusBundle) getObjectIndexByUID(uid types.UID) (int, error) {
 	for i, object := range bundle.Objects {

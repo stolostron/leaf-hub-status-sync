@@ -10,7 +10,7 @@ func NewGenericStatusBundle(leafHubName string) Bundle {
 	return &GenericStatusBundle{
 		Objects:     make([]Object, 0),
 		LeafHubName: leafHubName,
-		generation:  0,
+		Generation:  0,
 		lock:        sync.Mutex{},
 	}
 }
@@ -21,7 +21,7 @@ func NewGenericStatusBundle(leafHubName string) Bundle {
 type GenericStatusBundle struct {
 	Objects     []Object `json:"objects"`
 	LeafHubName string   `json:"leafHubName"`
-	generation  uint64
+	Generation  uint64   `json:"generation"`
 	lock        sync.Mutex
 }
 
@@ -32,7 +32,7 @@ func (bundle *GenericStatusBundle) UpdateObject(object Object) {
 	index, err := bundle.getObjectIndexByUID(object.GetUID())
 	if err != nil { // object not found, need to add it to the bundle
 		bundle.Objects = append(bundle.Objects, object)
-		bundle.generation++
+		bundle.Generation++
 		return
 	}
 
@@ -41,7 +41,7 @@ func (bundle *GenericStatusBundle) UpdateObject(object Object) {
 		return // update object only if there is a newer version. check for changes using resourceVersion field
 	}
 	bundle.Objects[index] = object
-	bundle.generation++
+	bundle.Generation++
 }
 
 func (bundle *GenericStatusBundle) DeleteObject(object Object) {
@@ -53,14 +53,14 @@ func (bundle *GenericStatusBundle) DeleteObject(object Object) {
 		return
 	}
 	bundle.Objects = append(bundle.Objects[:index], bundle.Objects[index+1:]...) // remove from objects
-	bundle.generation++
+	bundle.Generation++
 }
 
 func (bundle *GenericStatusBundle) GetBundleGeneration() uint64 {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	return bundle.generation
+	return bundle.Generation
 }
 
 func (bundle *GenericStatusBundle) getObjectIndexByUID(uid types.UID) (int, error) {

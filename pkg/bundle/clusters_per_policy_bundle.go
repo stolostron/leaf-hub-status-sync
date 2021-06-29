@@ -12,7 +12,7 @@ func NewClustersPerPolicyBundle(leafHubName string) Bundle {
 	return &ClustersPerPolicyBundle{
 		Objects:     make([]*ClustersPerPolicy, 0),
 		LeafHubName: leafHubName,
-		generation:  0,
+		Generation:  0,
 		lock:        sync.Mutex{},
 	}
 }
@@ -26,7 +26,7 @@ type ClustersPerPolicy struct {
 type ClustersPerPolicyBundle struct {
 	Objects     []*ClustersPerPolicy `json:"objects"`
 	LeafHubName string               `json:"leafHubName"`
-	generation  uint64
+	Generation  uint64               `json:"generation"`
 	lock        sync.Mutex
 }
 
@@ -38,7 +38,7 @@ func (bundle *ClustersPerPolicyBundle) UpdateObject(object Object) {
 	index, err := bundle.getObjectIndexByUID(object.GetUID())
 	if err != nil { // object not found, need to add it to the bundle
 		bundle.Objects = append(bundle.Objects, bundle.getClustersPerPolicy(policy))
-		bundle.generation++
+		bundle.Generation++
 		return
 	}
 
@@ -52,7 +52,7 @@ func (bundle *ClustersPerPolicyBundle) UpdateObject(object Object) {
 	}
 	// if cluster list has changed - update resource version of the object and bundle generation
 	bundle.Objects[index].ResourceVersion = object.GetResourceVersion()
-	bundle.generation++
+	bundle.Generation++
 }
 
 func (bundle *ClustersPerPolicyBundle) DeleteObject(object Object) {
@@ -64,15 +64,16 @@ func (bundle *ClustersPerPolicyBundle) DeleteObject(object Object) {
 		return
 	}
 	bundle.Objects = append(bundle.Objects[:index], bundle.Objects[index+1:]...) // remove from objects
-	bundle.generation++
+	bundle.Generation++
 }
 
 func (bundle *ClustersPerPolicyBundle) GetBundleGeneration() uint64 {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	return bundle.generation
+	return bundle.Generation
 }
+
 func (bundle *ClustersPerPolicyBundle) getObjectIndexByUID(uid types.UID) (int, error) {
 	for i, object := range bundle.Objects {
 		if object.PolicyId == uid {
