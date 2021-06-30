@@ -2,6 +2,7 @@ package bundle
 
 import (
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
+	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -10,24 +11,18 @@ import (
 
 func NewClustersPerPolicyBundle(leafHubName string) Bundle {
 	return &ClustersPerPolicyBundle{
-		Objects:     make([]*ClustersPerPolicy, 0),
-		LeafHubName: leafHubName,
-		Generation:  0,
-		lock:        sync.Mutex{},
+		BaseClustersPerPolicyBundle: statusbundle.BaseClustersPerPolicyBundle{
+			Objects:     make([]*statusbundle.ClustersPerPolicy, 0),
+			LeafHubName: leafHubName,
+			Generation:  0,
+		},
+		lock: sync.Mutex{},
 	}
 }
 
-type ClustersPerPolicy struct {
-	PolicyId        types.UID `json:"policyId"`
-	Clusters        []string  `json:"clusters"`
-	ResourceVersion string    `json:"resourceVersion"`
-}
-
 type ClustersPerPolicyBundle struct {
-	Objects     []*ClustersPerPolicy `json:"objects"`
-	LeafHubName string               `json:"leafHubName"`
-	Generation  uint64               `json:"generation"`
-	lock        sync.Mutex
+	statusbundle.BaseClustersPerPolicyBundle
+	lock sync.Mutex
 }
 
 func (bundle *ClustersPerPolicyBundle) UpdateObject(object Object) {
@@ -91,8 +86,8 @@ func (bundle *ClustersPerPolicyBundle) getClusterNames(policy *policiesv1.Policy
 	return clusterNames
 }
 
-func (bundle *ClustersPerPolicyBundle) getClustersPerPolicy(policy *policiesv1.Policy) *ClustersPerPolicy {
-	return &ClustersPerPolicy{
+func (bundle *ClustersPerPolicyBundle) getClustersPerPolicy(policy *policiesv1.Policy) *statusbundle.ClustersPerPolicy {
+	return &statusbundle.ClustersPerPolicy{
 		PolicyId:        policy.GetUID(),
 		Clusters:        bundle.getClusterNames(policy),
 		ResourceVersion: policy.GetResourceVersion(),

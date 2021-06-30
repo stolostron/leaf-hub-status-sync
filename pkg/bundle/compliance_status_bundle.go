@@ -3,6 +3,7 @@ package bundle
 import (
 	"errors"
 	"github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
+	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	"k8s.io/apimachinery/pkg/types"
 	"sync"
@@ -10,30 +11,21 @@ import (
 
 func NewComplianceStatusBundle(leafHubName string, baseBundle Bundle) Bundle {
 	return &ComplianceStatusBundle{
-		Objects:              make([]*PolicyComplianceStatus, 0),
-		LeafHubName:          leafHubName,
-		BaseBundleGeneration: baseBundle.GetBundleGeneration(),
-		baseBundle:           baseBundle,
-		Generation:           0,
-		lock:                 sync.Mutex{},
+		BaseComplianceStatusBundle: statusbundle.BaseComplianceStatusBundle{
+			Objects:              make([]*statusbundle.PolicyComplianceStatus, 0),
+			LeafHubName:          leafHubName,
+			BaseBundleGeneration: baseBundle.GetBundleGeneration(),
+			Generation:           0,
+		},
+		baseBundle: baseBundle,
+		lock:       sync.Mutex{},
 	}
 }
 
-type PolicyComplianceStatus struct {
-	PolicyId                  types.UID            `json:"policyId"`
-	NonCompliantClusters      []string             `json:"nonCompliantClusters"`
-	UnknownComplianceClusters []string             `json:"unknownComplianceClusters"`
-	RemediationAction         v1.RemediationAction `json:"remediationAction"`
-	ResourceVersion           string               `json:"resourceVersion"`
-}
-
 type ComplianceStatusBundle struct {
-	Objects              []*PolicyComplianceStatus `json:"objects"`
-	LeafHubName          string                    `json:"leafHubName"`
-	BaseBundleGeneration uint64                    `json:"baseBundleGeneration"`
-	Generation           uint64                    `json:"generation"`
-	baseBundle           Bundle
-	lock                 sync.Mutex
+	statusbundle.BaseComplianceStatusBundle
+	baseBundle Bundle
+	lock       sync.Mutex
 }
 
 func (bundle *ComplianceStatusBundle) UpdateObject(object Object) {
@@ -90,9 +82,9 @@ func (bundle *ComplianceStatusBundle) getObjectIndexByUID(uid types.UID) (int, e
 	return -1, errors.New("object not found")
 }
 
-func (bundle *ComplianceStatusBundle) getPolicyComplianceStatus(policy *v1.Policy) *PolicyComplianceStatus {
+func (bundle *ComplianceStatusBundle) getPolicyComplianceStatus(policy *v1.Policy) *statusbundle.PolicyComplianceStatus {
 	nonCompliantClusters, unknownComplianceClusters := bundle.getNonCompliantAndUnknownClusters(policy)
-	return &PolicyComplianceStatus{
+	return &statusbundle.PolicyComplianceStatus{
 		PolicyId:                  policy.GetUID(),
 		NonCompliantClusters:      nonCompliantClusters,
 		UnknownComplianceClusters: unknownComplianceClusters,
