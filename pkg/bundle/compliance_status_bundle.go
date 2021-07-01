@@ -3,9 +3,9 @@ package bundle
 import (
 	"errors"
 	"github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
+	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
-	"k8s.io/apimachinery/pkg/types"
 	"sync"
 )
 
@@ -34,9 +34,13 @@ func (bundle *ComplianceStatusBundle) UpdateObject(object Object) {
 
 	bundle.BaseBundleGeneration = bundle.baseBundle.GetBundleGeneration()
 	policy := object.(*v1.Policy)
-	index, err := bundle.getObjectIndexByUID(object.GetUID())
+	originPolicyId, found := object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
+	if !found {
+		return // origin owner reference annotation not found, cannot handle this policy
+	}
+	index, err := bundle.getObjectIndexByUID(originPolicyId)
 	if err != nil { // object not found, need to add it to the bundle
-		bundle.Objects = append(bundle.Objects, bundle.getPolicyComplianceStatus(policy))
+		bundle.Objects = append(bundle.Objects, bundle.getPolicyComplianceStatus(originPolicyId, policy))
 		bundle.Generation++
 		return
 	}
@@ -59,7 +63,11 @@ func (bundle *ComplianceStatusBundle) DeleteObject(object Object) {
 	defer bundle.lock.Unlock()
 
 	bundle.BaseBundleGeneration = bundle.baseBundle.GetBundleGeneration()
-	index, err := bundle.getObjectIndexByUID(object.GetUID())
+	originPolicyId, found := object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
+	if !found {
+		return // origin owner reference annotation not found, cannot handle this policy
+	}
+	index, err := bundle.getObjectIndexByUID(originPolicyId)
 	if err != nil { // trying to delete object which doesn't exist - return with no error
 		return
 	}
@@ -73,7 +81,7 @@ func (bundle *ComplianceStatusBundle) GetBundleGeneration() uint64 {
 
 	return bundle.Generation
 }
-func (bundle *ComplianceStatusBundle) getObjectIndexByUID(uid types.UID) (int, error) {
+func (bundle *ComplianceStatusBundle) getObjectIndexByUID(uid string) (int, error) {
 	for i, object := range bundle.Objects {
 		if object.PolicyId == uid {
 			return i, nil
@@ -82,10 +90,11 @@ func (bundle *ComplianceStatusBundle) getObjectIndexByUID(uid types.UID) (int, e
 	return -1, errors.New("object not found")
 }
 
-func (bundle *ComplianceStatusBundle) getPolicyComplianceStatus(policy *v1.Policy) *statusbundle.PolicyComplianceStatus {
+func (bundle *ComplianceStatusBundle) getPolicyComplianceStatus(originPolicyId string,
+	policy *v1.Policy) *statusbundle.PolicyComplianceStatus {
 	nonCompliantClusters, unknownComplianceClusters := bundle.getNonCompliantAndUnknownClusters(policy)
 	return &statusbundle.PolicyComplianceStatus{
-		PolicyId:                  policy.GetUID(),
+		PolicyId:                  originPolicyId,
 		NonCompliantClusters:      nonCompliantClusters,
 		UnknownComplianceClusters: unknownComplianceClusters,
 		RemediationAction:         policy.Spec.RemediationAction,

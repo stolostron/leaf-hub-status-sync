@@ -2,10 +2,10 @@ package bundle
 
 import (
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
+	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	"github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/types"
 	"sync"
 )
 
@@ -30,9 +30,13 @@ func (bundle *ClustersPerPolicyBundle) UpdateObject(object Object) {
 	defer bundle.lock.Unlock()
 
 	policy := object.(*policiesv1.Policy)
-	index, err := bundle.getObjectIndexByUID(object.GetUID())
+	originPolicyId, found := object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
+	if !found {
+		return // origin owner reference annotation not found, cannot handle this policy
+	}
+	index, err := bundle.getObjectIndexByUID(originPolicyId)
 	if err != nil { // object not found, need to add it to the bundle
-		bundle.Objects = append(bundle.Objects, bundle.getClustersPerPolicy(policy))
+		bundle.Objects = append(bundle.Objects, bundle.getClustersPerPolicy(originPolicyId, policy))
 		bundle.Generation++
 		return
 	}
@@ -54,7 +58,11 @@ func (bundle *ClustersPerPolicyBundle) DeleteObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	index, err := bundle.getObjectIndexByUID(object.GetUID())
+	originPolicyId, found := object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
+	if !found {
+		return // origin owner reference annotation not found, cannot handle this policy
+	}
+	index, err := bundle.getObjectIndexByUID(originPolicyId)
 	if err != nil { // trying to delete object which doesn't exist - return with no error
 		return
 	}
@@ -69,7 +77,7 @@ func (bundle *ClustersPerPolicyBundle) GetBundleGeneration() uint64 {
 	return bundle.Generation
 }
 
-func (bundle *ClustersPerPolicyBundle) getObjectIndexByUID(uid types.UID) (int, error) {
+func (bundle *ClustersPerPolicyBundle) getObjectIndexByUID(uid string) (int, error) {
 	for i, object := range bundle.Objects {
 		if object.PolicyId == uid {
 			return i, nil
@@ -86,9 +94,10 @@ func (bundle *ClustersPerPolicyBundle) getClusterNames(policy *policiesv1.Policy
 	return clusterNames
 }
 
-func (bundle *ClustersPerPolicyBundle) getClustersPerPolicy(policy *policiesv1.Policy) *statusbundle.ClustersPerPolicy {
+func (bundle *ClustersPerPolicyBundle) getClustersPerPolicy(originPolicyId string,
+	policy *policiesv1.Policy) *statusbundle.ClustersPerPolicy {
 	return &statusbundle.ClustersPerPolicy{
-		PolicyId:        policy.GetUID(),
+		PolicyId:        originPolicyId,
 		Clusters:        bundle.getClusterNames(policy),
 		ResourceVersion: policy.GetResourceVersion(),
 	}
