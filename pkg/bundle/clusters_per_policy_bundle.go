@@ -32,7 +32,7 @@ func (bundle *ClustersPerPolicyBundle) UpdateObject(object Object) {
 	policy := object.(*policiesv1.Policy)
 	originPolicyId, found := object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
 	if !found {
-		return // origin owner reference annotation not found, cannot handle this policy
+		return // origin owner reference annotation not found, not handling this policy (wasn't sent from hub of hubs)
 	}
 	index, err := bundle.getObjectIndexByUID(originPolicyId)
 	if err != nil { // object not found, need to add it to the bundle
@@ -41,12 +41,12 @@ func (bundle *ClustersPerPolicyBundle) UpdateObject(object Object) {
 		return
 	}
 
-	// if we reached here, object already exists in the bundle.. check if the object has changed.
+	// if we reached here, object already exists in the bundle, check if the object has changed.
 	if object.GetResourceVersion() <= bundle.Objects[index].ResourceVersion {
 		return // update object only if there is a newer version. check for changes using resourceVersion field
 	}
 
-	if !bundle.updateClusterListIfChanged(index, bundle.getClusterNames(policy)) {
+	if !bundle.updateObjectIfChanged(index, bundle.getClusterNames(policy), policy.Spec.RemediationAction) {
 		return //returns true if changed, otherwise false. if cluster list didn't change, don't increment generation.
 	}
 	// if cluster list has changed - update resource version of the object and bundle generation
@@ -97,18 +97,21 @@ func (bundle *ClustersPerPolicyBundle) getClusterNames(policy *policiesv1.Policy
 func (bundle *ClustersPerPolicyBundle) getClustersPerPolicy(originPolicyId string,
 	policy *policiesv1.Policy) *statusbundle.ClustersPerPolicy {
 	return &statusbundle.ClustersPerPolicy{
-		PolicyId:        originPolicyId,
-		Clusters:        bundle.getClusterNames(policy),
-		ResourceVersion: policy.GetResourceVersion(),
+		PolicyId:          originPolicyId,
+		Clusters:          bundle.getClusterNames(policy),
+		RemediationAction: policy.Spec.RemediationAction,
+		ResourceVersion:   policy.GetResourceVersion(),
 	}
 }
 
-func (bundle *ClustersPerPolicyBundle) updateClusterListIfChanged(objectIndex int, newClusterNames []string) bool {
+func (bundle *ClustersPerPolicyBundle) updateObjectIfChanged(objectIndex int, newClusterNames []string,
+	remediationAction policiesv1.RemediationAction) bool {
 	oldClusterNames := bundle.Objects[objectIndex].Clusters
 	for _, newClusterName := range newClusterNames {
 		if !helpers.ContainsString(oldClusterNames, newClusterName) {
 			bundle.Objects[objectIndex].Clusters = newClusterNames // we found a new cluster, update and mark as changed
-			return true
+			bundle.Objects[objectIndex].RemediationAction = remediationAction
+			return true // if we update clusters, update remediation as well without checking
 		}
 	}
 	// if we finished for loop, all new clusters can be found inside the existing clusters per policy list.
@@ -116,6 +119,12 @@ func (bundle *ClustersPerPolicyBundle) updateClusterListIfChanged(objectIndex in
 	// comparing length, if not equal there is at least one old cluster which is not relevant anymore.
 	if len(oldClusterNames) != len(newClusterNames) {
 		bundle.Objects[objectIndex].Clusters = newClusterNames
+		bundle.Objects[objectIndex].RemediationAction = remediationAction
+		return true // if we update clusters, update remediation as well without checking
+	}
+	// check if remediation action was changed or not
+	if bundle.Objects[objectIndex].RemediationAction != remediationAction {
+		bundle.Objects[objectIndex].RemediationAction = remediationAction // no need to update clusters, identical
 		return true
 	}
 	return false
