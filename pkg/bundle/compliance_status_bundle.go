@@ -41,10 +41,10 @@ func (bundle *ComplianceStatusBundle) UpdateObject(object Object) {
 	index, err := bundle.getObjectIndexByUID(originPolicyId)
 	if err != nil { // object not found, need to add it to the bundle
 		policyComplianceObject := bundle.getPolicyComplianceStatus(originPolicyId, policy)
-		if !bundle.containsNonCompliantOrUnknownClusters(policyComplianceObject) {
-			return // don't send in the bundle a policy where all clusters are compliant
+		// don't send in the bundle a policy where all clusters are compliant
+		if bundle.containsNonCompliantOrUnknownClusters(policyComplianceObject) {
+			bundle.Objects = append(bundle.Objects, policyComplianceObject)
 		}
-		bundle.Objects = append(bundle.Objects, policyComplianceObject)
 		bundle.Generation++
 		return
 	}
