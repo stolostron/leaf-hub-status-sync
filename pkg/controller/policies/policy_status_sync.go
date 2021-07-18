@@ -10,6 +10,7 @@ import (
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/generic"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/predicate"
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"time"
@@ -24,8 +25,14 @@ const (
 func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport, syncInterval time.Duration,
 	leafHubName string) error {
 	createObjFunction := func() bundle.Object { return &policiesv1.Policy{} }
-	clustersPerPolicyBundle := bundle.NewClustersPerPolicyBundle(leafHubName)
-	complianceStatueBundle := bundle.NewComplianceStatusBundle(leafHubName, clustersPerPolicyBundle)
+	
+	// init generation from sync service - generation will start from the last one that was sent.
+	clustersPerPolicyBundle := bundle.NewClustersPerPolicyBundle(leafHubName, helpers.GetBundleGenerationFromTransport(
+		transport, fmt.Sprintf("%s.%s", leafHubName, datatypes.ClustersPerPolicyMsgKey), datatypes.StatusBundle))
+	complianceStatueBundle := bundle.NewComplianceStatusBundle(leafHubName, clustersPerPolicyBundle,
+		helpers.GetBundleGenerationFromTransport(transport, fmt.Sprintf("%s.%s", leafHubName,
+			datatypes.PolicyComplianceMsgKey), datatypes.StatusBundle))
+
 	bundleCollection := []*generic.BundleCollectionEntry{ // multiple bundles for policy status
 		generic.NewBundleCollectionEntry(fmt.Sprintf("%s.%s", leafHubName, datatypes.ClustersPerPolicyMsgKey),
 			clustersPerPolicyBundle),

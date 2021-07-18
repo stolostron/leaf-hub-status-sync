@@ -9,12 +9,12 @@ import (
 	"sync"
 )
 
-func NewClustersPerPolicyBundle(leafHubName string) Bundle {
+func NewClustersPerPolicyBundle(leafHubName string, generation uint64) Bundle {
 	return &ClustersPerPolicyBundle{
 		BaseClustersPerPolicyBundle: statusbundle.BaseClustersPerPolicyBundle{
 			Objects:     make([]*statusbundle.ClustersPerPolicy, 0),
 			LeafHubName: leafHubName,
-			Generation:  0,
+			Generation:  generation,
 		},
 		lock: sync.Mutex{},
 	}

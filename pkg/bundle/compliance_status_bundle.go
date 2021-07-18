@@ -9,13 +9,13 @@ import (
 	"sync"
 )
 
-func NewComplianceStatusBundle(leafHubName string, baseBundle Bundle) Bundle {
+func NewComplianceStatusBundle(leafHubName string, baseBundle Bundle, generation uint64) Bundle {
 	return &ComplianceStatusBundle{
 		BaseComplianceStatusBundle: statusbundle.BaseComplianceStatusBundle{
 			Objects:              make([]*statusbundle.PolicyComplianceStatus, 0),
 			LeafHubName:          leafHubName,
 			BaseBundleGeneration: baseBundle.GetBundleGeneration(),
-			Generation:           0,
+			Generation:           generation,
 		},
 		baseBundle: baseBundle,
 		lock:       sync.Mutex{},
