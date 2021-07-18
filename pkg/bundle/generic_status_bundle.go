@@ -6,11 +6,11 @@ import (
 	"sync"
 )
 
-func NewGenericStatusBundle(leafHubName string) Bundle {
+func NewGenericStatusBundle(leafHubName string, generation uint64) Bundle {
 	return &GenericStatusBundle{
 		Objects:     make([]Object, 0),
 		LeafHubName: leafHubName,
-		Generation:  0,
+		Generation:  generation,
 		lock:        sync.Mutex{},
 	}
 }
