@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"github.com/go-logr/logr"
 	v1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
+	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/generic"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/predicate"
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -49,23 +49,31 @@ func (c *policyFinalizerCleanerController) Reconcile(request ctrl.Request) (ctrl
 		reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
 		return ctrl.Result{Requeue: true, RequeueAfter: generic.RequeuePeriodSeconds * time.Second}, err
 	}
-	if err = c.removeFinalizer(ctx, object, c.log); err != nil {
+	if err = c.removeFinalizerAndAnnotation(ctx, object, c.log); err != nil {
 		reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
 		return ctrl.Result{Requeue: true, RequeueAfter: generic.RequeuePeriodSeconds * time.Second}, err
 	}
+
 	reqLogger.Info("Reconciliation complete.")
 	return ctrl.Result{}, err
 }
 
-func (c *policyFinalizerCleanerController) removeFinalizer(ctx context.Context, policy *v1.Policy, log logr.Logger) error {
-	if !helpers.ContainsString(policy.GetFinalizers(), c.finalizerName) {
-		return nil // if finalizer is not there, do nothing
+func (c *policyFinalizerCleanerController) removeFinalizerAndAnnotation(ctx context.Context, policy *v1.Policy,
+	log logr.Logger) error {
+	_, annotationFound := policy.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
+
+	if !controllerutil.ContainsFinalizer(policy, c.finalizerName) && !annotationFound {
+		return nil // if finalizer and annotation are not there, do nothing
 	}
 
 	log.Info("removing finalizer")
 	controllerutil.RemoveFinalizer(policy, c.finalizerName)
+
+	log.Info("removing annotation")
+	delete(policy.GetAnnotations(), datatypes.OriginOwnerReferenceAnnotation)
+
 	if err := c.client.Update(ctx, policy); err != nil {
-		return fmt.Errorf("failed to remove finalizer %s, requeue in order to retry", c.finalizerName)
+		return fmt.Errorf("failed to remove finalizer %s or annotation, requeue to retry", c.finalizerName)
 	}
 	return nil
 }
