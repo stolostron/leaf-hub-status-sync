@@ -1,24 +1,27 @@
 [comment]: # ( Copyright Contributors to the Open Cluster Management project )
 
 # Leaf-Hub-Status-Sync
-Red Hat Advanced Cluster Management Leaf Hub Status Sync
 
-## Build the image
+The leaf hub status sync component of [Hub-of-Hubs](https://github.com/open-cluster-management/hub-of-hubs).
+
+## How it works
+
+## Build and push the image to docker registry
 
 1.  Set the `REGISTRY` environment variable to hold the name of your docker registry:
     ```
     $ export REGISTRY=...
     ```
     
-1.  Set the `IMAGE` environment variable to hold the name of the image.
-
+1.  Set the `IMAGE_TAG` environment variable to hold the required version of the image.  
+    default value is `latest`, so in that case no need to specify this variable:
     ```
-    $ export IMAGE=$REGISTRY/$(basename $(pwd)):latest
+    $ export IMAGE_TAG=latest
     ```
     
-1.  Run make to build the image and push it to docker registry:
+1.  Run make to build and push the image:
     ```
-    make docker-push
+    $ make push-images
     ```
 
 ## Deploy on a leaf hub

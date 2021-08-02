@@ -2,13 +2,15 @@ package bundle
 
 import (
 	"errors"
+	"sync"
+
 	"github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
-	"sync"
 )
 
+// NewComplianceStatusBundle creates a new instance of ComplianceStatusBundle.
 func NewComplianceStatusBundle(leafHubName string, baseBundle Bundle, generation uint64) Bundle {
 	return &ComplianceStatusBundle{
 		BaseComplianceStatusBundle: statusbundle.BaseComplianceStatusBundle{
@@ -22,25 +24,29 @@ func NewComplianceStatusBundle(leafHubName string, baseBundle Bundle, generation
 	}
 }
 
+// ComplianceStatusBundle abstracts management of compliance status bundle.
 type ComplianceStatusBundle struct {
 	statusbundle.BaseComplianceStatusBundle
 	baseBundle Bundle
 	lock       sync.Mutex
 }
 
+// UpdateObject function to update a single object inside a bundle.
 func (bundle *ComplianceStatusBundle) UpdateObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
 	bundle.BaseBundleGeneration = bundle.baseBundle.GetBundleGeneration()
 	policy := object.(*v1.Policy)
-	originPolicyId, found := object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
+
+	originPolicyID, found := object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
 	if !found {
 		return // origin owner reference annotation not found, not handling policy that wasn't sent from hub of hubs
 	}
-	index, err := bundle.getObjectIndexByUID(originPolicyId)
+
+	index, err := bundle.getObjectIndexByUID(originPolicyID)
 	if err != nil { // object not found, need to add it to the bundle
-		policyComplianceObject := bundle.getPolicyComplianceStatus(originPolicyId, policy)
+		policyComplianceObject := bundle.getPolicyComplianceStatus(originPolicyID, policy)
 		// don't send in the bundle a policy where all clusters are compliant
 		if bundle.containsNonCompliantOrUnknownClusters(policyComplianceObject) {
 			bundle.Objects = append(bundle.Objects, policyComplianceObject)
@@ -48,60 +54,69 @@ func (bundle *ComplianceStatusBundle) UpdateObject(object Object) {
 		bundle.Generation++
 		return
 	}
+
 	// if we reached here, object already exists in the bundle with at least one non compliant or unknown cluster.
 	if object.GetResourceVersion() <= bundle.Objects[index].ResourceVersion { // check if the object has changed.
 		return // update object only if there is a newer version. check for changes using resourceVersion field
 	}
+
 	if !bundle.updateBundleIfObjectChanged(index, policy) {
 		return // true if changed,otherwise false. if policy compliance didn't change don't increment generation.
 	}
+
 	// don't send in the bundle a policy where all clusters are compliant
 	if !bundle.containsNonCompliantOrUnknownClusters(bundle.Objects[index]) {
 		bundle.Objects = append(bundle.Objects[:index], bundle.Objects[index+1:]...) // remove from objects
 	} else { // we have at least one cluster non compliant or unknown and cluster list has changed
 		bundle.Objects[index].ResourceVersion = object.GetResourceVersion() // update resource version of the object
 	}
+
 	// increase bundle generation in the case where cluster lists were changed
 	bundle.Generation++
 }
 
+// DeleteObject function to delete a single object inside a bundle.
 func (bundle *ComplianceStatusBundle) DeleteObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
 	bundle.BaseBundleGeneration = bundle.baseBundle.GetBundleGeneration()
-	originPolicyId, found := object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
+	originPolicyID, found := object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
 	if !found {
 		return // origin owner reference annotation not found, cannot handle this policy
 	}
-	index, err := bundle.getObjectIndexByUID(originPolicyId)
+
+	index, err := bundle.getObjectIndexByUID(originPolicyID)
 	if err != nil { // trying to delete object which doesn't exist - return with no error
 		return
 	}
+
 	bundle.Objects = append(bundle.Objects[:index], bundle.Objects[index+1:]...) // remove from objects
 	// do not increase generation, no need to send bundle when policy is removed (clusters per policy bundle is sent)
 }
 
+// GetBundleGeneration function to get bundle generation.
 func (bundle *ComplianceStatusBundle) GetBundleGeneration() uint64 {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
 	return bundle.Generation
 }
+
 func (bundle *ComplianceStatusBundle) getObjectIndexByUID(uid string) (int, error) {
 	for i, object := range bundle.Objects {
-		if object.PolicyId == uid {
+		if object.PolicyID == uid {
 			return i, nil
 		}
 	}
 	return -1, errors.New("object not found")
 }
 
-func (bundle *ComplianceStatusBundle) getPolicyComplianceStatus(originPolicyId string,
+func (bundle *ComplianceStatusBundle) getPolicyComplianceStatus(originPolicyID string,
 	policy *v1.Policy) *statusbundle.PolicyComplianceStatus {
 	nonCompliantClusters, unknownComplianceClusters := bundle.getNonCompliantAndUnknownClusters(policy)
 	return &statusbundle.PolicyComplianceStatus{
-		PolicyId:                  originPolicyId,
+		PolicyID:                  originPolicyID,
 		NonCompliantClusters:      nonCompliantClusters,
 		UnknownComplianceClusters: unknownComplianceClusters,
 		ResourceVersion:           policy.GetResourceVersion(),

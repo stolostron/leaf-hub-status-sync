@@ -93,6 +93,10 @@ spec:
           imagePullPolicy: Always
           env:
             - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                 apiVersion: v1
+                 fieldPath: metadata.namespace
             - name: SYNC_SERVICE_PROTOCOL
               value: "http"
             - name: SYNC_SERVICE_HOST
@@ -103,9 +107,8 @@ spec:
               value: "$LH_ID"
             - name: PERIODIC_SYNC_INTERVAL
               value: 5s
-            - name: POD_NAME
+            - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:
-                  fieldPath: metadata.name
-            - name: OPERATOR_NAME
-              value: leaf-hub-status-sync
+                 apiVersion: v1
+                 fieldPath: metadata.namespace

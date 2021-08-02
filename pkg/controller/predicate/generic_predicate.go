@@ -2,35 +2,32 @@ package predicate
 
 import (
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-// a struct that implements controller-runtime Predicate interface
+// GenericPredicate is a predicate to check if event is for object that contains hub of hubs owner reference annotation.
 type GenericPredicate struct {
 	predicate.Funcs
 }
 
+// Create is a function to filter k8s Create events.
 func (p *GenericPredicate) Create(e event.CreateEvent) bool {
-	return p.ownerReferenceUidAnnotationExists(e.Meta)
+	return hasAnnotation(e.Meta, datatypes.OriginOwnerReferenceAnnotation)
 }
 
+// Delete is a function to filter k8s Delete events.
 func (p *GenericPredicate) Delete(e event.DeleteEvent) bool {
-	return p.ownerReferenceUidAnnotationExists(e.Meta)
+	return hasAnnotation(e.Meta, datatypes.OriginOwnerReferenceAnnotation)
 }
 
+// Update is a function to filter k8s Update events.
 func (p *GenericPredicate) Update(e event.UpdateEvent) bool {
-	return p.ownerReferenceUidAnnotationExists(e.MetaOld) || p.ownerReferenceUidAnnotationExists(e.MetaNew)
+	return hasAnnotation(e.MetaOld, datatypes.OriginOwnerReferenceAnnotation) ||
+		hasAnnotation(e.MetaNew, datatypes.OriginOwnerReferenceAnnotation)
 }
 
+// Generic is a function to filter k8s Generic events.
 func (p *GenericPredicate) Generic(e event.GenericEvent) bool {
-	return p.ownerReferenceUidAnnotationExists(e.Meta)
-}
-
-func (p *GenericPredicate) ownerReferenceUidAnnotationExists(obj metav1.Object) bool {
-	if hasAnnotation(obj, datatypes.OriginOwnerReferenceAnnotation) {
-		return true
-	}
-	return false
+	return hasAnnotation(e.Meta, datatypes.OriginOwnerReferenceAnnotation)
 }

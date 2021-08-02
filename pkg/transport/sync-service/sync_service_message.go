@@ -1,4 +1,4 @@
-package sync_service
+package syncservice
 
 type syncServiceMessage struct {
 	id      string

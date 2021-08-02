@@ -1,39 +1,43 @@
-package sync_service
+package syncservice
 
 import (
 	"bytes"
 	"fmt"
-	"github.com/go-logr/logr"
-	"github.com/open-horizon/edge-sync-service-client/client"
 	"os"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"strconv"
 	"sync"
+
+	"github.com/go-logr/logr"
+	"github.com/open-horizon/edge-sync-service-client/client"
 )
 
 const (
-	syncServiceProtocol = "SYNC_SERVICE_PROTOCOL"
-	syncServiceHost     = "SYNC_SERVICE_HOST"
-	syncServicePort     = "SYNC_SERVICE_PORT"
+	envVarSyncServiceProtocol = "SYNC_SERVICE_PROTOCOL"
+	envVarSyncServiceHost     = "SYNC_SERVICE_HOST"
+	envVarSyncServicePort     = "SYNC_SERVICE_PORT"
 )
 
+// SyncService abstracts Sync Service client.
 type SyncService struct {
 	client    *client.SyncServiceClient
-	log       logr.Logger
 	msgChan   chan *syncServiceMessage
 	stopChan  chan struct{}
 	startOnce sync.Once
 	stopOnce  sync.Once
+	log       logr.Logger
 }
 
-func NewSyncService() (*SyncService, error) {
-	log := ctrl.Log.WithName("sync-service")
-	serverProtocol, host, port, err := readEnvVars(log)
+// NewSyncService creates a new instance of SyncService.
+func NewSyncService(log logr.Logger) (*SyncService, error) {
+	serverProtocol, host, port, err := readEnvVars()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to initialize sync service - %w", err)
 	}
+
 	syncServiceClient := client.NewSyncServiceClient(serverProtocol, host, port)
+
 	syncServiceClient.SetAppKeyAndSecret("user@myorg", "")
+
 	return &SyncService{
 		client:   syncServiceClient,
 		log:      log,
@@ -42,38 +46,45 @@ func NewSyncService() (*SyncService, error) {
 	}, nil
 }
 
-func readEnvVars(log logr.Logger) (string, string, uint16, error) {
-	protocol := os.Getenv(syncServiceProtocol)
+func readEnvVars() (string, string, uint16, error) {
+	protocol := os.Getenv(envVarSyncServiceProtocol)
 	if protocol == "" {
-		return "", "", 0, fmt.Errorf("missing environment variable %s", syncServiceProtocol)
+		return "", "", 0, fmt.Errorf("missing environment variable %s", envVarSyncServiceProtocol)
 	}
-	host := os.Getenv(syncServiceHost)
+
+	host := os.Getenv(envVarSyncServiceHost)
 	if host == "" {
-		return "", "", 0, fmt.Errorf("missing environment variable %s", syncServiceHost)
+		return "", "", 0, fmt.Errorf("missing environment variable %s", envVarSyncServiceHost)
 	}
-	portStr := os.Getenv(syncServicePort)
+
+	portStr := os.Getenv(envVarSyncServicePort)
 	if portStr == "" {
-		return "", "", 0, fmt.Errorf("missing environment variable %s", syncServicePort)
+		return "", "", 0, fmt.Errorf("missing environment variable %s", envVarSyncServicePort)
 	}
+
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
-		return "", "", 0, fmt.Errorf("environment variable %s is not int", syncServicePort)
+		return "", "", 0, fmt.Errorf("environment variable %s is not int", envVarSyncServicePort)
 	}
+
 	return protocol, host, uint16(port), nil
 }
 
+// Start function starts sync service.
 func (s *SyncService) Start() {
 	s.startOnce.Do(func() {
 		go s.sendMessages()
 	})
 }
 
+// Stop function stops sync service.
 func (s *SyncService) Stop() {
 	s.stopOnce.Do(func() {
 		close(s.stopChan)
 	})
 }
 
+// SendAsync function sends a message to the sync service asynchronously.
 func (s *SyncService) SendAsync(id string, msgType string, version string, payload []byte) {
 	message := &syncServiceMessage{
 		id:      id,
@@ -84,12 +95,13 @@ func (s *SyncService) SendAsync(id string, msgType string, version string, paylo
 	s.msgChan <- message
 }
 
-// if the object doesn't exist or an error occurred returns an empty string.
+// GetVersion if the object doesn't exist or an error occurred returns an empty string, otherwise returns the version.
 func (s *SyncService) GetVersion(id string, msgType string) string {
 	objectMetadata, err := s.client.GetObjectMetadata(msgType, id)
 	if err != nil {
 		return ""
 	}
+
 	return objectMetadata.Version
 }
 
@@ -104,17 +116,18 @@ func (s *SyncService) sendMessages() {
 				ObjectType: msg.msgType,
 				Version:    msg.version,
 			}
-			err := s.client.UpdateObject(&metaData)
-			if err != nil {
+
+			if err := s.client.UpdateObject(&metaData); err != nil {
 				s.log.Error(err, "Failed to update the object in the Edge Sync Service")
 				continue
 			}
+
 			reader := bytes.NewReader(msg.payload)
-			err = s.client.UpdateObjectData(&metaData, reader)
-			if err != nil {
+			if err := s.client.UpdateObjectData(&metaData, reader); err != nil {
 				s.log.Error(err, "Failed to update the object data in the Edge Sync Service")
 				continue
 			}
+
 			s.log.Info(fmt.Sprintf("Message '%s' from type '%s' with version '%s' sent", msg.id, msg.msgType,
 				msg.version))
 		}

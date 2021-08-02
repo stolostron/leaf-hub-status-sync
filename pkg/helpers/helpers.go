@@ -1,10 +1,12 @@
 package helpers
 
 import (
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	"strconv"
+
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 )
 
+// ContainsString returns true if the string exists in the array and false otherwise
 func ContainsString(slice []string, s string) bool {
 	for _, item := range slice {
 		if item == s {
@@ -15,8 +17,9 @@ func ContainsString(slice []string, s string) bool {
 	return false
 }
 
-func GetBundleGenerationFromTransport(transport transport.Transport, msgId string, msgType string) uint64 {
-	version := transport.GetVersion(msgId, msgType)
+// GetBundleGenerationFromTransport returns bundle generation from transport layer
+func GetBundleGenerationFromTransport(transport transport.Transport, msgID string, msgType string) uint64 {
+	version := transport.GetVersion(msgID, msgType)
 	if version == "" {
 		return 0
 	}

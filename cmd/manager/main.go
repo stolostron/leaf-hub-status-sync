@@ -4,33 +4,32 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
+	"os"
+	"runtime"
+	"time"
+
 	"github.com/go-logr/logr"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	lhSyncService "github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport/sync-service"
-	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
-	"github.com/operator-framework/operator-sdk/pkg/leader"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	"github.com/spf13/pflag"
-	"os"
-	"runtime"
-	"strings"
-	"time"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 )
 
 const (
-	metricsHost              = "0.0.0.0"
-	metricsPort        int32 = 8527
-	syncIntervalEnvVar       = "PERIODIC_SYNC_INTERVAL"
-	leafHubNameEnvVar        = "LH_ID"
+	metricsHost                     = "0.0.0.0"
+	metricsPort               int32 = 8527
+	envVarSyncInterval              = "PERIODIC_SYNC_INTERVAL"
+	envVarLeafHubName               = "LH_ID"
+	envVarControllerNamespace       = "POD_NAMESPACE"
+	leaderElectionLockName          = "leaf-hub-status-sync-lock"
 )
 
 func printVersion(log logr.Logger) {
@@ -39,7 +38,6 @@ func printVersion(log logr.Logger) {
 	log.Info(fmt.Sprintf("Version of operator-sdk: %s", sdkVersion.Version))
 }
 
-// function to handle defers with exit, see https://stackoverflow.com/a/27629493/553720.
 func doMain() int {
 	pflag.CommandLine.AddFlagSet(zap.FlagSet())
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
@@ -50,47 +48,41 @@ func doMain() int {
 
 	printVersion(log)
 
-	namespace, err := k8sutil.GetWatchNamespace()
-	if err != nil {
-		log.Error(err, "Failed to get watch namespace")
+	leaderElectionNamespace, found := os.LookupEnv(envVarControllerNamespace)
+	if !found {
+		log.Error(nil, "Not found:", "environment variable", envVarControllerNamespace)
 		return 1
 	}
 
-	syncIntervalStr := os.Getenv(syncIntervalEnvVar)
-	if syncIntervalStr == "" {
-		log.Error(fmt.Errorf("missing environment variable %s", syncIntervalEnvVar), "failed to initialize")
-		return 1
-	}
-	interval, err := time.ParseDuration(syncIntervalStr)
-	if err != nil {
-		log.Error(err, fmt.Sprintf("the expected var %s is not valid duration", syncIntervalEnvVar))
+	syncIntervalString, found := os.LookupEnv(envVarSyncInterval)
+	if !found {
+		log.Error(nil, "Not found:", "environment variable", envVarSyncInterval)
 		return 1
 	}
 
-	leafHubName := os.Getenv(leafHubNameEnvVar)
-	if leafHubName == "" {
-		log.Error(fmt.Errorf("missing environment variable %s", leafHubNameEnvVar), "failed to initialize")
+	syncInterval, err := time.ParseDuration(syncIntervalString)
+	if err != nil {
+		log.Error(err, "the environment var ", envVarSyncInterval, " is not valid duration")
 		return 1
 	}
 
-	ctx := context.TODO()
-	// Become the leader before proceeding
-	err = leader.Become(ctx, "leaf-hub-status-sync-lock")
-	if err != nil {
-		log.Error(err, "Failed to become leader")
+	leafHubName, found := os.LookupEnv(envVarLeafHubName)
+	if !found {
+		log.Error(nil, "Not found:", "environment variable", envVarLeafHubName)
 		return 1
 	}
 
 	// transport layer initialization
-	syncServiceObj, err := lhSyncService.NewSyncService()
+	syncService, err := lhSyncService.NewSyncService(ctrl.Log.WithName("sync-service"))
 	if err != nil {
 		log.Error(err, "failed to initialize")
 		return 1
 	}
-	syncServiceObj.Start()
-	defer syncServiceObj.Stop()
 
-	mgr, err := createManager(namespace, metricsHost, metricsPort, syncServiceObj, interval, leafHubName)
+	syncService.Start()
+	defer syncService.Stop()
+
+	mgr, err := createManager(leaderElectionNamespace, metricsHost, metricsPort, syncService, syncInterval, leafHubName)
 	if err != nil {
 		log.Error(err, "Failed to create manager")
 		return 1
@@ -106,20 +98,13 @@ func doMain() int {
 	return 0
 }
 
-func createManager(namespace, metricsHost string, metricsPort int32, transport transport.Transport,
+func createManager(leaderElectionNamespace, metricsHost string, metricsPort int32, transport transport.Transport,
 	syncInterval time.Duration, leafHubName string) (ctrl.Manager, error) {
 	options := ctrl.Options{
-		Namespace:          namespace,
-		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
-	}
-
-	// Add support for MultiNamespace set in WATCH_NAMESPACE (e.g ns1,ns2)
-	// Note that this is not intended to be used for excluding namespaces, this is better done via a Predicate
-	// Also note that you may face performance issues when using this with a high number of namespaces.
-	// More Info: https://godoc.org/github.com/kubernetes-sigs/controller-runtime/pkg/cache#MultiNamespacedCacheBuilder
-	if strings.Contains(namespace, ",") {
-		options.Namespace = ""
-		options.NewCache = cache.MultiNamespacedCacheBuilder(strings.Split(namespace, ","))
+		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+		LeaderElection:          true,
+		LeaderElectionID:        leaderElectionLockName,
+		LeaderElectionNamespace: leaderElectionNamespace,
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)

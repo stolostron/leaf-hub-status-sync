@@ -5,15 +5,17 @@ package policies
 
 import (
 	"fmt"
+	"time"
+
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
+	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/generic"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/predicate"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"time"
 )
 
 const (
@@ -22,31 +24,45 @@ const (
 	policyCleanupFinalizer      = "hub-of-hubs.open-cluster-management.io/policy-cleanup"
 )
 
+// AddPoliciesStatusController adds policies status controller to the manager.
 func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport, syncInterval time.Duration,
-	leafHubName string) error {
+	leafHubName string, hubOfHubsConfig *configv1.Config) error {
 	createObjFunction := func() bundle.Object { return &policiesv1.Policy{} }
 
-	// init generation from sync service - generation will start from the last one that was sent.
+	// clusters per policy (base bundle)
 	clustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.ClustersPerPolicyMsgKey)
 	clustersPerPolicyBundle := bundle.NewClustersPerPolicyBundle(leafHubName, helpers.GetBundleGenerationFromTransport(
 		transport, clustersPerPolicyTransportKey, datatypes.StatusBundle))
 
+	// compliance status bundle
 	complianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.PolicyComplianceMsgKey)
 	complianceStatusBundle := bundle.NewComplianceStatusBundle(leafHubName, clustersPerPolicyBundle,
 		helpers.GetBundleGenerationFromTransport(transport, complianceStatusTransportKey, datatypes.StatusBundle))
 
+	// minimal compliance status bundle
+	minComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.MinimalPolicyComplianceMsgKey)
+	minComplianceStatusBundle := bundle.NewMinimalComplianceStatusBundle(leafHubName,
+		helpers.GetBundleGenerationFromTransport(transport, minComplianceStatusTransportKey, datatypes.StatusBundle))
+
+	fullStatusPredicate := func() bool { return hubOfHubsConfig.Spec.AggregationLevel == configv1.Full }
+	minStatusPredicate := func() bool { return hubOfHubsConfig.Spec.AggregationLevel == configv1.Minimal }
+
 	bundleCollection := []*generic.BundleCollectionEntry{ // multiple bundles for policy status
-		generic.NewBundleCollectionEntry(clustersPerPolicyTransportKey, clustersPerPolicyBundle),
-		generic.NewBundleCollectionEntry(complianceStatusTransportKey, complianceStatusBundle),
+		generic.NewBundleCollectionEntry(clustersPerPolicyTransportKey, clustersPerPolicyBundle, fullStatusPredicate),
+		generic.NewBundleCollectionEntry(complianceStatusTransportKey, complianceStatusBundle, fullStatusPredicate),
+		generic.NewBundleCollectionEntry(minComplianceStatusTransportKey, minComplianceStatusBundle,
+			minStatusPredicate),
 	}
-	// initialize policy status controller (sends two bundles, list of clusters per policy and compliance status)
-	err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, transport, policyCleanupFinalizer,
-		bundleCollection, createObjFunction, syncInterval, true, &predicate.HohNamespacePredicate{})
-	if err != nil {
+
+	// initialize policy status controller (contains multiple bundles)
+	if err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, transport, policyCleanupFinalizer,
+		bundleCollection, createObjFunction, syncInterval, true,
+		predicate.HoHNamespacePredicateInstance); err != nil {
 		return err
 	}
+
 	// initialize policy finalizer cleaner from policies that are not in hoh-system namespace (replicated policies)
-	if err = newPolicyFinalizerCleanerController(mgr, policiesFinalizerCleanerLog, policyCleanupFinalizer); err != nil {
+	if err := newPolicyFinalizerCleanerController(mgr, policiesFinalizerCleanerLog, policyCleanupFinalizer); err != nil {
 		return err
 	}
 

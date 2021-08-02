@@ -1,11 +1,13 @@
 package bundle
 
 import (
+	"sync"
+
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"sync"
 )
 
+// NewGenericStatusBundle creates a new instance of GenericStatusBundle.
 func NewGenericStatusBundle(leafHubName string, generation uint64) Bundle {
 	return &GenericStatusBundle{
 		Objects:     make([]Object, 0),
@@ -25,6 +27,7 @@ type GenericStatusBundle struct {
 	lock        sync.Mutex
 }
 
+// UpdateObject function to update a single object inside a bundle.
 func (bundle *GenericStatusBundle) UpdateObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
@@ -44,6 +47,7 @@ func (bundle *GenericStatusBundle) UpdateObject(object Object) {
 	bundle.Generation++
 }
 
+// DeleteObject function to delete a single object inside a bundle.
 func (bundle *GenericStatusBundle) DeleteObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
@@ -56,6 +60,7 @@ func (bundle *GenericStatusBundle) DeleteObject(object Object) {
 	bundle.Generation++
 }
 
+// GetBundleGeneration function to get bundle generation.
 func (bundle *GenericStatusBundle) GetBundleGeneration() uint64 {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()

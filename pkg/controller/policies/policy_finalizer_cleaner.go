@@ -3,6 +3,8 @@ package policies
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/go-logr/logr"
 	v1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
@@ -13,7 +15,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	ctrlpredicate "sigs.k8s.io/controller-runtime/pkg/predicate"
-	"time"
 )
 
 func newPolicyFinalizerCleanerController(mgr ctrl.Manager, logName string, finalizerName string) error {
@@ -41,21 +42,21 @@ func (c *policyFinalizerCleanerController) Reconcile(request ctrl.Request) (ctrl
 
 	ctx := context.Background()
 	object := &v1.Policy{}
-	err := c.client.Get(ctx, request.NamespacedName, object)
-	if apierrors.IsNotFound(err) {
+
+	if err := c.client.Get(ctx, request.NamespacedName, object); apierrors.IsNotFound(err) {
 		return ctrl.Result{}, nil
-	}
-	if err != nil {
+	} else if err != nil {
 		reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
 		return ctrl.Result{Requeue: true, RequeueAfter: generic.RequeuePeriodSeconds * time.Second}, err
 	}
-	if err = c.removeFinalizerAndAnnotation(ctx, object, c.log); err != nil {
+
+	if err := c.removeFinalizerAndAnnotation(ctx, object, c.log); err != nil {
 		reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
 		return ctrl.Result{Requeue: true, RequeueAfter: generic.RequeuePeriodSeconds * time.Second}, err
 	}
 
 	reqLogger.Info("Reconciliation complete.")
-	return ctrl.Result{}, err
+	return ctrl.Result{}, nil
 }
 
 func (c *policyFinalizerCleanerController) removeFinalizerAndAnnotation(ctx context.Context, policy *v1.Policy,
