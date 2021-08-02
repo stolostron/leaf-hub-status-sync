@@ -2,6 +2,8 @@
 
 # Leaf-Hub-Status-Sync
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/open-cluster-management/leaf-hub-status-sync)](https://goreportcard.com/report/github.com/open-cluster-management/leaf-hub-status-sync)
+
 The leaf hub status sync component of [Hub-of-Hubs](https://github.com/open-cluster-management/hub-of-hubs).
 
 ## How it works
