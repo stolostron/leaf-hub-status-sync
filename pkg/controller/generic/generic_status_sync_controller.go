@@ -181,15 +181,18 @@ func (c *genericStatusSyncController) periodicSync() {
 		<-ticker.C // wait for next time interval
 		for _, entry := range c.orderedBundleCollection {
 			if !entry.predicate() { // evaluate if bundle has to be sent only if predicate is true
+				entry.lastPredicateDecision = false
 				continue
 			}
 
 			bundleGeneration := entry.bundle.GetBundleGeneration()
 
-			if bundleGeneration > entry.lastSentBundleGeneration { // send to transport only if bundle has changed
+			// send to transport if bundle has changed or if predicate changed from false to true this cycle
+			if bundleGeneration > entry.lastSentBundleGeneration || !entry.lastPredicateDecision {
 				c.syncToTransport(entry.transportBundleKey, datatypes.StatusBundle,
 					strconv.FormatUint(bundleGeneration, 10), entry.bundle)
 				entry.lastSentBundleGeneration = bundleGeneration
+				entry.lastPredicateDecision = true
 			}
 		}
 	}
