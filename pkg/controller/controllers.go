@@ -26,7 +26,7 @@ func AddToScheme(s *runtime.Scheme) error {
 		return fmt.Errorf("failed to add scheme: %w", err)
 	}
 
-	schemeBuilders := []*scheme.Builder{policiesv1.SchemeBuilder} // add policy scheme
+	schemeBuilders := []*scheme.Builder{policiesv1.SchemeBuilder, configv1.SchemeBuilder} // add schemes
 
 	for _, schemeBuilder := range schemeBuilders {
 		if err := schemeBuilder.AddToScheme(s); err != nil {
