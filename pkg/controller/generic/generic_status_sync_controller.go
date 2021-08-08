@@ -28,9 +28,6 @@ const (
 // CreateObjectFunction is a function for how to create an object that is stored inside the bundle.
 type CreateObjectFunction func() bundle.Object
 
-// Predicate is an instance of GenericPredicate (returns true if contains hub of hubs owner reference annotation).
-var Predicate = &predicate.GenericPredicate{}
-
 // NewGenericStatusSyncController creates a new instnace of genericStatusSyncController and adds it to the manager.
 func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport transport.Transport,
 	finalizerName string, orderedBundleCollection []*BundleCollectionEntry, createObjFunc CreateObjectFunction,
@@ -57,9 +54,9 @@ func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport 
 func getPredicate(genericPredicateFilter bool, additionalPredicate ctrlpredicate.Predicate) ctrlpredicate.Predicate {
 	if genericPredicateFilter { // generic predicate is true
 		if additionalPredicate != nil {
-			return ctrlpredicate.And(Predicate, additionalPredicate) // both generic and additional predicates
+			return ctrlpredicate.And(predicate.GenericPredicate, additionalPredicate)
 		}
-		return Predicate
+		return predicate.GenericPredicate
 	}
 	// if we got here, genericPredicateFilter is false
 	if additionalPredicate != nil {

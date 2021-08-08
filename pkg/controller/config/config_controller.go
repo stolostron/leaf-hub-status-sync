@@ -25,7 +25,7 @@ func AddConfigController(mgr ctrl.Manager, logName string, configObject *configv
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&configv1.Config{}).
-		WithEventFilter(ctrlpredicate.And(generic.Predicate, predicate.HoHNamespacePredicateInstance)).
+		WithEventFilter(ctrlpredicate.And(predicate.GenericPredicate, predicate.HoHNamespacePredicate)).
 		Complete(hubOfHubsConfigCtrl)
 }
 

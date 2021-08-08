@@ -19,9 +19,8 @@ import (
 )
 
 const (
-	policiesStatusSyncLog       = "policies-status-sync"
-	policiesFinalizerCleanerLog = "policies-finalizer-cleanup"
-	policyCleanupFinalizer      = "hub-of-hubs.open-cluster-management.io/policy-cleanup"
+	policiesStatusSyncLog  = "policies-status-sync"
+	policyCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/policy-cleanup"
 )
 
 // AddPoliciesStatusController adds policies status controller to the manager.
@@ -57,12 +56,7 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 	// initialize policy status controller (contains multiple bundles)
 	if err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, transport, policyCleanupFinalizer,
 		bundleCollection, createObjFunction, syncInterval, true,
-		predicate.HoHNamespacePredicateInstance); err != nil {
-		return err
-	}
-
-	// initialize policy finalizer cleaner from policies that are not in hoh-system namespace (replicated policies)
-	if err := newPolicyFinalizerCleanerController(mgr, policiesFinalizerCleanerLog, policyCleanupFinalizer); err != nil {
+		predicate.HoHNamespacePredicate); err != nil {
 		return err
 	}
 
