@@ -36,6 +36,7 @@ func (bundle *GenericStatusBundle) UpdateObject(object Object) {
 	if err != nil { // object not found, need to add it to the bundle
 		bundle.Objects = append(bundle.Objects, object)
 		bundle.Generation++
+
 		return
 	}
 
@@ -43,6 +44,7 @@ func (bundle *GenericStatusBundle) UpdateObject(object Object) {
 	if object.GetResourceVersion() <= bundle.Objects[index].GetResourceVersion() {
 		return // update object only if there is a newer version. check for changes using resourceVersion field
 	}
+
 	bundle.Objects[index] = object
 	bundle.Generation++
 }
@@ -56,7 +58,9 @@ func (bundle *GenericStatusBundle) DeleteObject(object Object) {
 	if err != nil { // trying to delete object which doesn't exist - return with no error
 		return
 	}
+
 	bundle.Objects = append(bundle.Objects[:index], bundle.Objects[index+1:]...) // remove from objects
+
 	bundle.Generation++
 }
 
@@ -74,5 +78,6 @@ func (bundle *GenericStatusBundle) getObjectIndexByUID(uid types.UID) (int, erro
 			return i, nil
 		}
 	}
+
 	return -1, errors.New("object not found")
 }

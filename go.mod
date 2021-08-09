@@ -3,7 +3,8 @@ module github.com/open-cluster-management/leaf-hub-status-sync
 go 1.16
 
 require (
-	github.com/go-logr/logr v0.2.0
+	github.com/go-logr/logr v0.2.1
+	github.com/go-logr/zapr v0.2.0 // indirect
 	github.com/open-cluster-management/api v0.0.0-20210527013639-a6845f2ebcb1
 	github.com/open-cluster-management/governance-policy-propagator v0.0.0-20210520203318-a78632de1e26
 	github.com/open-cluster-management/hub-of-hubs-data-types v0.1.0
@@ -17,8 +18,4 @@ require (
 	sigs.k8s.io/controller-runtime v0.6.2
 )
 
-replace (
-	github.com/go-logr/logr => github.com/go-logr/logr v0.2.1
-	github.com/go-logr/zapr => github.com/go-logr/zapr v0.2.0
-	k8s.io/client-go => k8s.io/client-go v0.20.5
-)
+replace k8s.io/client-go => k8s.io/client-go v0.20.5

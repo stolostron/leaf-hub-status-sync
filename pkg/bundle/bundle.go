@@ -1,9 +1,13 @@
 package bundle
 
 import (
+	"errors"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
+
+var errObjectNotFound = errors.New("object not found")
 
 // Object is an interface for a single object inside a bundle.
 type Object interface {

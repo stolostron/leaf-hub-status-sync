@@ -33,7 +33,11 @@ func (bundle *ClustersPerPolicyBundle) UpdateObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	policy := object.(*policiesv1.Policy)
+	policy, ok := object.(*policiesv1.Policy)
+	if !ok {
+		return // do not handle objects other than policy
+	}
+
 	originPolicyID, found := object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
 	if !found {
 		return // origin owner reference annotation not found, not handling this policy (wasn't sent from hub of hubs)
@@ -43,6 +47,7 @@ func (bundle *ClustersPerPolicyBundle) UpdateObject(object Object) {
 	if err != nil { // object not found, need to add it to the bundle
 		bundle.Objects = append(bundle.Objects, bundle.getClustersPerPolicy(originPolicyID, policy))
 		bundle.Generation++
+
 		return
 	}
 
@@ -92,6 +97,7 @@ func (bundle *ClustersPerPolicyBundle) getObjectIndexByUID(uid string) (int, err
 			return i, nil
 		}
 	}
+
 	return -1, errors.New("object not found")
 }
 
@@ -100,6 +106,7 @@ func (bundle *ClustersPerPolicyBundle) getClusterNames(policy *policiesv1.Policy
 	for i, clusterStatus := range policy.Status.Status {
 		clusterNames[i] = clusterStatus.ClusterName
 	}
+
 	return clusterNames
 }
 
@@ -120,6 +127,7 @@ func (bundle *ClustersPerPolicyBundle) updateObjectIfChanged(objectIndex int, ne
 		if !helpers.ContainsString(oldClusterNames, newClusterName) {
 			bundle.Objects[objectIndex].Clusters = newClusterNames // we found a new cluster, update and mark as changed
 			bundle.Objects[objectIndex].RemediationAction = remediationAction
+
 			return true // if we update clusters, update remediation as well without checking
 		}
 	}
@@ -129,6 +137,7 @@ func (bundle *ClustersPerPolicyBundle) updateObjectIfChanged(objectIndex int, ne
 	if len(oldClusterNames) != len(newClusterNames) {
 		bundle.Objects[objectIndex].Clusters = newClusterNames
 		bundle.Objects[objectIndex].RemediationAction = remediationAction
+
 		return true // if we update clusters, update remediation as well without checking
 	}
 	// check if remediation action was changed or not
@@ -136,5 +145,6 @@ func (bundle *ClustersPerPolicyBundle) updateObjectIfChanged(objectIndex int, ne
 		bundle.Objects[objectIndex].RemediationAction = remediationAction // no need to update clusters, identical
 		return true
 	}
+
 	return false
 }

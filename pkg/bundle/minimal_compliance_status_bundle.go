@@ -1,7 +1,6 @@
 package bundle
 
 import (
-	"errors"
 	"sync"
 
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
@@ -32,7 +31,11 @@ func (bundle *MinimalComplianceStatusBundle) UpdateObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	policy := object.(*policiesv1.Policy)
+	policy, ok := object.(*policiesv1.Policy)
+	if !ok {
+		return // do not handle objects other than policy
+	}
+
 	originPolicyID, found := object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
 	if !found {
 		return // origin owner reference annotation not found, not handling this policy (wasn't sent from hub of hubs)
@@ -42,6 +45,7 @@ func (bundle *MinimalComplianceStatusBundle) UpdateObject(object Object) {
 	if err != nil { // object not found, need to add it to the bundle
 		bundle.Objects = append(bundle.Objects, bundle.getMinimalPolicyComplianceStatus(originPolicyID, policy))
 		bundle.Generation++
+
 		return
 	}
 
@@ -87,7 +91,8 @@ func (bundle *MinimalComplianceStatusBundle) getObjectIndexByUID(uid string) (in
 			return i, nil
 		}
 	}
-	return -1, errors.New("object not found")
+
+	return -1, errObjectNotFound
 }
 
 func (bundle *MinimalComplianceStatusBundle) getMinimalPolicyComplianceStatus(originPolicyID string,

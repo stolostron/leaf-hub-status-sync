@@ -37,7 +37,10 @@ func AddClustersStatusController(mgr ctrl.Manager, transport transport.Transport
 			}), // at this point send all managed clusters even if aggregation level is minimal
 	}
 
-	return generic.NewGenericStatusSyncController(mgr, clusterStatusSyncLogName, transport,
-		managedClusterCleanupFinalizer, bundleCollection, createObjFunction, syncInterval, false,
-		nil)
+	if err := generic.NewGenericStatusSyncController(mgr, clusterStatusSyncLogName, transport,
+		managedClusterCleanupFinalizer, bundleCollection, createObjFunction, syncInterval, nil); err != nil {
+		return fmt.Errorf("failed to add controller to the manager - %w", err)
+	}
+
+	return nil
 }

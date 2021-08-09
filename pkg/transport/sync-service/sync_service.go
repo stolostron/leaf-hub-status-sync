@@ -2,6 +2,7 @@ package syncservice
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -15,6 +16,11 @@ const (
 	envVarSyncServiceProtocol = "SYNC_SERVICE_PROTOCOL"
 	envVarSyncServiceHost     = "SYNC_SERVICE_HOST"
 	envVarSyncServicePort     = "SYNC_SERVICE_PORT"
+)
+
+var (
+	errEnvVarNotFound  = errors.New("not found environment variable")
+	errEnvVarWrongType = errors.New("wrong type of environment variable")
 )
 
 // SyncService abstracts Sync Service client.
@@ -49,22 +55,22 @@ func NewSyncService(log logr.Logger) (*SyncService, error) {
 func readEnvVars() (string, string, uint16, error) {
 	protocol := os.Getenv(envVarSyncServiceProtocol)
 	if protocol == "" {
-		return "", "", 0, fmt.Errorf("missing environment variable %s", envVarSyncServiceProtocol)
+		return "", "", 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarSyncServiceProtocol)
 	}
 
 	host := os.Getenv(envVarSyncServiceHost)
 	if host == "" {
-		return "", "", 0, fmt.Errorf("missing environment variable %s", envVarSyncServiceHost)
+		return "", "", 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarSyncServiceHost)
 	}
 
 	portStr := os.Getenv(envVarSyncServicePort)
 	if portStr == "" {
-		return "", "", 0, fmt.Errorf("missing environment variable %s", envVarSyncServicePort)
+		return "", "", 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarSyncServicePort)
 	}
 
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
-		return "", "", 0, fmt.Errorf("environment variable %s is not int", envVarSyncServicePort)
+		return "", "", 0, fmt.Errorf("%w: %s must be an integer", errEnvVarWrongType, envVarSyncServicePort)
 	}
 
 	return protocol, host, uint16(port), nil

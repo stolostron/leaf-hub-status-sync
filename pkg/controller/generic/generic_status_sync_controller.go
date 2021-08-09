@@ -11,7 +11,6 @@ import (
 	"github.com/go-logr/logr"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/predicate"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -21,7 +20,7 @@ import (
 )
 
 const (
-	// RequeuePeriodSeconds is the time to wait until reconciliation retry in failure cases
+	// RequeuePeriodSeconds is the time to wait until reconciliation retry in failure cases.
 	RequeuePeriodSeconds = 5
 )
 
@@ -31,7 +30,7 @@ type CreateObjectFunction func() bundle.Object
 // NewGenericStatusSyncController creates a new instnace of genericStatusSyncController and adds it to the manager.
 func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport transport.Transport,
 	finalizerName string, orderedBundleCollection []*BundleCollectionEntry, createObjFunc CreateObjectFunction,
-	syncInterval time.Duration, genericPredicateFilter bool, additionalPredicate ctrlpredicate.Predicate) error {
+	syncInterval time.Duration, predicate ctrlpredicate.Predicate) error {
 	statusSyncCtrl := &genericStatusSyncController{
 		client:                  mgr.GetClient(),
 		log:                     ctrl.Log.WithName(logName),
@@ -40,28 +39,18 @@ func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport 
 		finalizerName:           finalizerName,
 		createObjFunc:           createObjFunc,
 		periodicSyncInterval:    syncInterval,
-		genericPredicateFilter:  genericPredicateFilter,
 	}
 	statusSyncCtrl.init()
 
 	controllerBuilder := ctrl.NewControllerManagedBy(mgr).For(createObjFunc())
-	if predicateToSet := getPredicate(genericPredicateFilter, additionalPredicate); predicateToSet != nil {
-		controllerBuilder = controllerBuilder.WithEventFilter(predicateToSet)
+	if predicate != nil {
+		controllerBuilder = controllerBuilder.WithEventFilter(predicate)
 	}
-	return controllerBuilder.Complete(statusSyncCtrl)
-}
 
-func getPredicate(genericPredicateFilter bool, additionalPredicate ctrlpredicate.Predicate) ctrlpredicate.Predicate {
-	if genericPredicateFilter { // generic predicate is true
-		if additionalPredicate != nil {
-			return ctrlpredicate.And(predicate.GenericPredicate, additionalPredicate)
-		}
-		return predicate.GenericPredicate
+	if err := controllerBuilder.Complete(statusSyncCtrl); err != nil {
+		return fmt.Errorf("failed to add controller to the manager - %w", err)
 	}
-	// if we got here, genericPredicateFilter is false
-	if additionalPredicate != nil {
-		return additionalPredicate
-	}
+
 	return nil
 }
 
@@ -74,7 +63,6 @@ type genericStatusSyncController struct {
 	createObjFunc           CreateObjectFunction
 	periodicSyncInterval    time.Duration
 	startOnce               sync.Once
-	genericPredicateFilter  bool
 }
 
 func (c *genericStatusSyncController) init() {
@@ -97,7 +85,8 @@ func (c *genericStatusSyncController) Reconcile(request ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, nil
 	} else if err != nil {
 		reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
-		return ctrl.Result{Requeue: true, RequeueAfter: RequeuePeriodSeconds * time.Second}, err
+		return ctrl.Result{Requeue: true, RequeueAfter: RequeuePeriodSeconds * time.Second},
+			fmt.Errorf("reconciliation failed: %w", err)
 	}
 
 	if c.isObjectBeingDeleted(object) {
@@ -113,6 +102,7 @@ func (c *genericStatusSyncController) Reconcile(request ctrl.Request) (ctrl.Resu
 	}
 
 	reqLogger.Info("Reconciliation complete.")
+
 	return ctrl.Result{}, nil
 }
 
@@ -123,10 +113,11 @@ func (c *genericStatusSyncController) isObjectBeingDeleted(object bundle.Object)
 func (c *genericStatusSyncController) updateObjectAndFinalizer(ctx context.Context, object bundle.Object,
 	log logr.Logger) error {
 	if err := c.addFinalizer(ctx, object, log); err != nil {
-		return err
+		return fmt.Errorf("failed to add finalizer - %w", err)
 	}
 
 	cleanObject(object)
+
 	for _, entry := range c.orderedBundleCollection {
 		entry.bundle.UpdateObject(object) // update in each bundle from the collection according to their order
 	}
@@ -143,8 +134,9 @@ func (c *genericStatusSyncController) addFinalizer(ctx context.Context, object b
 	controllerutil.AddFinalizer(object, c.finalizerName)
 
 	if err := c.client.Update(ctx, object); err != nil {
-		return fmt.Errorf("failed to add finalizer %s, requeue in order to retry", c.finalizerName)
+		return fmt.Errorf("failed to add finalizer %s - %w", c.finalizerName, err)
 	}
+
 	return nil
 }
 
@@ -157,7 +149,8 @@ func (c *genericStatusSyncController) deleteObjectAndFinalizer(ctx context.Conte
 	return c.removeFinalizer(ctx, object, log)
 }
 
-func (c *genericStatusSyncController) removeFinalizer(ctx context.Context, object bundle.Object, log logr.Logger) error {
+func (c *genericStatusSyncController) removeFinalizer(ctx context.Context, object bundle.Object,
+	log logr.Logger) error {
 	if !controllerutil.ContainsFinalizer(object, c.finalizerName) {
 		return nil // if finalizer is not there, do nothing
 	}
@@ -166,7 +159,7 @@ func (c *genericStatusSyncController) removeFinalizer(ctx context.Context, objec
 	controllerutil.RemoveFinalizer(object, c.finalizerName)
 
 	if err := c.client.Update(ctx, object); err != nil {
-		return fmt.Errorf("failed to remove finalizer %s, requeue in order to retry", c.finalizerName)
+		return fmt.Errorf("failed to remove finalizer %s - %w", c.finalizerName, err)
 	}
 
 	return nil
@@ -174,8 +167,10 @@ func (c *genericStatusSyncController) removeFinalizer(ctx context.Context, objec
 
 func (c *genericStatusSyncController) periodicSync() {
 	ticker := time.NewTicker(c.periodicSyncInterval)
+
 	for {
 		<-ticker.C // wait for next time interval
+
 		for _, entry := range c.orderedBundleCollection {
 			if !entry.predicate() { // evaluate if bundle has to be sent only if predicate is true
 				entry.lastPredicateDecision = false
@@ -188,6 +183,7 @@ func (c *genericStatusSyncController) periodicSync() {
 			if bundleGeneration > entry.lastSentBundleGeneration || !entry.lastPredicateDecision {
 				c.syncToTransport(entry.transportBundleKey, datatypes.StatusBundle,
 					strconv.FormatUint(bundleGeneration, 10), entry.bundle)
+
 				entry.lastSentBundleGeneration = bundleGeneration
 				entry.lastPredicateDecision = true
 			}

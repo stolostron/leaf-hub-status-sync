@@ -12,10 +12,12 @@ import (
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/generic"
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/predicate"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 const (
@@ -53,11 +55,18 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 			minStatusPredicate),
 	}
 
+	hohNamespacePredicate := predicate.NewPredicateFuncs(func(meta metav1.Object, object runtime.Object) bool {
+		return meta.GetNamespace() == datatypes.HohSystemNamespace
+	})
+	ownerRefAnnotationPredicate := predicate.NewPredicateFuncs(func(meta metav1.Object, object runtime.Object) bool {
+		return helpers.HasAnnotation(meta, datatypes.OriginOwnerReferenceAnnotation)
+	})
+
 	// initialize policy status controller (contains multiple bundles)
 	if err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, transport, policyCleanupFinalizer,
-		bundleCollection, createObjFunction, syncInterval, true,
-		predicate.HoHNamespacePredicate); err != nil {
-		return err
+		bundleCollection, createObjFunction, syncInterval,
+		predicate.And(hohNamespacePredicate, ownerRefAnnotationPredicate)); err != nil {
+		return fmt.Errorf("failed to add controller to the manager - %w", err)
 	}
 
 	return nil
