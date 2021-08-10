@@ -41,6 +41,11 @@ func AddToScheme(s *runtime.Scheme) error {
 func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, syncInterval time.Duration,
 	leafHubName string) error {
 	config := &configv1.Config{}
+
+	if err := configCtrl.AddConfigController(mgr, "hub-of-hubs-config", config); err != nil {
+		return fmt.Errorf("failed to add controller: %w", err)
+	}
+
 	addControllerFunctions := []func(ctrl.Manager, transport.Transport, time.Duration, string, *configv1.Config) error{
 		managedclusters.AddClustersStatusController, policies.AddPoliciesStatusController,
 	}
@@ -49,10 +54,6 @@ func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, syncInt
 		if err := addControllerFunction(mgr, transportImpl, syncInterval, leafHubName, config); err != nil {
 			return fmt.Errorf("failed to add controller: %w", err)
 		}
-	}
-
-	if err := configCtrl.AddConfigController(mgr, "hub-of-hubs-config", config); err != nil {
-		return fmt.Errorf("failed to add controller: %w", err)
 	}
 
 	return nil
