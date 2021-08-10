@@ -16,7 +16,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	ctrlpredicate "sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 const (
@@ -30,7 +30,7 @@ type CreateObjectFunction func() bundle.Object
 // NewGenericStatusSyncController creates a new instnace of genericStatusSyncController and adds it to the manager.
 func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport transport.Transport,
 	finalizerName string, orderedBundleCollection []*BundleCollectionEntry, createObjFunc CreateObjectFunction,
-	syncInterval time.Duration, predicate ctrlpredicate.Predicate) error {
+	syncInterval time.Duration, predicate predicate.Predicate) error {
 	statusSyncCtrl := &genericStatusSyncController{
 		client:                  mgr.GetClient(),
 		log:                     ctrl.Log.WithName(logName),
@@ -173,19 +173,17 @@ func (c *genericStatusSyncController) periodicSync() {
 
 		for _, entry := range c.orderedBundleCollection {
 			if !entry.predicate() { // evaluate if bundle has to be sent only if predicate is true
-				entry.lastPredicateDecision = false
 				continue
 			}
 
 			bundleGeneration := entry.bundle.GetBundleGeneration()
 
-			// send to transport if bundle has changed or if predicate changed from false to true this cycle
-			if bundleGeneration > entry.lastSentBundleGeneration || !entry.lastPredicateDecision {
+			// send to transport only if bundle has changed
+			if bundleGeneration > entry.lastSentBundleGeneration {
 				c.syncToTransport(entry.transportBundleKey, datatypes.StatusBundle,
 					strconv.FormatUint(bundleGeneration, 10), entry.bundle)
 
 				entry.lastSentBundleGeneration = bundleGeneration
-				entry.lastPredicateDecision = true
 			}
 		}
 	}

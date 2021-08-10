@@ -12,7 +12,6 @@ func NewBundleCollectionEntry(transportBundleKey string, bundle bundle.Bundle,
 		bundle:                   bundle,
 		predicate:                predicate,
 		lastSentBundleGeneration: bundle.GetBundleGeneration(),
-		lastPredicateDecision:    predicate(),
 	}
 }
 
@@ -22,5 +21,4 @@ type BundleCollectionEntry struct {
 	bundle                   bundle.Bundle
 	predicate                func() bool
 	lastSentBundleGeneration uint64
-	lastPredicateDecision    bool
 }
