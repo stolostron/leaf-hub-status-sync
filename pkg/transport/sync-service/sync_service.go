@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/go-logr/logr"
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	"github.com/open-horizon/edge-sync-service-client/client"
 )
 
@@ -22,16 +23,6 @@ var (
 	errEnvVarNotFound  = errors.New("not found environment variable")
 	errEnvVarWrongType = errors.New("wrong type of environment variable")
 )
-
-// SyncService abstracts Sync Service client.
-type SyncService struct {
-	client    *client.SyncServiceClient
-	msgChan   chan *syncServiceMessage
-	stopChan  chan struct{}
-	startOnce sync.Once
-	stopOnce  sync.Once
-	log       logr.Logger
-}
 
 // NewSyncService creates a new instance of SyncService.
 func NewSyncService(log logr.Logger) (*SyncService, error) {
@@ -47,9 +38,19 @@ func NewSyncService(log logr.Logger) (*SyncService, error) {
 	return &SyncService{
 		client:   syncServiceClient,
 		log:      log,
-		msgChan:  make(chan *syncServiceMessage),
+		msgChan:  make(chan *transport.Message),
 		stopChan: make(chan struct{}, 1),
 	}, nil
+}
+
+// SyncService abstracts Sync Service client.
+type SyncService struct {
+	client    *client.SyncServiceClient
+	msgChan   chan *transport.Message
+	stopChan  chan struct{}
+	startOnce sync.Once
+	stopOnce  sync.Once
+	log       logr.Logger
 }
 
 func readEnvVars() (string, string, uint16, error) {
@@ -92,11 +93,11 @@ func (s *SyncService) Stop() {
 
 // SendAsync function sends a message to the sync service asynchronously.
 func (s *SyncService) SendAsync(id string, msgType string, version string, payload []byte) {
-	message := &syncServiceMessage{
-		id:      id,
-		msgType: msgType,
-		version: version,
-		payload: payload,
+	message := &transport.Message{
+		ID:      id,
+		MsgType: msgType,
+		Version: version,
+		Payload: payload,
 	}
 	s.msgChan <- message
 }
@@ -118,9 +119,9 @@ func (s *SyncService) sendMessages() {
 			return
 		case msg := <-s.msgChan:
 			metaData := client.ObjectMetaData{
-				ObjectID:   msg.id,
-				ObjectType: msg.msgType,
-				Version:    msg.version,
+				ObjectID:   msg.ID,
+				ObjectType: msg.MsgType,
+				Version:    msg.Version,
 			}
 
 			if err := s.client.UpdateObject(&metaData); err != nil {
@@ -128,14 +129,14 @@ func (s *SyncService) sendMessages() {
 				continue
 			}
 
-			reader := bytes.NewReader(msg.payload)
+			reader := bytes.NewReader(msg.Payload)
 			if err := s.client.UpdateObjectData(&metaData, reader); err != nil {
 				s.log.Error(err, "Failed to update the object data in the Edge Sync Service")
 				continue
 			}
 
-			s.log.Info(fmt.Sprintf("Message '%s' from type '%s' with version '%s' sent", msg.id, msg.msgType,
-				msg.version))
+			s.log.Info(fmt.Sprintf("Message '%s' from type '%s' with version '%s' sent", msg.ID, msg.MsgType,
+				msg.Version))
 		}
 	}
 }
