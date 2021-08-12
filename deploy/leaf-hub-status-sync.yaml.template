@@ -95,6 +95,16 @@ spec:
                 fieldRef:
                  apiVersion: v1
                  fieldPath: metadata.namespace
+            - name: LH_TRANSPORT_TYPE
+              value: "$LH_TRANSPORT_TYPE"
+            - name: KAFKA_PRODUCER_ID
+              value: "lh-status-producer"
+            - name: KAFKA_PRODUCER_HOSTS
+              value: "$KAFKA_PRODUCER_HOSTS"
+            - name: KAFKA_PRODUCER_TOPIC
+              value: "status-path-topic"
+            - name: KAFKA_SSL_CA
+              value: "enabled"
             - name: SYNC_SERVICE_PROTOCOL
               value: "http"
             - name: SYNC_SERVICE_HOST

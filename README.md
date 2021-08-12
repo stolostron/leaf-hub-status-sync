@@ -38,17 +38,36 @@ The leaf hub status sync component of [Hub-of-Hubs](https://github.com/open-clus
     ```
     $ export IMAGE=$REGISTRY/$(basename $(pwd)):latest
     ```
-
-1.  Set the `SYNC_SERVICE_PORT` environment variable to hold the ESS port as was setup in the leaf hub.
-    ```
-    $ export SYNC_SERVICE_PORT=...
-    ```
     
 1.  Set the `LH_ID` environment variable to hold the leaf hub unique id.
     ```
     $ export LH_ID=...
     ```
     
+1.  Set the `LH_TRANSPORT_TYPE` environment variable to "kafka" or "syncservice" to set which transport to use.
+    ```
+    $ export LH_TRANSPORT_TYPE=...
+    ```
+    
+If you chose Kafka for transport, set the following environment variables:
+
+1.  Set the `KAFKA_PRODUCER_ID` environment variable to hold the ID of the producer.
+    ```
+    $ export KAFKA_PRODUCER_ID=...
+    ```
+
+1.  Set the `KAFKA_HOSTS` environment variable to hold the kafka bootstrap servers host.
+    ```
+    $ export KAFKA_PRODUCER_ID=...
+    ```
+
+Otherwise, if you chose Sync-Service as transport, set the following:
+
+1.  Set the `SYNC_SERVICE_PORT` environment variable to hold the ESS port as was setup in the leaf hub.
+    ```
+    $ export SYNC_SERVICE_PORT=...
+    ```
+
 1.  Run the following command to deploy the `leaf-hub-status-sync` to your leaf hub cluster:  
     ```
     envsubst < deploy/leaf-hub-status-sync.yaml.template | kubectl apply -f -

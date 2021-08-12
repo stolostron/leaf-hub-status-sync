@@ -4,6 +4,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
+	kafkaclient "github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport/kafka-client"
 	lhSyncService "github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport/sync-service"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
@@ -24,18 +26,82 @@ import (
 )
 
 const (
-	metricsHost                     = "0.0.0.0"
-	metricsPort               int32 = 8527
-	envVarSyncInterval              = "PERIODIC_SYNC_INTERVAL"
-	envVarLeafHubName               = "LH_ID"
-	envVarControllerNamespace       = "POD_NAMESPACE"
-	leaderElectionLockName          = "leaf-hub-status-sync-lock"
+	metricsHost                        = "0.0.0.0"
+	metricsPort                  int32 = 8527
+	kafkaTransportTypeName             = "kafka"
+	syncServiceTransportTypeName       = "syncservice"
+	envVarSyncInterval                 = "PERIODIC_SYNC_INTERVAL"
+	envVarLeafHubName                  = "LH_ID"
+	envVarControllerNamespace          = "POD_NAMESPACE"
+	envVarTransportComponent           = "LH_TRANSPORT_TYPE"
+	leaderElectionLockName             = "leaf-hub-status-sync-lock"
+)
+
+var (
+	errEnvVarNotFound     = errors.New("not found environment variable")
+	errEnvVarIllegalValue = errors.New("environment variable illegal value")
 )
 
 func printVersion(log logr.Logger) {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
 	log.Info(fmt.Sprintf("Version of operator-sdk: %s", sdkVersion.Version))
+}
+
+// function to choose transport type based on env var.
+func getTransport(transportType string) (transport.Transport, error) {
+	switch transportType {
+	case kafkaTransportTypeName:
+		kafkaProducer, err := kafkaclient.NewLHProducer(ctrl.Log.WithName("kafka-client"))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create lh-kafka-producer: %w", err)
+		}
+
+		return kafkaProducer, nil
+	case syncServiceTransportTypeName:
+		syncService, err := lhSyncService.NewSyncService(ctrl.Log.WithName("sync-service"))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create sync-service: %w", err)
+		}
+
+		return syncService, nil
+	default:
+		return nil, errEnvVarIllegalValue
+	}
+}
+
+func readEnvVars(log logr.Logger) (string, time.Duration, string, string, error) {
+	leaderElectionNamespace, found := os.LookupEnv(envVarControllerNamespace)
+	if !found {
+		log.Error(nil, "Not found:", "environment variable", envVarControllerNamespace)
+		return "", 0, "", "", errEnvVarNotFound
+	}
+
+	syncIntervalString, found := os.LookupEnv(envVarSyncInterval)
+	if !found {
+		log.Error(nil, "Not found:", "environment variable", envVarSyncInterval)
+		return "", 0, "", "", errEnvVarNotFound
+	}
+
+	syncInterval, err := time.ParseDuration(syncIntervalString)
+	if err != nil {
+		log.Error(err, "the environment var ", envVarSyncInterval, " is not valid duration")
+		return "", 0, "", "", errEnvVarNotFound
+	}
+
+	leafHubName, found := os.LookupEnv(envVarLeafHubName)
+	if !found {
+		log.Error(nil, "Not found:", "environment variable", envVarLeafHubName)
+		return "", 0, "", "", errEnvVarNotFound
+	}
+
+	transportType, found := os.LookupEnv(envVarTransportComponent)
+	if !found {
+		log.Error(nil, "Not found:", "environment variable", envVarTransportComponent)
+		return "", 0, "", "", errEnvVarNotFound
+	}
+
+	return leaderElectionNamespace, syncInterval, leafHubName, transportType, nil
 }
 
 func doMain() int {
@@ -48,41 +114,22 @@ func doMain() int {
 
 	printVersion(log)
 
-	leaderElectionNamespace, found := os.LookupEnv(envVarControllerNamespace)
-	if !found {
-		log.Error(nil, "Not found:", "environment variable", envVarControllerNamespace)
-		return 1
-	}
-
-	syncIntervalString, found := os.LookupEnv(envVarSyncInterval)
-	if !found {
-		log.Error(nil, "Not found:", "environment variable", envVarSyncInterval)
-		return 1
-	}
-
-	syncInterval, err := time.ParseDuration(syncIntervalString)
+	leaderElectionNamespace, syncInterval, leafHubName, transportType, err := readEnvVars(log)
 	if err != nil {
-		log.Error(err, "the environment var ", envVarSyncInterval, " is not valid duration")
-		return 1
-	}
-
-	leafHubName, found := os.LookupEnv(envVarLeafHubName)
-	if !found {
-		log.Error(nil, "Not found:", "environment variable", envVarLeafHubName)
 		return 1
 	}
 
 	// transport layer initialization
-	syncService, err := lhSyncService.NewSyncService(ctrl.Log.WithName("sync-service"))
+	transportObj, err := getTransport(transportType)
 	if err != nil {
-		log.Error(err, "failed to initialize")
+		log.Error(err, "initialization error", "failed to initialize", transportType)
 		return 1
 	}
 
-	syncService.Start()
-	defer syncService.Stop()
+	transportObj.Start()
+	defer transportObj.Stop()
 
-	mgr, err := createManager(leaderElectionNamespace, metricsHost, metricsPort, syncService, syncInterval, leafHubName)
+	mgr, err := createManager(leaderElectionNamespace, metricsHost, metricsPort, transportObj, syncInterval, leafHubName)
 	if err != nil {
 		log.Error(err, "Failed to create manager")
 		return 1
