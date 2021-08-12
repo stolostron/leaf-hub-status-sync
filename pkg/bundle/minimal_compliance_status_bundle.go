@@ -20,6 +20,10 @@ func NewMinimalComplianceStatusBundle(leafHubName string, generation uint64) Bun
 	}
 }
 
+func (bundle *MinimalComplianceStatusBundle) Clone(leafHubName string) Bundle {
+	return NewMinimalComplianceStatusBundle(leafHubName, bundle.Generation)
+}
+
 // MinimalComplianceStatusBundle abstracts management of minimal compliance status bundle.
 type MinimalComplianceStatusBundle struct {
 	statusbundle.BaseMinimalComplianceStatusBundle

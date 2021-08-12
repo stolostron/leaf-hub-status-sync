@@ -26,11 +26,12 @@ const (
 
 // CreateObjectFunction is a function for how to create an object that is stored inside the bundle.
 type CreateObjectFunction func() bundle.Object
+type BundleEntryReplicator func(entry *BundleCollectionEntry) []*BundleCollectionEntry
 
 // NewGenericStatusSyncController creates a new instnace of genericStatusSyncController and adds it to the manager.
 func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport transport.Transport,
 	finalizerName string, orderedBundleCollection []*BundleCollectionEntry, createObjFunc CreateObjectFunction,
-	syncInterval time.Duration, predicate predicate.Predicate) error {
+	syncInterval time.Duration, predicate predicate.Predicate, bundleEntryReplicator BundleEntryReplicator) error {
 	statusSyncCtrl := &genericStatusSyncController{
 		client:                  mgr.GetClient(),
 		log:                     ctrl.Log.WithName(logName),
@@ -39,6 +40,7 @@ func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport 
 		finalizerName:           finalizerName,
 		createObjFunc:           createObjFunc,
 		periodicSyncInterval:    syncInterval,
+		bundleEntryReplicator:   bundleEntryReplicator,
 	}
 	statusSyncCtrl.init()
 
@@ -63,6 +65,7 @@ type genericStatusSyncController struct {
 	createObjFunc           CreateObjectFunction
 	periodicSyncInterval    time.Duration
 	startOnce               sync.Once
+	bundleEntryReplicator   BundleEntryReplicator
 }
 
 func (c *genericStatusSyncController) init() {
@@ -180,8 +183,22 @@ func (c *genericStatusSyncController) periodicSync() {
 
 			// send to transport only if bundle has changed
 			if bundleGeneration > entry.lastSentBundleGeneration {
-				c.syncToTransport(entry.transportBundleKey, datatypes.StatusBundle,
-					strconv.FormatUint(bundleGeneration, 10), entry.bundle)
+				// prepare replicatedEntries slice to hold original and replicated entries
+				// in case of simulation multiple LHs or for other purposes
+				var replicatedEntries = make([]*BundleCollectionEntry, 1)
+
+				// always append original entry as a first item
+				replicatedEntries = append(replicatedEntries, entry)
+
+				// append entry's replicas in case bundleEntryReplicator callback is provided
+				if c.bundleEntryReplicator != nil {
+					replicatedEntries = append(replicatedEntries, c.bundleEntryReplicator(entry)...)
+				}
+
+				for _, replicatedEntry := range replicatedEntries {
+					c.syncToTransport(replicatedEntry.transportBundleKey, datatypes.StatusBundle,
+						strconv.FormatUint(bundleGeneration, 10), replicatedEntry.bundle)
+				}
 
 				entry.lastSentBundleGeneration = bundleGeneration
 			}

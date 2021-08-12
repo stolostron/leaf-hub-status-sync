@@ -22,6 +22,10 @@ func NewClustersPerPolicyBundle(leafHubName string, generation uint64) Bundle {
 	}
 }
 
+func (bundle *ClustersPerPolicyBundle) Clone(leafHubName string) Bundle {
+	return NewClustersPerPolicyBundle(leafHubName, bundle.Generation)
+}
+
 // ClustersPerPolicyBundle abstracts management of clusters per policy bundle.
 type ClustersPerPolicyBundle struct {
 	statusbundle.BaseClustersPerPolicyBundle

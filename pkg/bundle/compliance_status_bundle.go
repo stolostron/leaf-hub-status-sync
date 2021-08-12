@@ -23,6 +23,10 @@ func NewComplianceStatusBundle(leafHubName string, baseBundle Bundle, generation
 	}
 }
 
+func (bundle *ComplianceStatusBundle) Clone(leafHubName string) Bundle {
+	return NewComplianceStatusBundle(leafHubName, bundle, bundle.Generation)
+}
+
 // ComplianceStatusBundle abstracts management of compliance status bundle.
 type ComplianceStatusBundle struct {
 	statusbundle.BaseComplianceStatusBundle

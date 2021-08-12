@@ -17,6 +17,8 @@ type Object interface {
 
 // Bundle is an abstraction for managing different bundle types.
 type Bundle interface {
+	// Clone the bundle with new LH name (needed for simulation)
+	Clone(leafHubName string) Bundle
 	// UpdateObject function to update a single object inside a bundle.
 	UpdateObject(object Object)
 	// DeleteObject function to delete a single object inside a bundle.

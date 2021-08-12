@@ -5,6 +5,8 @@ package policies
 
 import (
 	"fmt"
+	"os"
+	"strconv"
 	"time"
 
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
@@ -23,6 +25,8 @@ import (
 const (
 	policiesStatusSyncLog  = "policies-status-sync"
 	policyCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/policy-cleanup"
+	envSimulateLeafHubs    = "SIMULATE_LEAF_HUBS"
+	numOfSimulatedLeafHubs = 10
 )
 
 // AddPoliciesStatusController adds policies status controller to the manager.
@@ -62,12 +66,35 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 		return helpers.HasAnnotation(meta, datatypes.OriginOwnerReferenceAnnotation)
 	})
 
+	// whether we run multiple LHs simulation or not
+	simulateLeafHubs, found := os.LookupEnv(envSimulateLeafHubs)
+	var entryReplicator generic.BundleEntryReplicator = nil
+
+	if found {
+		if value, err := strconv.ParseBool(simulateLeafHubs); err == nil && value {
+			entryReplicator = policyBundleEntryReplicator
+		}
+	}
+
 	// initialize policy status controller (contains multiple bundles)
 	if err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, transport, policyCleanupFinalizer,
 		bundleCollection, createObjFunction, syncInterval,
-		predicate.And(hohNamespacePredicate, ownerRefAnnotationPredicate)); err != nil {
+		predicate.And(hohNamespacePredicate, ownerRefAnnotationPredicate),
+		entryReplicator); err != nil {
 		return fmt.Errorf("failed to add controller to the manager - %w", err)
 	}
 
 	return nil
+}
+
+func policyBundleEntryReplicator(entry *generic.BundleCollectionEntry) []*generic.BundleCollectionEntry {
+	var replicatedEntries = make([]*generic.BundleCollectionEntry, numOfSimulatedLeafHubs)
+
+	for i := 1; i <= numOfSimulatedLeafHubs; i++ {
+		var leafHubName = "SimulatedLeafHub_" + strconv.Itoa(i)
+
+		replicatedEntries = append(replicatedEntries, entry.Clone(leafHubName))
+	}
+
+	return replicatedEntries
 }
