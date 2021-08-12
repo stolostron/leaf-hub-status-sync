@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/jinzhu/copier"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
@@ -31,7 +32,7 @@ type BundleEntryReplicator func(entry *BundleCollectionEntry) []*BundleCollectio
 // NewGenericStatusSyncController creates a new instnace of genericStatusSyncController and adds it to the manager.
 func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport transport.Transport,
 	finalizerName string, orderedBundleCollection []*BundleCollectionEntry, createObjFunc CreateObjectFunction,
-	syncInterval time.Duration, predicate predicate.Predicate, bundleEntryReplicator BundleEntryReplicator) error {
+	syncInterval time.Duration, predicate predicate.Predicate, numOfSimulatedLeafHubs int) error {
 	statusSyncCtrl := &genericStatusSyncController{
 		client:                  mgr.GetClient(),
 		log:                     ctrl.Log.WithName(logName),
@@ -40,7 +41,7 @@ func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport 
 		finalizerName:           finalizerName,
 		createObjFunc:           createObjFunc,
 		periodicSyncInterval:    syncInterval,
-		bundleEntryReplicator:   bundleEntryReplicator,
+		numOfSimulatedLeafHubs:  numOfSimulatedLeafHubs,
 	}
 	statusSyncCtrl.init()
 
@@ -65,7 +66,7 @@ type genericStatusSyncController struct {
 	createObjFunc           CreateObjectFunction
 	periodicSyncInterval    time.Duration
 	startOnce               sync.Once
-	bundleEntryReplicator   BundleEntryReplicator
+	numOfSimulatedLeafHubs  int
 }
 
 func (c *genericStatusSyncController) init() {
@@ -183,19 +184,22 @@ func (c *genericStatusSyncController) periodicSync() {
 
 			// send to transport only if bundle has changed
 			if bundleGeneration > entry.lastSentBundleGeneration {
-				// prepare replicatedEntries slice to hold original and replicated entries
-				// in case of simulation multiple LHs or for other purposes
-				var replicatedEntries = make([]*BundleCollectionEntry, 1)
+				var entries = make([]*BundleCollectionEntry, 1)
 
 				// always append original entry as a first item
-				replicatedEntries = append(replicatedEntries, entry)
+				entries = append(entries, entry)
 
-				// append entry's replicas in case bundleEntryReplicator callback is provided
-				if c.bundleEntryReplicator != nil {
-					replicatedEntries = append(replicatedEntries, c.bundleEntryReplicator(entry)...)
+				// append simulated entries
+				for i := 1; i <= c.numOfSimulatedLeafHubs; i++ {
+					replicatedEntry := BundleCollectionEntry{}
+
+					copier.Copy(&replicatedEntry, &entry)
+					replicatedEntry.ChangeLeafHubName(i)
+
+					entries = append(entries, &replicatedEntry)
 				}
 
-				for _, replicatedEntry := range replicatedEntries {
+				for _, replicatedEntry := range entries {
 					c.syncToTransport(replicatedEntry.transportBundleKey, datatypes.StatusBundle,
 						strconv.FormatUint(bundleGeneration, 10), replicatedEntry.bundle)
 				}

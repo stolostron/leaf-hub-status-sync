@@ -23,10 +23,9 @@ import (
 )
 
 const (
-	policiesStatusSyncLog  = "policies-status-sync"
-	policyCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/policy-cleanup"
-	envSimulateLeafHubs    = "SIMULATE_LEAF_HUBS"
-	numOfSimulatedLeafHubs = 10
+	policiesStatusSyncLog        = "policies-status-sync"
+	policyCleanupFinalizer       = "hub-of-hubs.open-cluster-management.io/policy-cleanup"
+	envNumberOfSimulatedLeafHubs = "NUMBER_OF_SIMULATED_LEAF_HUBS"
 )
 
 // AddPoliciesStatusController adds policies status controller to the manager.
@@ -67,12 +66,12 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 	})
 
 	// whether we run multiple LHs simulation or not
-	simulateLeafHubs, found := os.LookupEnv(envSimulateLeafHubs)
-	var entryReplicator generic.BundleEntryReplicator = nil
+	envNumOfSimulateLeafHubs, found := os.LookupEnv(envNumberOfSimulatedLeafHubs)
+	var numOfSimulatedLeafHubs = 0
 
 	if found {
-		if value, err := strconv.ParseBool(simulateLeafHubs); err == nil && value {
-			entryReplicator = policyBundleEntryReplicator
+		if value, err := strconv.Atoi(envNumOfSimulateLeafHubs); err == nil {
+			numOfSimulatedLeafHubs = value
 		}
 	}
 
@@ -80,21 +79,9 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 	if err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, transport, policyCleanupFinalizer,
 		bundleCollection, createObjFunction, syncInterval,
 		predicate.And(hohNamespacePredicate, ownerRefAnnotationPredicate),
-		entryReplicator); err != nil {
+		numOfSimulatedLeafHubs); err != nil {
 		return fmt.Errorf("failed to add controller to the manager - %w", err)
 	}
 
 	return nil
-}
-
-func policyBundleEntryReplicator(entry *generic.BundleCollectionEntry) []*generic.BundleCollectionEntry {
-	var replicatedEntries = make([]*generic.BundleCollectionEntry, numOfSimulatedLeafHubs)
-
-	for i := 1; i <= numOfSimulatedLeafHubs; i++ {
-		var leafHubName = "SimulatedLeafHub_" + strconv.Itoa(i)
-
-		replicatedEntries = append(replicatedEntries, entry.Clone(leafHubName))
-	}
-
-	return replicatedEntries
 }

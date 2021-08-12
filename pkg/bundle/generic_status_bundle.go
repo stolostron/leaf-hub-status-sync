@@ -17,8 +17,8 @@ func NewGenericStatusBundle(leafHubName string, generation uint64) Bundle {
 	}
 }
 
-func (bundle *GenericStatusBundle) Clone(leafHubName string) Bundle {
-	return NewGenericStatusBundle(leafHubName, bundle.Generation)
+func (bundle *GenericStatusBundle) ChangeLeafHubName(leafHubName string) {
+	bundle.LeafHubName = leafHubName
 }
 
 // GenericStatusBundle is a bundle that is used to send to the hub of hubs the leaf CR as is

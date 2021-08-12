@@ -23,8 +23,8 @@ func NewComplianceStatusBundle(leafHubName string, baseBundle Bundle, generation
 	}
 }
 
-func (bundle *ComplianceStatusBundle) Clone(leafHubName string) Bundle {
-	return NewComplianceStatusBundle(leafHubName, bundle, bundle.Generation)
+func (bundle *ComplianceStatusBundle) ChangeLeafHubName(leafHubName string) {
+	bundle.LeafHubName = leafHubName
 }
 
 // ComplianceStatusBundle abstracts management of compliance status bundle.

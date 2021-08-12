@@ -17,12 +17,12 @@ func NewBundleCollectionEntry(transportBundleKey string, bundle bundle.Bundle,
 	}
 }
 
-func (entry *BundleCollectionEntry) Clone(leafHubName string) *BundleCollectionEntry {
+func (entry *BundleCollectionEntry) ChangeLeafHubName(leafHubNameIndex int) {
 	var tokens = strings.Split(entry.transportBundleKey, ".")
-	var clonedTransportBundleKey = fmt.Sprintf("%s.%s", leafHubName, tokens[1])
-	var clonedBundle = entry.bundle.Clone(leafHubName)
+	var newLeafHubName = fmt.Sprintf("%s_%d", tokens[0], leafHubNameIndex)
 
-	return NewBundleCollectionEntry(clonedTransportBundleKey, clonedBundle, entry.predicate)
+	entry.transportBundleKey = fmt.Sprintf("%s.%s", newLeafHubName, tokens[1])
+	entry.bundle.ChangeLeafHubName(newLeafHubName)
 }
 
 // BundleCollectionEntry holds information about a specific bundle.
