@@ -3,7 +3,6 @@ package bundle
 import (
 	"sync"
 
-	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -72,6 +71,14 @@ func (bundle *GenericStatusBundle) GetBundleGeneration() uint64 {
 	return bundle.Generation
 }
 
+// GetObjectsCount function to get bundle objects count.
+func (bundle *GenericStatusBundle) GetObjectsCount() int {
+	bundle.lock.Lock()
+	defer bundle.lock.Unlock()
+
+	return len(bundle.Objects)
+}
+
 func (bundle *GenericStatusBundle) getObjectIndexByUID(uid types.UID) (int, error) {
 	for i, object := range bundle.Objects {
 		if object.GetUID() == uid {
@@ -79,5 +86,5 @@ func (bundle *GenericStatusBundle) getObjectIndexByUID(uid types.UID) (int, erro
 		}
 	}
 
-	return -1, errors.New("object not found")
+	return -1, errObjectNotFound
 }

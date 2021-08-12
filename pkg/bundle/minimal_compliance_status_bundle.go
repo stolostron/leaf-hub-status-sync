@@ -85,6 +85,14 @@ func (bundle *MinimalComplianceStatusBundle) GetBundleGeneration() uint64 {
 	return bundle.Generation
 }
 
+// GetObjectsCount function to get bundle objects count.
+func (bundle *MinimalComplianceStatusBundle) GetObjectsCount() int {
+	bundle.lock.Lock()
+	defer bundle.lock.Unlock()
+
+	return len(bundle.Objects)
+}
+
 func (bundle *MinimalComplianceStatusBundle) getObjectIndexByUID(uid string) (int, error) {
 	for i, object := range bundle.Objects {
 		if object.PolicyID == uid {

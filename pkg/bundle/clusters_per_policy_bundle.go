@@ -91,6 +91,14 @@ func (bundle *ClustersPerPolicyBundle) GetBundleGeneration() uint64 {
 	return bundle.Generation
 }
 
+// GetObjectsCount function to get bundle objects count.
+func (bundle *ClustersPerPolicyBundle) GetObjectsCount() int {
+	bundle.lock.Lock()
+	defer bundle.lock.Unlock()
+
+	return len(bundle.Objects)
+}
+
 func (bundle *ClustersPerPolicyBundle) getObjectIndexByUID(uid string) (int, error) {
 	for i, object := range bundle.Objects {
 		if object.PolicyID == uid {
