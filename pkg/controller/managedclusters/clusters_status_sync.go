@@ -34,7 +34,8 @@ func AddClustersStatusController(mgr ctrl.Manager, transport transport.Transport
 			func() bool { // bundle predicate
 				return hubOfHubsConfig.Spec.AggregationLevel == configv1.Full ||
 					hubOfHubsConfig.Spec.AggregationLevel == configv1.Minimal
-			}), // at this point send all managed clusters even if aggregation level is minimal
+			},
+			func(int) {}), // at this point send all managed clusters even if aggregation level is minimal
 	}
 
 	if err := generic.NewGenericStatusSyncController(mgr, clusterStatusSyncLogName, transport,

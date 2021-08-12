@@ -22,6 +22,7 @@ import (
 const (
 	// RequeuePeriodSeconds is the time to wait until reconciliation retry in failure cases.
 	RequeuePeriodSeconds = 5
+	decimal              = 10
 )
 
 // CreateObjectFunction is a function for how to create an object that is stored inside the bundle.
@@ -180,10 +181,12 @@ func (c *genericStatusSyncController) periodicSync() {
 
 			// send to transport only if bundle has changed
 			if bundleGeneration > entry.lastSentBundleGeneration {
+				objectsCount := entry.bundle.GetObjectsCount() // TODO: move into transport.SendAsync for "atomicity"
 				c.syncToTransport(entry.transportBundleKey, datatypes.StatusBundle,
-					strconv.FormatUint(bundleGeneration, 10), entry.bundle)
+					strconv.FormatUint(bundleGeneration, decimal), entry.bundle)
 
-				entry.lastSentBundleGeneration = bundleGeneration
+				// update last-sent-gen and invoke delegate functions
+				entry.updateLastSentBundleGeneration(bundleGeneration, objectsCount)
 			}
 		}
 	}
