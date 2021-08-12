@@ -35,25 +35,42 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 	clustersPerPolicyBundle := bundle.NewClustersPerPolicyBundle(leafHubName, helpers.GetBundleGenerationFromTransport(
 		transport, clustersPerPolicyTransportKey, datatypes.StatusBundle))
 
-	// compliance status bundle
-	complianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.PolicyComplianceMsgKey)
-	complianceStatusBundle := bundle.NewComplianceStatusBundle(leafHubName, clustersPerPolicyBundle,
-		helpers.GetBundleGenerationFromTransport(transport, complianceStatusTransportKey, datatypes.StatusBundle))
-
 	// minimal compliance status bundle
 	minComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.MinimalPolicyComplianceMsgKey)
 	minComplianceStatusBundle := bundle.NewMinimalComplianceStatusBundle(leafHubName,
 		helpers.GetBundleGenerationFromTransport(transport, minComplianceStatusTransportKey, datatypes.StatusBundle))
 
+	// hybrid compliance status bundles & manager
+	// - complete state bundle key
+	completeComplianceStatusTransportKey := fmt.Sprintf("%s.%s",
+		leafHubName, datatypes.PolicyCompleteComplianceMsgKey)
+	// - delta state bundle key
+	deltaComplianceStatusTransportKey := fmt.Sprintf("%s.%s",
+		leafHubName, datatypes.PolicyDeltaComplianceMsgKey)
+
 	fullStatusPredicate := func() bool { return hubOfHubsConfig.Spec.AggregationLevel == configv1.Full }
 	minStatusPredicate := func() bool { return hubOfHubsConfig.Spec.AggregationLevel == configv1.Minimal }
+	defaultDeliveryConsumer := func(int) {}
+
+	// hybrid compliance status manager
+	hybridComplianceStatusManager,
+		completeComplianceBundle, deltaComplianceBundle,
+		complianceBundleDeliveryConsumerFunc,
+		completeBundlePred, deltaBundlePred := initHybridComplianceStatusManager(leafHubName,
+		clustersPerPolicyBundle, fullStatusPredicate, fullStatusPredicate)
+
+	defer hybridComplianceStatusManager.Stop()
 
 	bundleCollection := []*generic.BundleCollectionEntry{ // multiple bundles for policy status
-		generic.NewBundleCollectionEntry(clustersPerPolicyTransportKey, clustersPerPolicyBundle, fullStatusPredicate),
-		generic.NewBundleCollectionEntry(complianceStatusTransportKey, complianceStatusBundle, fullStatusPredicate),
+		generic.NewBundleCollectionEntry(clustersPerPolicyTransportKey, clustersPerPolicyBundle,
+			fullStatusPredicate, defaultDeliveryConsumer),
+		generic.NewBundleCollectionEntry(deltaComplianceStatusTransportKey,
+			deltaComplianceBundle, deltaBundlePred, complianceBundleDeliveryConsumerFunc),
+		generic.NewBundleCollectionEntry(completeComplianceStatusTransportKey,
+			completeComplianceBundle, completeBundlePred, complianceBundleDeliveryConsumerFunc),
 		generic.NewBundleCollectionEntry(minComplianceStatusTransportKey, minComplianceStatusBundle,
-			minStatusPredicate),
-	}
+			minStatusPredicate, defaultDeliveryConsumer),
+	} // IMPORTANT: delta-state bundle has to be placed before the complete-state bundle!
 
 	hohNamespacePredicate := predicate.NewPredicateFuncs(func(meta metav1.Object, object runtime.Object) bool {
 		return meta.GetNamespace() == datatypes.HohSystemNamespace
@@ -70,4 +87,41 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 	}
 
 	return nil
+}
+
+// initHybridComplianceStatusManager starts a new instance of genericHybridStatusManager and returns:
+// completeComplianceBundle - the complete compliance status hybrid bundle
+// deltaComplianceBundle - the delta compliance status hybrid bundle
+// complianceBundleDeliveryFunc - a function that manages sync mode based on delivery events
+// completeBundlePred - a predicate that determines whether the completeComplianceBundle should be shipped
+// deltaBundlePred - a predicate that determines whether the deltaComplianceBundle should be shipped
+// All the returned elements are used inside bundleCollectionEntries.
+func initHybridComplianceStatusManager(leafHubName string,
+	completeComplianceBaseBundle bundle.Bundle, completeCompliancePred func() bool,
+	deltaCompliancePred func() bool) (*generic.HybridStatusManager,
+	bundle.HybridBundle, bundle.HybridBundle,
+	func(int),
+	func() bool, func() bool) {
+	// policies map to serve as policies cache for delta bundles
+	policiesMap := make(map[string]bool)
+	// complete compliance status bundle
+	completeComplianceStatusBundle := bundle.NewCompleteComplianceStatusBundle(leafHubName,
+		completeComplianceBaseBundle, 0, policiesMap)
+	// delta compliance status bundle
+	deltaComplianceStatusBundle := bundle.NewDeltaComplianceStatusBundle(leafHubName,
+		0, completeComplianceStatusBundle, policiesMap)
+
+	// hybrid compliance status manager
+	hybridComplianceStatusManager := generic.NewGenericHybridStatusManager(completeComplianceStatusBundle,
+		deltaComplianceStatusBundle)
+	// - delivery consumption func
+	complianceBundleDeliveryConsumerFunc := hybridComplianceStatusManager.GenerateDeliveryConsumptionFunc()
+	// - predicates
+	completeBundlePred := hybridComplianceStatusManager.GenerateCompleteStateBundlePredicate(completeCompliancePred)
+	deltaBundlePred := hybridComplianceStatusManager.GenerateDeltaStateBundlePredicate(deltaCompliancePred)
+
+	hybridComplianceStatusManager.Start()
+
+	return hybridComplianceStatusManager, completeComplianceStatusBundle, deltaComplianceStatusBundle,
+		complianceBundleDeliveryConsumerFunc, completeBundlePred, deltaBundlePred
 }
