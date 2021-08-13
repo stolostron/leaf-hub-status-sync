@@ -3,6 +3,7 @@ package kafkaclient
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-logr/logr"
@@ -31,10 +32,12 @@ func NewLHProducer(log logr.Logger) (*LHProducer, error) {
 
 // LHProducer abstracts hub-of-hubs-kafka-transport kafka-producer's generic usage.
 type LHProducer struct {
+	log           logr.Logger
 	kafkaProducer *kclient.KafkaProducer
 	deliveryChan  chan kafka.Event
 	stopChan      chan struct{}
-	log           logr.Logger
+	startOnce     sync.Once
+	stopOnce      sync.Once
 }
 
 // deliveryHandler handles results of sent messages.
@@ -62,25 +65,29 @@ func (p *LHProducer) deliveryHandler(e *kafka.Event) {
 
 // Start starts the kafka-client.
 func (p *LHProducer) Start() {
-	// Delivery report handler for produced messages
-	go func() {
-		for {
-			select {
-			case <-p.stopChan:
-				return
-			case e := <-p.deliveryChan:
-				p.deliveryHandler(&e)
+	p.startOnce.Do(func() {
+		// Delivery report handler for produced messages
+		go func() {
+			for {
+				select {
+				case <-p.stopChan:
+					return
+				case e := <-p.deliveryChan:
+					p.deliveryHandler(&e)
+				}
 			}
-		}
-	}()
+		}()
+	})
 }
 
 // Stop stops the kafka-client.
 func (p *LHProducer) Stop() {
-	p.kafkaProducer.Close()
-	p.stopChan <- struct{}{}
-	close(p.stopChan)
-	close(p.deliveryChan)
+	p.stopOnce.Do(func() {
+		p.kafkaProducer.Close()
+		p.stopChan <- struct{}{}
+		close(p.stopChan)
+		close(p.deliveryChan)
+	})
 }
 
 // SendAsync sends a message to the sync service asynchronously.
