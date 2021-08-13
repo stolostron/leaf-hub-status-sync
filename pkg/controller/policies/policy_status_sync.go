@@ -5,8 +5,6 @@ package policies
 
 import (
 	"fmt"
-	"os"
-	"strconv"
 	"time"
 
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
@@ -23,9 +21,8 @@ import (
 )
 
 const (
-	policiesStatusSyncLog        = "policies-status-sync"
-	policyCleanupFinalizer       = "hub-of-hubs.open-cluster-management.io/policy-cleanup"
-	envNumberOfSimulatedLeafHubs = "NUMBER_OF_SIMULATED_LEAF_HUBS"
+	policiesStatusSyncLog  = "policies-status-sync"
+	policyCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/policy-cleanup"
 )
 
 // AddPoliciesStatusController adds policies status controller to the manager.
@@ -65,21 +62,10 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 		return helpers.HasAnnotation(meta, datatypes.OriginOwnerReferenceAnnotation)
 	})
 
-	// whether we run multiple LHs simulation or not
-	envNumOfSimulateLeafHubs, found := os.LookupEnv(envNumberOfSimulatedLeafHubs)
-	var numOfSimulatedLeafHubs = 0
-
-	if found {
-		if value, err := strconv.Atoi(envNumOfSimulateLeafHubs); err == nil {
-			numOfSimulatedLeafHubs = value
-		}
-	}
-
 	// initialize policy status controller (contains multiple bundles)
 	if err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, transport, policyCleanupFinalizer,
 		bundleCollection, createObjFunction, syncInterval,
-		predicate.And(hohNamespacePredicate, ownerRefAnnotationPredicate),
-		numOfSimulatedLeafHubs); err != nil {
+		predicate.And(hohNamespacePredicate, ownerRefAnnotationPredicate)); err != nil {
 		return fmt.Errorf("failed to add controller to the manager - %w", err)
 	}
 

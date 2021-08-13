@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -22,17 +23,22 @@ import (
 
 const (
 	// RequeuePeriodSeconds is the time to wait until reconciliation retry in failure cases.
-	RequeuePeriodSeconds = 5
+	RequeuePeriodSeconds         = 5
+	envNumberOfSimulatedLeafHubs = "NUMBER_OF_SIMULATED_LEAF_HUBS"
+)
+
+var (
+	replicatedEntires      []*BundleCollectionEntry
+	numOfSimulatedLeafHubs = 0
 )
 
 // CreateObjectFunction is a function for how to create an object that is stored inside the bundle.
 type CreateObjectFunction func() bundle.Object
-type BundleEntryReplicator func(entry *BundleCollectionEntry) []*BundleCollectionEntry
 
 // NewGenericStatusSyncController creates a new instnace of genericStatusSyncController and adds it to the manager.
 func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport transport.Transport,
 	finalizerName string, orderedBundleCollection []*BundleCollectionEntry, createObjFunc CreateObjectFunction,
-	syncInterval time.Duration, predicate predicate.Predicate, numOfSimulatedLeafHubs int) error {
+	syncInterval time.Duration, predicate predicate.Predicate) error {
 	statusSyncCtrl := &genericStatusSyncController{
 		client:                  mgr.GetClient(),
 		log:                     ctrl.Log.WithName(logName),
@@ -41,7 +47,6 @@ func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport 
 		finalizerName:           finalizerName,
 		createObjFunc:           createObjFunc,
 		periodicSyncInterval:    syncInterval,
-		numOfSimulatedLeafHubs:  numOfSimulatedLeafHubs,
 	}
 	statusSyncCtrl.init()
 
@@ -66,10 +71,23 @@ type genericStatusSyncController struct {
 	createObjFunc           CreateObjectFunction
 	periodicSyncInterval    time.Duration
 	startOnce               sync.Once
-	numOfSimulatedLeafHubs  int
 }
 
 func (c *genericStatusSyncController) init() {
+	envNumOfSimulateLeafHubs, found := os.LookupEnv(envNumberOfSimulatedLeafHubs)
+
+	if found {
+		if value, err := strconv.Atoi(envNumOfSimulateLeafHubs); err == nil {
+			numOfSimulatedLeafHubs = value
+		}
+	}
+
+	replicatedEntires = make([]*BundleCollectionEntry, numOfSimulatedLeafHubs+1)
+
+	for i := 1; i < numOfSimulatedLeafHubs+1; i++ {
+		replicatedEntires[i] = new(BundleCollectionEntry)
+	}
+
 	c.startOnce.Do(func() {
 		go c.periodicSync()
 	})
@@ -184,22 +202,18 @@ func (c *genericStatusSyncController) periodicSync() {
 
 			// send to transport only if bundle has changed
 			if bundleGeneration > entry.lastSentBundleGeneration {
-				var entries = make([]*BundleCollectionEntry, 1)
+				// always set original entry as a first item
+				replicatedEntires[0] = entry
 
-				// always append original entry as a first item
-				entries = append(entries, entry)
+				// copy original entry to each simulated entry and change leaf hub name
+				for i := 1; i < numOfSimulatedLeafHubs+1; i++ {
+					replicatedEntry := replicatedEntires[i]
 
-				// append simulated entries
-				for i := 1; i <= c.numOfSimulatedLeafHubs; i++ {
-					replicatedEntry := BundleCollectionEntry{}
-
-					copier.Copy(&replicatedEntry, &entry)
+					copier.Copy(replicatedEntry, entry)
 					replicatedEntry.ChangeLeafHubName(i)
-
-					entries = append(entries, &replicatedEntry)
 				}
 
-				for _, replicatedEntry := range entries {
+				for _, replicatedEntry := range replicatedEntires {
 					c.syncToTransport(replicatedEntry.transportBundleKey, datatypes.StatusBundle,
 						strconv.FormatUint(bundleGeneration, 10), replicatedEntry.bundle)
 				}
