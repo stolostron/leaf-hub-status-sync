@@ -23,10 +23,6 @@ func NewComplianceStatusBundle(leafHubName string, baseBundle Bundle, generation
 	}
 }
 
-func (bundle *ComplianceStatusBundle) ChangeLeafHubName(leafHubName string) {
-	bundle.LeafHubName = leafHubName
-}
-
 // ComplianceStatusBundle abstracts management of compliance status bundle.
 type ComplianceStatusBundle struct {
 	statusbundle.BaseComplianceStatusBundle

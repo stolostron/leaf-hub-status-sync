@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
+	"unsafe"
 
 	"github.com/go-logr/logr"
 	"github.com/jinzhu/copier"
@@ -23,13 +26,11 @@ import (
 
 const (
 	// RequeuePeriodSeconds is the time to wait until reconciliation retry in failure cases.
-	RequeuePeriodSeconds         = 5
-	envNumberOfSimulatedLeafHubs = "NUMBER_OF_SIMULATED_LEAF_HUBS"
-)
-
-var (
-	replicatedEntires      []*BundleCollectionEntry
-	numOfSimulatedLeafHubs = 0
+	RequeuePeriodSeconds = 5
+	// Base10 is used for int to string conversion.
+	Base10 = 10
+	// EnvNumberOfSimulatedLeafHubs is environment variable used to control number of simulated leaf hubs.
+	EnvNumberOfSimulatedLeafHubs = "NUMBER_OF_SIMULATED_LEAF_HUBS"
 )
 
 // CreateObjectFunction is a function for how to create an object that is stored inside the bundle.
@@ -62,6 +63,36 @@ func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport 
 	return nil
 }
 
+type simulatedContext struct {
+	replicatedEntries []*BundleCollectionEntry
+	numOfLeafHubs     int
+}
+
+func newSimulatedContext(c *genericStatusSyncController) *simulatedContext {
+	sc := new(simulatedContext)
+
+	envNumOfSimulateLeafHubs, found := os.LookupEnv(EnvNumberOfSimulatedLeafHubs)
+
+	if found {
+		if value, err := strconv.Atoi(envNumOfSimulateLeafHubs); err == nil && value >= 0 {
+			sc.numOfLeafHubs = value
+		} else {
+			c.log.Info(fmt.Sprintf("Environment variable '%s' must be a non-negative integer value. Provided value '%s'.",
+				EnvNumberOfSimulatedLeafHubs, envNumOfSimulateLeafHubs))
+		}
+	} else {
+		c.log.Info(fmt.Sprintf("Environment variable '%s' is not defined. Applying value 0.", EnvNumberOfSimulatedLeafHubs))
+	}
+
+	sc.replicatedEntries = make([]*BundleCollectionEntry, sc.numOfLeafHubs+1)
+
+	for i := 1; i < sc.numOfLeafHubs+1; i++ {
+		sc.replicatedEntries[i] = new(BundleCollectionEntry)
+	}
+
+	return sc
+}
+
 type genericStatusSyncController struct {
 	client                  client.Client
 	log                     logr.Logger
@@ -71,22 +102,11 @@ type genericStatusSyncController struct {
 	createObjFunc           CreateObjectFunction
 	periodicSyncInterval    time.Duration
 	startOnce               sync.Once
+	sc                      *simulatedContext
 }
 
 func (c *genericStatusSyncController) init() {
-	envNumOfSimulateLeafHubs, found := os.LookupEnv(envNumberOfSimulatedLeafHubs)
-
-	if found {
-		if value, err := strconv.Atoi(envNumOfSimulateLeafHubs); err == nil {
-			numOfSimulatedLeafHubs = value
-		}
-	}
-
-	replicatedEntires = make([]*BundleCollectionEntry, numOfSimulatedLeafHubs+1)
-
-	for i := 1; i < numOfSimulatedLeafHubs+1; i++ {
-		replicatedEntires[i] = new(BundleCollectionEntry)
-	}
+	c.sc = newSimulatedContext(c)
 
 	c.startOnce.Do(func() {
 		go c.periodicSync()
@@ -203,19 +223,22 @@ func (c *genericStatusSyncController) periodicSync() {
 			// send to transport only if bundle has changed
 			if bundleGeneration > entry.lastSentBundleGeneration {
 				// always set original entry as a first item
-				replicatedEntires[0] = entry
+				c.sc.replicatedEntries[0] = entry
 
 				// copy original entry to each simulated entry and change leaf hub name
-				for i := 1; i < numOfSimulatedLeafHubs+1; i++ {
-					replicatedEntry := replicatedEntires[i]
+				for i := 1; i < c.sc.numOfLeafHubs+1; i++ {
+					replicatedEntry := c.sc.replicatedEntries[i]
 
-					copier.Copy(replicatedEntry, entry)
-					replicatedEntry.ChangeLeafHubName(i)
+					if err := copier.Copy(replicatedEntry, entry); err != nil {
+						c.log.Info(fmt.Sprintf("Deep copy of replicated entry failed: %s", err))
+					} else {
+						changeLeafHubName(replicatedEntry, i)
+					}
 				}
 
-				for _, replicatedEntry := range replicatedEntires {
+				for _, replicatedEntry := range c.sc.replicatedEntries {
 					c.syncToTransport(replicatedEntry.transportBundleKey, datatypes.StatusBundle,
-						strconv.FormatUint(bundleGeneration, 10), replicatedEntry.bundle)
+						strconv.FormatUint(bundleGeneration, Base10), replicatedEntry.bundle)
 				}
 
 				entry.lastSentBundleGeneration = bundleGeneration
@@ -242,4 +265,20 @@ func cleanObject(object bundle.Object) {
 	object.SetOwnerReferences(nil)
 	object.SetSelfLink("")
 	object.SetClusterName("")
+}
+
+func changeLeafHubName(entry *BundleCollectionEntry, leafHubNameIndex int) {
+	tokens := strings.Split(entry.transportBundleKey, ".")
+	newLeafHubName := fmt.Sprintf("%s_Simulated_%d", tokens[0], leafHubNameIndex)
+
+	// change transport bundle key as it depends on leaf hub name
+	entry.transportBundleKey = fmt.Sprintf("%s.%s", newLeafHubName, tokens[1])
+
+	// change bundle's 'leafHubName' field value
+	ptrToBundle := reflect.ValueOf(&entry.bundle)
+	reflectedBundle := reflect.Indirect(ptrToBundle)
+	privateMember := reflectedBundle.FieldByName("leafHubName")
+	ptrToPrivateMember := unsafe.Pointer(privateMember.UnsafeAddr())
+	realPtrToLeafHubName := (*string)(ptrToPrivateMember)
+	*realPtrToLeafHubName = newLeafHubName
 }

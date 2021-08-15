@@ -17,10 +17,6 @@ func NewGenericStatusBundle(leafHubName string, generation uint64) Bundle {
 	}
 }
 
-func (bundle *GenericStatusBundle) ChangeLeafHubName(leafHubName string) {
-	bundle.LeafHubName = leafHubName
-}
-
 // GenericStatusBundle is a bundle that is used to send to the hub of hubs the leaf CR as is
 // except for fields that are not relevant in the hub of hubs like finalizers, etc.
 // for bundles that require more specific behavior, it's required to implement your own status bundle struct.

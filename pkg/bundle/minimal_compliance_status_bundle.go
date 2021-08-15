@@ -20,10 +20,6 @@ func NewMinimalComplianceStatusBundle(leafHubName string, generation uint64) Bun
 	}
 }
 
-func (bundle *MinimalComplianceStatusBundle) ChangeLeafHubName(leafHubName string) {
-	bundle.LeafHubName = leafHubName
-}
-
 // MinimalComplianceStatusBundle abstracts management of minimal compliance status bundle.
 type MinimalComplianceStatusBundle struct {
 	statusbundle.BaseMinimalComplianceStatusBundle
