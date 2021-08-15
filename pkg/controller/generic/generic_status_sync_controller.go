@@ -74,14 +74,20 @@ func newSimulatedContext(c *genericStatusSyncController) *simulatedContext {
 	envNumOfSimulateLeafHubs, found := os.LookupEnv(EnvNumberOfSimulatedLeafHubs)
 
 	if found {
-		if value, err := strconv.Atoi(envNumOfSimulateLeafHubs); err == nil && value >= 0 {
-			sc.numOfLeafHubs = value
+		if value, err := strconv.Atoi(envNumOfSimulateLeafHubs); err != nil {
+			c.log.Info(fmt.Sprintf("Failed to convert environment variable '%s', value: %s, err: %s",
+				EnvNumberOfSimulatedLeafHubs, envNumOfSimulateLeafHubs, err))
 		} else {
-			c.log.Info(fmt.Sprintf("Environment variable '%s' must be a non-negative integer value. Provided value '%s'.",
-				EnvNumberOfSimulatedLeafHubs, envNumOfSimulateLeafHubs))
+			switch {
+			case value >= 0:
+				sc.numOfLeafHubs = value
+			default:
+				c.log.Info(fmt.Sprintf("Environment variable '%s' must be a non-negative integer value, provided value '%s'.",
+					EnvNumberOfSimulatedLeafHubs, envNumOfSimulateLeafHubs))
+			}
 		}
 	} else {
-		c.log.Info(fmt.Sprintf("Environment variable '%s' is not defined. Applying value 0.", EnvNumberOfSimulatedLeafHubs))
+		c.log.Info(fmt.Sprintf("Environment variable '%s' is not defined", EnvNumberOfSimulatedLeafHubs))
 	}
 
 	sc.replicatedEntries = make([]*BundleCollectionEntry, sc.numOfLeafHubs+1)
