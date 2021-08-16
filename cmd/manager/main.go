@@ -79,9 +79,6 @@ func doMain() int {
 		return 1
 	}
 
-	syncService.Start()
-	defer syncService.Stop()
-
 	mgr, err := createManager(leaderElectionNamespace, metricsHost, metricsPort, syncService, syncInterval, leafHubName)
 	if err != nil {
 		log.Error(err, "Failed to create manager")
@@ -118,6 +115,11 @@ func createManager(leaderElectionNamespace, metricsHost string, metricsPort int3
 
 	if err := controller.AddControllers(mgr, transport, syncInterval, leafHubName); err != nil {
 		return nil, fmt.Errorf("failed to add controllers: %w", err)
+	}
+
+	err = mgr.Add(transport)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add transport: %w", err)
 	}
 
 	return mgr, nil

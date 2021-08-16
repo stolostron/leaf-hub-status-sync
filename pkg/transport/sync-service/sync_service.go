@@ -2,11 +2,11 @@ package syncservice
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"strconv"
-	"sync"
 
 	"github.com/go-logr/logr"
 	"github.com/open-horizon/edge-sync-service-client/client"
@@ -25,12 +25,9 @@ var (
 
 // SyncService abstracts Sync Service client.
 type SyncService struct {
-	client    *client.SyncServiceClient
-	msgChan   chan *syncServiceMessage
-	stopChan  chan struct{}
-	startOnce sync.Once
-	stopOnce  sync.Once
-	log       logr.Logger
+	client  *client.SyncServiceClient
+	msgChan chan *syncServiceMessage
+	log     logr.Logger
 }
 
 // NewSyncService creates a new instance of SyncService.
@@ -45,10 +42,9 @@ func NewSyncService(log logr.Logger) (*SyncService, error) {
 	syncServiceClient.SetAppKeyAndSecret("user@myorg", "")
 
 	return &SyncService{
-		client:   syncServiceClient,
-		log:      log,
-		msgChan:  make(chan *syncServiceMessage),
-		stopChan: make(chan struct{}, 1),
+		client:  syncServiceClient,
+		log:     log,
+		msgChan: make(chan *syncServiceMessage),
 	}, nil
 }
 
@@ -77,17 +73,21 @@ func readEnvVars() (string, string, uint16, error) {
 }
 
 // Start function starts sync service.
-func (s *SyncService) Start() {
-	s.startOnce.Do(func() {
-		go s.sendMessages()
-	})
-}
+func (s *SyncService) Start(stopChannel <-chan struct{}) error {
+	ctx, cancelContext := context.WithCancel(context.Background())
+	defer cancelContext()
 
-// Stop function stops sync service.
-func (s *SyncService) Stop() {
-	s.stopOnce.Do(func() {
-		close(s.stopChan)
-	})
+	go s.sendMessages(ctx)
+
+	for {
+		<-stopChannel // blocking wait until getting stop event on the stop channel.
+
+		cancelContext()
+
+		s.log.Info("stopped sync service")
+
+		return nil
+	}
 }
 
 // SendAsync function sends a message to the sync service asynchronously.
@@ -111,11 +111,12 @@ func (s *SyncService) GetVersion(id string, msgType string) string {
 	return objectMetadata.Version
 }
 
-func (s *SyncService) sendMessages() {
+func (s *SyncService) sendMessages(ctx context.Context) {
 	for {
 		select {
-		case <-s.stopChan:
+		case <-ctx.Done():
 			return
+
 		case msg := <-s.msgChan:
 			metaData := client.ObjectMetaData{
 				ObjectID:   msg.id,
