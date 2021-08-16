@@ -2,6 +2,7 @@ package localpolicies
 
 import (
 	"fmt"
+	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
 	"time"
 
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/apps/v1"
@@ -16,8 +17,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-func addLocalPlacementruleController(mgr ctrl.Manager, transport transport.Transport, syncInterval time.Duration,
-	leafHubName string) error {
+func AddLocalPlacementruleController(mgr ctrl.Manager, transport transport.Transport, syncInterval time.Duration,
+	leafHubName string, hubOfHubsConfig *configv1.Config) error {
 	createObjFunc := func() bundle.Object { return &policiesv1.PlacementRule{} }
 
 	// Generating a new placement rule bundle.
@@ -34,7 +35,10 @@ func addLocalPlacementruleController(mgr ctrl.Manager, transport transport.Trans
 	localPolicySpecBundle := generic.NewBundleCollectionEntry(localPlacementruleTransportKey,
 		bundle.NewGenericStatusBundle(leafHubName,
 			helpers.GetBundleGenerationFromTransport(transport, localPlacementruleTransportKey, datatypes.SpecBundle), cleanFunc),
-		func() bool { return true })
+		func() bool { // bundle predicate
+			return hubOfHubsConfig.Spec.AggregationLevel == configv1.Full ||
+				hubOfHubsConfig.Spec.AggregationLevel == configv1.Minimal
+		})
 
 	bundleCollection := []*generic.BundleCollectionEntry{localPolicySpecBundle}
 
