@@ -32,15 +32,16 @@ func AddLocalPlacementruleController(mgr ctrl.Manager, transport transport.Trans
 			return placement, true
 		}
 	localPlacementruleTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalPlacementRulesMsgKey)
-	localPolicySpecBundle := generic.NewBundleCollectionEntry(localPlacementruleTransportKey,
+	// TODO: check where datatype.placementRuleBundle is used
+	localPlacementRuleBundle := generic.NewBundleCollectionEntry(localPlacementruleTransportKey,
 		bundle.NewGenericStatusBundle(leafHubName,
-			helpers.GetBundleGenerationFromTransport(transport, localPlacementruleTransportKey, datatypes.SpecBundle), cleanFunc),
+			helpers.GetBundleGenerationFromTransport(transport, localPlacementruleTransportKey, datatypes.PlacementRuleBundle), cleanFunc),
 		func() bool { // bundle predicate
 			return hubOfHubsConfig.Spec.AggregationLevel == configv1.Full ||
 				hubOfHubsConfig.Spec.AggregationLevel == configv1.Minimal
 		})
 
-	bundleCollection := []*generic.BundleCollectionEntry{localPolicySpecBundle}
+	bundleCollection := []*generic.BundleCollectionEntry{localPlacementRuleBundle}
 
 	// TODO: check if predicate need to change.
 	isLocalPlacementrulePred := predicate.NewPredicateFuncs(func(meta metav1.Object, object runtime.Object) bool {
