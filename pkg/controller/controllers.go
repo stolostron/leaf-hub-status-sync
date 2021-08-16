@@ -5,6 +5,7 @@ package controller
 
 import (
 	"fmt"
+	localpolicies "github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/local_policies"
 	"time"
 
 	clustersv1 "github.com/open-cluster-management/api/cluster/v1"
@@ -47,7 +48,8 @@ func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, syncInt
 	}
 
 	addControllerFunctions := []func(ctrl.Manager, transport.Transport, time.Duration, string, *configv1.Config) error{
-		managedclusters.AddClustersStatusController, policies.AddPoliciesStatusController,
+		managedclusters.AddClustersStatusController, policies.AddPoliciesStatusController, localpolicies.AddLocalPoliciesController,
+		localpolicies.AddLocalPlacementruleController,
 	}
 
 	for _, addControllerFunction := range addControllerFunctions {
