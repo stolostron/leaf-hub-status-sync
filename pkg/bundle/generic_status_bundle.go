@@ -8,12 +8,13 @@ import (
 )
 
 // NewGenericStatusBundle creates a new instance of GenericStatusBundle.
-func NewGenericStatusBundle(leafHubName string, generation uint64) Bundle {
+func NewGenericStatusBundle(leafHubName string, generation uint64, cleanFunc func(obj Object) (Object, bool)) Bundle {
 	return &GenericStatusBundle{
 		Objects:     make([]Object, 0),
 		LeafHubName: leafHubName,
 		Generation:  generation,
 		lock:        sync.Mutex{},
+		cleanFunc:   cleanFunc,
 	}
 }
 
@@ -25,13 +26,20 @@ type GenericStatusBundle struct {
 	LeafHubName string   `json:"leafHubName"`
 	Generation  uint64   `json:"generation"`
 	lock        sync.Mutex
+	cleanFunc   func(obj Object) (Object, bool)
 }
 
 // UpdateObject function to update a single object inside a bundle.
 func (bundle *GenericStatusBundle) UpdateObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
-
+	var ok bool
+	if bundle.cleanFunc != nil {
+		object, ok = bundle.cleanFunc(object)
+		if !ok {
+			return
+		}
+	}
 	index, err := bundle.getObjectIndexByUID(object.GetUID())
 	if err != nil { // object not found, need to add it to the bundle
 		bundle.Objects = append(bundle.Objects, object)
