@@ -16,23 +16,27 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-const (
-	// TODO: Move to datatype repo.
-	localPlacementRules = "LocalPlacementRules"
-)
-
 func addLocalPlacementruleController(mgr ctrl.Manager, transport transport.Transport, syncInterval time.Duration,
 	leafHubName string) error {
 	createObjFunc := func() bundle.Object { return &policiesv1.PlacementRule{} }
 
 	// Generating a new placement rule bundle.
-	localPlacementruleTransportKey := fmt.Sprintf("%s.%s", leafHubName, localPlacementRules)
+	cleanFunc :=
+		func(object bundle.Object) (bundle.Object, bool) {
+			placement, ok := object.(*policiesv1.PlacementRule)
+			if !ok {
+				return nil, ok
+			}
+			placement.Status = policiesv1.PlacementRuleStatus{}
+			return placement, true
+		}
+	localPlacementruleTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalPlacementRulesMsgKey)
 	localPolicySpecBundle := generic.NewBundleCollectionEntry(localPlacementruleTransportKey,
 		bundle.NewGenericStatusBundle(leafHubName,
-		helpers.GetBundleGenerationFromTransport(transport, localPlacementruleTransportKey, datatypes.SpecBundle)),
+			helpers.GetBundleGenerationFromTransport(transport, localPlacementruleTransportKey, datatypes.SpecBundle), cleanFunc),
 		func() bool { return true })
 
-	bundleCollection := []*generic.BundleCollectionEntry{ localPolicySpecBundle }
+	bundleCollection := []*generic.BundleCollectionEntry{localPolicySpecBundle}
 
 	// TODO: check if predicate need to change.
 	isLocalPlacementrulePred := predicate.NewPredicateFuncs(func(meta metav1.Object, object runtime.Object) bool {

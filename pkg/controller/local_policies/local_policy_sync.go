@@ -20,12 +20,6 @@ import (
 const (
 	policiesStatusSyncLog  = "policies-status-sync"
 	policyCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/policy-cleanup"
-	// TODO: Move to datatype repo.
-	localClustersPerPolicy = "LocalClustersPerPolicy"
-	// TODO: Move to datatype repo.
-	localPolicyComplianceKey = "LocalPolicyCompliance"
-	// TODO: Move to datatype repo.
-	localSpecPerPolicy = "localSpecPerPolicy"
 )
 
 func AddLocalPoliciesController(mgr ctrl.Manager, transport transport.Transport, syncInterval time.Duration,
@@ -33,20 +27,30 @@ func AddLocalPoliciesController(mgr ctrl.Manager, transport transport.Transport,
 	createObjFunc := func() bundle.Object { return &policiesv1.Policy{} }
 
 	// clusters per policy (base bundle)
-	localClustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, localClustersPerPolicy)
+	localClustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalClustersPerPolicyMsgKey)
 	localClustersPerPolicyBundle := bundle.NewClustersPerPolicyBundle(leafHubName,
 		helpers.GetBundleGenerationFromTransport(transport, localClustersPerPolicyTransportKey, datatypes.StatusBundle))
 
 	// compliance status bundle
-	localComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName, localPolicyComplianceKey)
+	localComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalPolicyComplianceMsgKey)
 	localComplianceStatusBundle := bundle.NewComplianceStatusBundle(leafHubName, localClustersPerPolicyBundle,
 		helpers.GetBundleGenerationFromTransport(transport, localComplianceStatusTransportKey, datatypes.StatusBundle))
 
 	// spec per policy bundle
-	localSpecPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, localSpecPerPolicy)
+	cleanFunc :=
+		func(object bundle.Object) (bundle.Object, bool) {
+			policy, ok := object.(*policiesv1.Policy)
+			if !ok {
+				return nil, ok
+			}
+			policy.Status = policiesv1.PolicyStatus{}
+			return policy, true
+		}
+
+	localSpecPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalSpecPerPolicyMsgKey)
 	localPolicySpecBundle := generic.NewBundleCollectionEntry(localSpecPerPolicyTransportKey,
 		bundle.NewGenericStatusBundle(leafHubName,
-			helpers.GetBundleGenerationFromTransport(transport, localSpecPerPolicyTransportKey, datatypes.SpecBundle)),
+			helpers.GetBundleGenerationFromTransport(transport, localSpecPerPolicyTransportKey, datatypes.SpecBundle), cleanFunc),
 		func() bool { return true })
 
 	// check for full information
