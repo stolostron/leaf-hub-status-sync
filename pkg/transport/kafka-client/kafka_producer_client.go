@@ -99,19 +99,13 @@ func (p *LHProducer) SendAsync(id string, msgType string, version string, payloa
 		Payload: payload,
 	}
 
-	headers := []kafka.Header{
-		{Key: "ID", Value: []byte(id)},
-		{Key: "MsgType", Value: []byte(msgType)},
-		{Key: "Version", Value: []byte(version)},
-	}
-
 	bs, err := json.Marshal(message)
 	if err != nil {
 		p.log.Error(err, "Failed to send message", "Message ID", message.ID)
 		return
 	}
 
-	err = p.kafkaProducer.ProduceAsync(&bs, &headers)
+	err = p.kafkaProducer.ProduceAsync(&bs)
 	if err != nil {
 		p.log.Error(err, "Failed to send message", "Message ID", message.ID)
 	}
