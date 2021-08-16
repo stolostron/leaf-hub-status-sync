@@ -4,7 +4,7 @@ import (
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
 )
 
-// NewBundleCollectionEntry creates a new instnace of BundleCollectionEntry.
+// NewBundleCollectionEntry creates a new instance of BundleCollectionEntry.
 func NewBundleCollectionEntry(transportBundleKey string, bundle bundle.Bundle,
 	predicate func() bool) *BundleCollectionEntry {
 	return &BundleCollectionEntry{
