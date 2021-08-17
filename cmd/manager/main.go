@@ -113,13 +113,12 @@ func createManager(leaderElectionNamespace, metricsHost string, metricsPort int3
 		return nil, fmt.Errorf("failed to add schemes: %w", err)
 	}
 
-	if err := controller.AddControllers(mgr, transport, syncInterval, leafHubName); err != nil {
-		return nil, fmt.Errorf("failed to add controllers: %w", err)
+	if err = mgr.Add(transport); err != nil {
+		return nil, fmt.Errorf("failed to add transport: %w", err)
 	}
 
-	err = mgr.Add(transport)
-	if err != nil {
-		return nil, fmt.Errorf("failed to add transport: %w", err)
+	if err := controller.AddControllers(mgr, transport, syncInterval, leafHubName); err != nil {
+		return nil, fmt.Errorf("failed to add controllers: %w", err)
 	}
 
 	return mgr, nil
