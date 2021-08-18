@@ -84,6 +84,8 @@ func (s *SyncService) Start(stopChannel <-chan struct{}) error {
 
 		cancelContext()
 
+		close(s.msgChan)
+
 		s.log.Info("stopped sync service")
 
 		return nil
