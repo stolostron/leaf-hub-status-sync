@@ -50,7 +50,7 @@ func AddLocalPoliciesController(mgr ctrl.Manager, transport transport.Transport,
 	localSpecPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalSpecPerPolicyMsgKey)
 	localPolicySpecBundle := generic.NewBundleCollectionEntry(localSpecPerPolicyTransportKey,
 		bundle.NewGenericStatusBundle(leafHubName,
-			helpers.GetBundleGenerationFromTransport(transport, localSpecPerPolicyTransportKey, datatypes.SpecBundle), cleanFunc),
+			helpers.GetBundleGenerationFromTransport(transport, localSpecPerPolicyTransportKey, datatypes.StatusBundle), cleanFunc),
 		func() bool { return true })
 
 	// check for full information

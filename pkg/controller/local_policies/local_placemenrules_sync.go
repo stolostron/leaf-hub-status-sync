@@ -35,7 +35,7 @@ func AddLocalPlacementruleController(mgr ctrl.Manager, transport transport.Trans
 	// TODO: check where datatype.placementRuleBundle is used
 	localPlacementRuleBundle := generic.NewBundleCollectionEntry(localPlacementruleTransportKey,
 		bundle.NewGenericStatusBundle(leafHubName,
-			helpers.GetBundleGenerationFromTransport(transport, localPlacementruleTransportKey, datatypes.PlacementRuleBundle), cleanFunc),
+			helpers.GetBundleGenerationFromTransport(transport, localPlacementruleTransportKey, datatypes.StatusBundle), cleanFunc),
 		func() bool { // bundle predicate
 			return hubOfHubsConfig.Spec.AggregationLevel == configv1.Full ||
 				hubOfHubsConfig.Spec.AggregationLevel == configv1.Minimal
@@ -43,7 +43,6 @@ func AddLocalPlacementruleController(mgr ctrl.Manager, transport transport.Trans
 
 	bundleCollection := []*generic.BundleCollectionEntry{localPlacementRuleBundle}
 
-	// TODO: check if predicate need to change.
 	isLocalPlacementrulePred := predicate.NewPredicateFuncs(func(meta metav1.Object, object runtime.Object) bool {
 		return !helpers.HasAnnotation(meta, datatypes.OriginOwnerReferenceAnnotation)
 	})
