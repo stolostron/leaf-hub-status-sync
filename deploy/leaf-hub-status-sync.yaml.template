@@ -103,6 +103,8 @@ spec:
               value: "$SYNC_SERVICE_PORT"
             - name: LH_ID
               value: "$LH_ID"
+            - name: NUMBER_OF_SIMULATED_LEAF_HUBS
+              value: "$NUMBER_OF_SIMULATED_LEAF_HUBS"
             - name: PERIODIC_SYNC_INTERVAL
               value: 5s
             - name: POD_NAMESPACE

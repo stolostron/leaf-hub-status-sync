@@ -13,7 +13,6 @@ import (
 	"unsafe"
 
 	"github.com/go-logr/logr"
-	"github.com/jinzhu/copier"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
@@ -31,6 +30,8 @@ const (
 	Base10 = 10
 	// EnvNumberOfSimulatedLeafHubs is environment variable used to control number of simulated leaf hubs.
 	EnvNumberOfSimulatedLeafHubs = "NUMBER_OF_SIMULATED_LEAF_HUBS"
+	// TransportBundleKeyParts is a number of parts in BundleCollectionEntry.transportBundleKey field.
+	TransportBundleKeyParts = 2
 )
 
 // CreateObjectFunction is a function for how to create an object that is stored inside the bundle.
@@ -63,9 +64,40 @@ func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport 
 	return nil
 }
 
+type deepCopy struct {
+	source      []*BundleCollectionEntry
+	destination []*BundleCollectionEntry
+}
+
 type simulatedContext struct {
 	replicatedEntries []*BundleCollectionEntry
 	numOfLeafHubs     int
+	deepCopy          *deepCopy
+}
+
+func newDeepCopy() *deepCopy {
+	return &deepCopy{
+		source:      make([]*BundleCollectionEntry, 1),
+		destination: make([]*BundleCollectionEntry, 1),
+	}
+}
+
+func (dc *deepCopy) copy(entryDest, entrySrc *BundleCollectionEntry) bool {
+	dc.destination[0] = entryDest
+	dc.source[0] = entrySrc
+
+	reflectedDest := reflect.ValueOf(dc.destination)
+	reflectedSrc := reflect.ValueOf(dc.source)
+
+	copied := reflect.Copy(reflectedDest, reflectedSrc)
+
+	if copied != 1 {
+		return false
+	}
+
+	*entryDest = *reflectedDest.Index(0).Interface().(*BundleCollectionEntry)
+
+	return true
 }
 
 func newSimulatedContext(c *genericStatusSyncController) *simulatedContext {
@@ -95,6 +127,8 @@ func newSimulatedContext(c *genericStatusSyncController) *simulatedContext {
 	for i := 1; i < sc.numOfLeafHubs+1; i++ {
 		sc.replicatedEntries[i] = new(BundleCollectionEntry)
 	}
+
+	sc.deepCopy = newDeepCopy()
 
 	return sc
 }
@@ -235,10 +269,10 @@ func (c *genericStatusSyncController) periodicSync() {
 				for i := 1; i < c.sc.numOfLeafHubs+1; i++ {
 					replicatedEntry := c.sc.replicatedEntries[i]
 
-					if err := copier.Copy(replicatedEntry, entry); err != nil {
-						c.log.Info(fmt.Sprintf("Deep copy of replicated entry failed: %s", err))
+					if c.sc.deepCopy.copy(replicatedEntry, entry) {
+						c.changeLeafHubName(replicatedEntry, i)
 					} else {
-						changeLeafHubName(replicatedEntry, i)
+						c.log.Info("failed to deep copy bundle collection entry")
 					}
 				}
 
@@ -264,6 +298,29 @@ func (c *genericStatusSyncController) syncToTransport(id string, objType string,
 	c.transport.SendAsync(id, objType, generation, payloadBytes)
 }
 
+func (c *genericStatusSyncController) changeLeafHubName(entry *BundleCollectionEntry, leafHubNameIndex int) {
+	tokens := strings.Split(entry.transportBundleKey, ".")
+	newLeafHubName := fmt.Sprintf("%s_simulated_%d", tokens[0], leafHubNameIndex)
+
+	if len(tokens) != TransportBundleKeyParts {
+		c.log.Info(fmt.Sprintf("unable to parse transportBundleKey '%s'", entry.transportBundleKey))
+		return
+	}
+
+	c.log.Info(fmt.Sprintf("changing leaf hub name to '%s'", newLeafHubName))
+
+	// change transport bundle key as it depends on leaf hub name
+	entry.transportBundleKey = fmt.Sprintf("%s.%s", newLeafHubName, tokens[1])
+
+	// change bundle's 'leafHubName' field value
+	ptrToBundle := reflect.ValueOf(entry.bundle)
+	reflectedBundle := reflect.Indirect(ptrToBundle)
+	privateMember := reflectedBundle.FieldByName("LeafHubName")
+	ptrToPrivateMember := unsafe.Pointer(privateMember.UnsafeAddr())
+	realPtrToLeafHubName := (*string)(ptrToPrivateMember)
+	*realPtrToLeafHubName = newLeafHubName
+}
+
 func cleanObject(object bundle.Object) {
 	object.SetManagedFields(nil)
 	object.SetFinalizers(nil)
@@ -271,20 +328,4 @@ func cleanObject(object bundle.Object) {
 	object.SetOwnerReferences(nil)
 	object.SetSelfLink("")
 	object.SetClusterName("")
-}
-
-func changeLeafHubName(entry *BundleCollectionEntry, leafHubNameIndex int) {
-	tokens := strings.Split(entry.transportBundleKey, ".")
-	newLeafHubName := fmt.Sprintf("%s_Simulated_%d", tokens[0], leafHubNameIndex)
-
-	// change transport bundle key as it depends on leaf hub name
-	entry.transportBundleKey = fmt.Sprintf("%s.%s", newLeafHubName, tokens[1])
-
-	// change bundle's 'leafHubName' field value
-	ptrToBundle := reflect.ValueOf(&entry.bundle)
-	reflectedBundle := reflect.Indirect(ptrToBundle)
-	privateMember := reflectedBundle.FieldByName("leafHubName")
-	ptrToPrivateMember := unsafe.Pointer(privateMember.UnsafeAddr())
-	realPtrToLeafHubName := (*string)(ptrToPrivateMember)
-	*realPtrToLeafHubName = newLeafHubName
 }
