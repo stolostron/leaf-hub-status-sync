@@ -64,40 +64,8 @@ func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport 
 	return nil
 }
 
-type deepCopy struct {
-	source      []*BundleCollectionEntry
-	destination []*BundleCollectionEntry
-}
-
 type simulatedContext struct {
-	replicatedEntry *BundleCollectionEntry
-	numOfLeafHubs   int
-	deepCopy        *deepCopy
-}
-
-func newDeepCopy() *deepCopy {
-	return &deepCopy{
-		source:      make([]*BundleCollectionEntry, 1),
-		destination: make([]*BundleCollectionEntry, 1),
-	}
-}
-
-func (dc *deepCopy) copy(entryDest, entrySrc *BundleCollectionEntry) bool {
-	dc.destination[0] = entryDest
-	dc.source[0] = entrySrc
-
-	reflectedDest := reflect.ValueOf(dc.destination)
-	reflectedSrc := reflect.ValueOf(dc.source)
-
-	copied := reflect.Copy(reflectedDest, reflectedSrc)
-
-	if copied != 1 {
-		return false
-	}
-
-	*entryDest = *reflectedDest.Index(0).Interface().(*BundleCollectionEntry)
-
-	return true
+	numOfLeafHubs int
 }
 
 func newSimulatedContext(c *genericStatusSyncController) *simulatedContext {
@@ -121,9 +89,6 @@ func newSimulatedContext(c *genericStatusSyncController) *simulatedContext {
 	} else {
 		c.log.Info(fmt.Sprintf("Environment variable '%s' is not defined", EnvNumberOfSimulatedLeafHubs))
 	}
-
-	sc.replicatedEntry = new(BundleCollectionEntry)
-	sc.deepCopy = newDeepCopy()
 
 	return sc
 }
@@ -258,25 +223,19 @@ func (c *genericStatusSyncController) periodicSync() {
 			// send to transport only if bundle has changed
 			if bundleGeneration > entry.lastSentBundleGeneration {
 				leafHubName := c.getLeafHubName(entry)
-				replicatedEntry := c.sc.replicatedEntry
 
 				// send original entry
 				c.syncToTransport(entry.transportBundleKey, datatypes.StatusBundle,
 					strconv.FormatUint(bundleGeneration, Base10), entry.bundle)
 
-				// deep copy the original entry to the replicated entry
-				if c.sc.deepCopy.copy(replicatedEntry, entry) {
-					// send simulated entries
-					for i := 1; i <= c.sc.numOfLeafHubs; i++ {
-						simulatedLeafHubName := fmt.Sprintf("%s_simulated_%d", leafHubName, i)
+				// send simulated entries
+				for i := 1; i <= c.sc.numOfLeafHubs; i++ {
+					simulatedLeafHubName := fmt.Sprintf("%s_simulated_%d", leafHubName, i)
 
-						c.changeLeafHubName(replicatedEntry, simulatedLeafHubName)
+					c.changeLeafHubName(entry, simulatedLeafHubName)
 
-						c.syncToTransport(replicatedEntry.transportBundleKey, datatypes.StatusBundle,
-							strconv.FormatUint(bundleGeneration, Base10), replicatedEntry.bundle)
-					}
-				} else {
-					c.log.Info("failed to deep copy bundle collection entry")
+					c.syncToTransport(entry.transportBundleKey, datatypes.StatusBundle,
+						strconv.FormatUint(bundleGeneration, Base10), entry.bundle)
 				}
 
 				// restore original leaf hub name for the entry
