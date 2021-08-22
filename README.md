@@ -48,6 +48,11 @@ The leaf hub status sync component of [Hub-of-Hubs](https://github.com/open-clus
     ```
     $ export LH_ID=...
     ```
+
+1.  Set the `NUMBER_OF_SIMULATED_LEAF_HUBS` environment variable to hold the number of simulated leaf hubs (not including the original leaf hub).
+    ```
+    $ export NUMBER_OF_SIMULATED_LEAF_HUBS=...
+    ```
     
 1.  Run the following command to deploy the `leaf-hub-status-sync` to your leaf hub cluster:  
     ```
