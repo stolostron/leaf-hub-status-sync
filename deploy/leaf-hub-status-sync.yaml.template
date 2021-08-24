@@ -60,6 +60,15 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - "apps.open-cluster-management.io"
+  resources:
+  - placementrules
+  verbs:
+  - get
+  - list
+  - watch
+  - update
 ---
 
 apiVersion: v1

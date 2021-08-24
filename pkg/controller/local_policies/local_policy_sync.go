@@ -58,7 +58,7 @@ func AddLocalPoliciesController(mgr ctrl.Manager, transport transport.Transport,
 		func() bool { return true })
 
 	// check for full information
-	fullStatusPredicate := func() bool { return hubOfHubsConfig.Spec.AggregationLevel == configv1.Full }
+	fullStatusPredicate := func() bool { return true }
 
 	bundleCollection := []*generic.BundleCollectionEntry{ // multiple bundles for policy status
 		generic.NewBundleCollectionEntry(localClustersPerPolicyTransportKey,
@@ -74,7 +74,7 @@ func AddLocalPoliciesController(mgr ctrl.Manager, transport transport.Transport,
 	if err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, transport, policyCleanupFinalizer,
 		bundleCollection, createObjFunc, syncInterval,
 		isLocalPolicyPredic); err != nil {
-		return fmt.Errorf("failed to add controller to the manager - %w", err)
+		return fmt.Errorf("local policy failed to add controller to the manager - %w", err)
 	}
 
 	return nil

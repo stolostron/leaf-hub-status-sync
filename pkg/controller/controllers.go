@@ -8,6 +8,7 @@ import (
 	"time"
 
 	clustersv1 "github.com/open-cluster-management/api/cluster/v1"
+	placementrulev1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/apps/v1"
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
 	configCtrl "github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/config"
@@ -27,7 +28,10 @@ func AddToScheme(s *runtime.Scheme) error {
 		return fmt.Errorf("failed to add scheme: %w", err)
 	}
 
-	schemeBuilders := []*scheme.Builder{policiesv1.SchemeBuilder, configv1.SchemeBuilder} // add schemes
+	schemeBuilders := []*scheme.Builder{
+		policiesv1.SchemeBuilder, configv1.SchemeBuilder,
+		placementrulev1.SchemeBuilder,
+	} // add schemes
 
 	for _, schemeBuilder := range schemeBuilders {
 		if err := schemeBuilder.AddToScheme(s); err != nil {
@@ -44,7 +48,7 @@ func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, syncInt
 	config := &configv1.Config{}
 
 	if err := configCtrl.AddConfigController(mgr, "hub-of-hubs-config", config); err != nil {
-		return fmt.Errorf("failed to add controller: %w", err)
+		return fmt.Errorf("first failed to add controller: %w", err)
 	}
 
 	addControllerFunctions := []func(ctrl.Manager, transport.Transport, time.Duration, string, *configv1.Config) error{
@@ -52,9 +56,9 @@ func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, syncInt
 		localpolicies.AddLocalPoliciesController, localpolicies.AddLocalPlacementruleController,
 	}
 
-	for _, addControllerFunction := range addControllerFunctions {
+	for i, addControllerFunction := range addControllerFunctions {
 		if err := addControllerFunction(mgr, transportImpl, syncInterval, leafHubName, config); err != nil {
-			return fmt.Errorf("failed to add controller: %w", err)
+			return fmt.Errorf("%d second failed to add controller: %w", i, err)
 		}
 	}
 
