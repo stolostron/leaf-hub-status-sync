@@ -2,11 +2,11 @@ package localpolicies
 
 import (
 	"fmt"
-	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
 	"time"
 
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/apps/v1"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
+	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/generic"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
@@ -17,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
+// AddLocalPlacementruleController This function adds a new local placement rule controller.
 func AddLocalPlacementruleController(mgr ctrl.Manager, transport transport.Transport, syncInterval time.Duration,
 	leafHubName string, hubOfHubsConfig *configv1.Config) error {
 	createObjFunc := func() bundle.Object { return &policiesv1.PlacementRule{} }
@@ -28,14 +29,16 @@ func AddLocalPlacementruleController(mgr ctrl.Manager, transport transport.Trans
 			if !ok {
 				return nil, ok
 			}
+
 			placement.Status = policiesv1.PlacementRuleStatus{}
+
 			return placement, true
 		}
 	localPlacementruleTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalPlacementRulesMsgKey)
-	// TODO: check where datatype.placementRuleBundle is used
 	localPlacementRuleBundle := generic.NewBundleCollectionEntry(localPlacementruleTransportKey,
 		bundle.NewGenericStatusBundle(leafHubName,
-			helpers.GetBundleGenerationFromTransport(transport, localPlacementruleTransportKey, datatypes.StatusBundle), cleanFunc),
+			helpers.GetBundleGenerationFromTransport(transport, localPlacementruleTransportKey, datatypes.StatusBundle),
+			cleanFunc),
 		func() bool { // bundle predicate
 			return hubOfHubsConfig.Spec.AggregationLevel == configv1.Full ||
 				hubOfHubsConfig.Spec.AggregationLevel == configv1.Minimal

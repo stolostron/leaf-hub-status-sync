@@ -33,13 +33,16 @@ type GenericStatusBundle struct {
 func (bundle *GenericStatusBundle) UpdateObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
+
 	var ok bool
+
 	if bundle.cleanFunc != nil {
 		object, ok = bundle.cleanFunc(object)
 		if !ok {
 			return
 		}
 	}
+
 	index, err := bundle.getObjectIndexByUID(object.GetUID())
 	if err != nil { // object not found, need to add it to the bundle
 		bundle.Objects = append(bundle.Objects, object)

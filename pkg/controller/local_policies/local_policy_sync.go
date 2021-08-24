@@ -22,6 +22,7 @@ const (
 	policyCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/policy-cleanup"
 )
 
+// AddLocalPoliciesController this function adds a new local policies sync controller.
 func AddLocalPoliciesController(mgr ctrl.Manager, transport transport.Transport, syncInterval time.Duration,
 	leafHubName string, hubOfHubsConfig *configv1.Config) error {
 	createObjFunc := func() bundle.Object { return &policiesv1.Policy{} }
@@ -43,14 +44,17 @@ func AddLocalPoliciesController(mgr ctrl.Manager, transport transport.Transport,
 			if !ok {
 				return nil, ok
 			}
+
 			policy.Status = policiesv1.PolicyStatus{}
+
 			return policy, true
 		}
 
 	localSpecPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalSpecPerPolicyMsgKey)
 	localPolicySpecBundle := generic.NewBundleCollectionEntry(localSpecPerPolicyTransportKey,
 		bundle.NewGenericStatusBundle(leafHubName,
-			helpers.GetBundleGenerationFromTransport(transport, localSpecPerPolicyTransportKey, datatypes.StatusBundle), cleanFunc),
+			helpers.GetBundleGenerationFromTransport(transport, localSpecPerPolicyTransportKey, datatypes.StatusBundle),
+			cleanFunc),
 		func() bool { return true })
 
 	// check for full information
