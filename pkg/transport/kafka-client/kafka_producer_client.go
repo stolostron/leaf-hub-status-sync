@@ -1,9 +1,9 @@
 package kafkaclient
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"sync"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-logr/logr"
@@ -11,13 +11,12 @@ import (
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 )
 
-// NewLHProducer returns a new instance of LHProducer object.
-func NewLHProducer(log logr.Logger) (*LHProducer, error) {
-	kp := &LHProducer{
-		deliveryChan:  make(chan kafka.Event),
-		stopChan:      make(chan struct{}, 1),
-		kafkaProducer: nil,
+// NewProducer returns a new instance of Producer object.
+func NewProducer(log logr.Logger) (*Producer, error) {
+	kp := &Producer{
 		log:           log,
+		kafkaProducer: nil,
+		deliveryChan:  make(chan kafka.Event),
 	}
 
 	kafkaProducer, err := kclient.NewKafkaProducer(kp.deliveryChan)
@@ -30,68 +29,58 @@ func NewLHProducer(log logr.Logger) (*LHProducer, error) {
 	return kp, nil
 }
 
-// LHProducer abstracts hub-of-hubs-kafka-transport kafka-producer's generic usage.
-type LHProducer struct {
+// Producer abstracts hub-of-hubs-kafka-transport kafka-producer's generic usage.
+type Producer struct {
 	log           logr.Logger
 	kafkaProducer *kclient.KafkaProducer
 	deliveryChan  chan kafka.Event
-	stopChan      chan struct{}
-	startOnce     sync.Once
-	stopOnce      sync.Once
 }
 
 // deliveryHandler handles results of sent messages.
 // For now failed messages are only logged.
-func (p *LHProducer) deliveryHandler(e *kafka.Event) {
-	switch ev := (*e).(type) {
+func (p *Producer) deliveryHandler(kafkaEvent *kafka.Event) {
+	switch event := (*kafkaEvent).(type) {
 	case *kafka.Message:
-		if ev.TopicPartition.Error != nil {
+		if event.TopicPartition.Error != nil {
 			load := &transport.Message{}
 
-			err := json.Unmarshal(ev.Value, load)
+			err := json.Unmarshal(event.Value, load)
 			if err != nil {
 				p.log.Error(err, "Failed to deliver message",
-					"Topic Name", ev.TopicPartition)
+					"topic name", event.TopicPartition)
 				return
 			}
 
-			p.log.Error(ev.TopicPartition.Error, "Failed to deliver message",
-				"Message ID", load.ID, "Topic Name", ev.TopicPartition)
+			p.log.Error(event.TopicPartition.Error, "Failed to deliver message",
+				"message id", load.ID, "topic name", event.TopicPartition)
 		}
 	default:
-		p.log.Info("Received unsupported kafka-event type", "Message Type", ev)
+		p.log.Info("Received unsupported kafka-event type", "Message Type", event)
 	}
 }
 
 // Start starts the kafka-client.
-func (p *LHProducer) Start() {
-	p.startOnce.Do(func() {
-		// Delivery report handler for produced messages
-		go func() {
-			for {
-				select {
-				case <-p.stopChan:
-					return
-				case e := <-p.deliveryChan:
-					p.deliveryHandler(&e)
-				}
-			}
-		}()
-	})
-}
+func (p *Producer) Start(stopChannel <-chan struct{}) error {
+	ctx, cancelContext := context.WithCancel(context.Background())
+	defer cancelContext()
 
-// Stop stops the kafka-client.
-func (p *LHProducer) Stop() {
-	p.stopOnce.Do(func() {
+	go p.handleDelivery(ctx)
+
+	for {
+		<-stopChannel // blocking wait until getting stop event on the stop channel.
+		cancelContext()
+
 		p.kafkaProducer.Close()
-		p.stopChan <- struct{}{}
-		close(p.stopChan)
 		close(p.deliveryChan)
-	})
+
+		p.log.Info("stopped kafka producer")
+
+		return nil
+	}
 }
 
 // SendAsync sends a message to the sync service asynchronously.
-func (p *LHProducer) SendAsync(id string, msgType string, version string, payload []byte) {
+func (p *Producer) SendAsync(id string, msgType string, version string, payload []byte) {
 	message := &transport.Message{
 		ID:      id,
 		MsgType: msgType,
@@ -99,20 +88,31 @@ func (p *LHProducer) SendAsync(id string, msgType string, version string, payloa
 		Payload: payload,
 	}
 
-	bs, err := json.Marshal(message)
+	messageBytes, err := json.Marshal(message)
 	if err != nil {
 		p.log.Error(err, "Failed to send message", "Message ID", message.ID)
 		return
 	}
 
-	err = p.kafkaProducer.ProduceAsync(&bs)
-	if err != nil {
+	if err = p.kafkaProducer.ProduceAsync(messageBytes, []byte(id), []byte(msgType), []byte(version)); err != nil {
 		p.log.Error(err, "Failed to send message", "Message ID", message.ID)
 	}
 }
 
 // GetVersion returns an empty string if the object doesn't exist or an error occurred.
-func (p *LHProducer) GetVersion(id string, msgType string) string {
-	// TODO: implement with consumer
-	return ""
+func (p *Producer) GetVersion(id string, msgType string) string {
+	// we know that the listening transport bridge does not care about generations due to message committing design.
+	return "0"
+}
+
+func (p *Producer) handleDelivery(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+
+		case e := <-p.deliveryChan:
+			p.deliveryHandler(&e)
+		}
+	}
 }

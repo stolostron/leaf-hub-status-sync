@@ -53,13 +53,13 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 	defaultDeliveryConsumer := func(int) {}
 
 	// hybrid compliance status manager
-	hybridComplianceStatusManager,
-		completeComplianceBundle, deltaComplianceBundle,
+	completeComplianceBundle, deltaComplianceBundle,
 		complianceBundleDeliveryConsumerFunc,
-		completeBundlePred, deltaBundlePred := initHybridComplianceStatusManager(leafHubName,
+		completeBundlePred, deltaBundlePred, err := initHybridComplianceStatusManager(mgr, leafHubName,
 		clustersPerPolicyBundle, fullStatusPredicate, fullStatusPredicate)
-
-	defer hybridComplianceStatusManager.Stop()
+	if err != nil {
+		return fmt.Errorf("failed to add hybrid status controller to the manager - %w", err)
+	}
 
 	bundleCollection := []*generic.BundleCollectionEntry{ // multiple bundles for policy status
 		generic.NewBundleCollectionEntry(clustersPerPolicyTransportKey, clustersPerPolicyBundle,
@@ -96,12 +96,10 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 // completeBundlePred - a predicate that determines whether the completeComplianceBundle should be shipped
 // deltaBundlePred - a predicate that determines whether the deltaComplianceBundle should be shipped
 // All the returned elements are used inside bundleCollectionEntries.
-func initHybridComplianceStatusManager(leafHubName string,
+func initHybridComplianceStatusManager(mgr ctrl.Manager, leafHubName string,
 	completeComplianceBaseBundle bundle.Bundle, completeCompliancePred func() bool,
-	deltaCompliancePred func() bool) (*generic.HybridStatusManager,
-	bundle.HybridBundle, bundle.HybridBundle,
-	func(int),
-	func() bool, func() bool) {
+	deltaCompliancePred func() bool) (bundle.HybridBundle, bundle.HybridBundle, func(int), func() bool, func() bool,
+	error) {
 	// policies map to serve as policies cache for delta bundles
 	policiesMap := make(map[string]bool)
 	// complete compliance status bundle
@@ -112,7 +110,7 @@ func initHybridComplianceStatusManager(leafHubName string,
 		0, completeComplianceStatusBundle, policiesMap)
 
 	// hybrid compliance status manager
-	hybridComplianceStatusManager := generic.NewGenericHybridStatusManager(completeComplianceStatusBundle,
+	hybridComplianceStatusManager := generic.NewGenericHybridStatusController(completeComplianceStatusBundle,
 		deltaComplianceStatusBundle)
 	// - delivery consumption func
 	complianceBundleDeliveryConsumerFunc := hybridComplianceStatusManager.GenerateDeliveryConsumptionFunc()
@@ -120,8 +118,10 @@ func initHybridComplianceStatusManager(leafHubName string,
 	completeBundlePred := hybridComplianceStatusManager.GenerateCompleteStateBundlePredicate(completeCompliancePred)
 	deltaBundlePred := hybridComplianceStatusManager.GenerateDeltaStateBundlePredicate(deltaCompliancePred)
 
-	hybridComplianceStatusManager.Start()
+	if err := mgr.Add(hybridComplianceStatusManager); err != nil {
+		return nil, nil, nil, nil, nil, fmt.Errorf("%w", err)
+	}
 
-	return hybridComplianceStatusManager, completeComplianceStatusBundle, deltaComplianceStatusBundle,
-		complianceBundleDeliveryConsumerFunc, completeBundlePred, deltaBundlePred
+	return completeComplianceStatusBundle, deltaComplianceStatusBundle,
+		complianceBundleDeliveryConsumerFunc, completeBundlePred, deltaBundlePred, nil
 }

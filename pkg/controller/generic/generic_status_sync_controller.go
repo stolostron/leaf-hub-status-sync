@@ -28,7 +28,7 @@ const (
 // CreateObjectFunction is a function for how to create an object that is stored inside the bundle.
 type CreateObjectFunction func() bundle.Object
 
-// NewGenericStatusSyncController creates a new instnace of genericStatusSyncController and adds it to the manager.
+// NewGenericStatusSyncController creates a new instance of genericStatusSyncController and adds it to the manager.
 func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport transport.Transport,
 	finalizerName string, orderedBundleCollection []*BundleCollectionEntry, createObjFunc CreateObjectFunction,
 	syncInterval time.Duration, predicate predicate.Predicate) error {
