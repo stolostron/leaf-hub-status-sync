@@ -5,13 +5,13 @@ package controller
 
 import (
 	"fmt"
-	localpolicies "github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/local_policies"
 	"time"
 
 	clustersv1 "github.com/open-cluster-management/api/cluster/v1"
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
 	configCtrl "github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/config"
+	localpolicies "github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/local_policies"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/managedclusters"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/policies"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
@@ -48,8 +48,8 @@ func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, syncInt
 	}
 
 	addControllerFunctions := []func(ctrl.Manager, transport.Transport, time.Duration, string, *configv1.Config) error{
-		managedclusters.AddClustersStatusController, policies.AddPoliciesStatusController, localpolicies.AddLocalPoliciesController,
-		localpolicies.AddLocalPlacementruleController,
+		managedclusters.AddClustersStatusController, policies.AddPoliciesStatusController,
+		localpolicies.AddLocalPoliciesController, localpolicies.AddLocalPlacementruleController,
 	}
 
 	for _, addControllerFunction := range addControllerFunctions {
