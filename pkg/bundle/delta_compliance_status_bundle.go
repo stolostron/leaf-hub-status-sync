@@ -9,6 +9,8 @@ import (
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 )
 
+const unknownComplianceStatus = "unknown"
+
 var errPolicyNotFromHubOfHubs = errors.New("policy wasn't sent from hub of hubs")
 
 // NewDeltaComplianceStatusBundle creates a new instance of DeltaComplianceStatusBundle.
@@ -61,7 +63,16 @@ func (bundle *DeltaComplianceStatusBundle) UpdateObject(object Object) {
 		return // error found means object should be skipped
 	}
 
-	bundle.Objects = append(bundle.Objects, policyComplianceObject)
+	index, err := bundle.getObjectIndexByUID(originPolicyID)
+	if err != nil { // object not found, need to add it to the bundle
+		bundle.Objects = append(bundle.Objects, policyComplianceObject)
+		bundle.Generation++
+
+		return
+	}
+
+	// object found, update content
+	bundle.updatePolicyComplianceStatus(index, policyComplianceObject)
 	bundle.Generation++
 }
 
@@ -74,8 +85,18 @@ func (bundle *DeltaComplianceStatusBundle) DeleteObject(object Object) {
 		return
 	}
 
-	// TODO: factor deletion into objects count (so that sent bundles are flushed correctly)
-	bundle.deleteAllObjOccurrences(object)
+	originPolicyID, found := object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
+	if !found {
+		return // origin owner reference annotation not found, cannot handle this policy
+	}
+
+	index, err := bundle.getObjectIndexByUID(originPolicyID)
+	if err != nil { // trying to delete object which doesn't exist - return with no error
+		return
+	}
+
+	// do not increase generation, no need to send bundle when policy is removed (clusters per policy bundle is sent)
+	bundle.Objects = append(bundle.Objects[:index], bundle.Objects[index+1:]...) // remove from objects
 }
 
 // GetBundleGeneration function to get bundle generation.
@@ -130,37 +151,14 @@ func (bundle *DeltaComplianceStatusBundle) Disable() {
 	bundle.Objects = nil // safe after go1.0
 }
 
-func (bundle *DeltaComplianceStatusBundle) deleteAllObjOccurrences(object Object) {
-	originPolicyID, found := object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
-	if !found {
-		return // origin owner reference annotation not found, cannot handle this policy
-	}
-
-	indexes, err := bundle.getObjectIndexesByUID(originPolicyID)
-	if err != nil { // trying to delete object which doesn't exist - return with no error
-		return
-	}
-
-	// do not increase generation, no need to send bundle when policy is removed (clusters per policy bundle is sent)
-	for _, index := range indexes {
-		bundle.Objects = append(bundle.Objects[:index], bundle.Objects[index+1:]...) // remove from objects
-	}
-}
-
-func (bundle *DeltaComplianceStatusBundle) getObjectIndexesByUID(uid string) ([]int, error) {
-	indexes := make([]int, 0)
-
+func (bundle *DeltaComplianceStatusBundle) getObjectIndexByUID(uid string) (int, error) {
 	for i, object := range bundle.Objects {
 		if object.PolicyID == uid {
-			indexes = append(indexes, i)
+			return i, nil
 		}
 	}
 
-	if len(indexes) == 0 {
-		return nil, errObjectNotFound
-	}
-
-	return indexes, nil
+	return -1, errObjectNotFound
 }
 
 func (bundle *DeltaComplianceStatusBundle) getPolicyComplianceStatus(originPolicyID string,
@@ -177,6 +175,64 @@ func (bundle *DeltaComplianceStatusBundle) getPolicyComplianceStatus(originPolic
 		UnknownComplianceClusters: unknownComplianceClusters,
 		ResourceVersion:           policy.GetResourceVersion(),
 	}, nil
+}
+
+func (bundle *DeltaComplianceStatusBundle) updatePolicyComplianceStatus(policyIndex int,
+	newPolicyStatus *statusbundle.PolicyDeltaComplianceStatus) {
+	// get existing policy state
+	existingPolicyState := bundle.getExistingPolicyState(policyIndex)
+
+	// update the policy state above
+	for _, cluster := range newPolicyStatus.CompliantClusters {
+		existingPolicyState[cluster] = v1.Compliant
+	}
+
+	for _, cluster := range newPolicyStatus.NonCompliantClusters {
+		existingPolicyState[cluster] = v1.NonCompliant
+	}
+
+	for _, cluster := range newPolicyStatus.UnknownComplianceClusters {
+		existingPolicyState[cluster] = unknownComplianceStatus
+	}
+
+	// generate new compliance lists from the map
+	compliantClusters := make([]string, 0)
+	nonCompliantClusters := make([]string, 0)
+	unknownComplianceClusters := make([]string, 0)
+
+	for cluster, compliance := range existingPolicyState {
+		switch compliance {
+		case v1.Compliant:
+			compliantClusters = append(compliantClusters, cluster)
+		case v1.NonCompliant:
+			nonCompliantClusters = append(nonCompliantClusters, cluster)
+		default:
+			unknownComplianceClusters = append(unknownComplianceClusters, cluster)
+		}
+	}
+
+	// update policy
+	bundle.Objects[policyIndex].CompliantClusters = compliantClusters
+	bundle.Objects[policyIndex].NonCompliantClusters = nonCompliantClusters
+	bundle.Objects[policyIndex].UnknownComplianceClusters = unknownComplianceClusters
+}
+
+func (bundle *DeltaComplianceStatusBundle) getExistingPolicyState(policyIndex int) map[string]v1.ComplianceState {
+	existingPolicyState := make(map[string]v1.ComplianceState)
+
+	for _, cluster := range bundle.Objects[policyIndex].CompliantClusters {
+		existingPolicyState[cluster] = v1.Compliant
+	}
+
+	for _, cluster := range bundle.Objects[policyIndex].NonCompliantClusters {
+		existingPolicyState[cluster] = v1.NonCompliant
+	}
+
+	for _, cluster := range bundle.Objects[policyIndex].UnknownComplianceClusters {
+		existingPolicyState[cluster] = unknownComplianceStatus
+	}
+
+	return existingPolicyState
 }
 
 func (bundle *DeltaComplianceStatusBundle) getChangedClusters(policy *v1.Policy) ([]string, []string, []string,
@@ -241,7 +297,7 @@ func (bundle *DeltaComplianceStatusBundle) getClusterComplianceStatusInBaseBundl
 			return v1.Compliant
 		}
 
-		return "unknown"
+		return unknownComplianceStatus
 	}
 
 	for _, object := range policyCompleteComplianceStatus.NonCompliantClusters {
@@ -252,7 +308,7 @@ func (bundle *DeltaComplianceStatusBundle) getClusterComplianceStatusInBaseBundl
 
 	for _, object := range policyCompleteComplianceStatus.UnknownComplianceClusters {
 		if clusterName == object {
-			return "unknown"
+			return unknownComplianceStatus
 		}
 	}
 
