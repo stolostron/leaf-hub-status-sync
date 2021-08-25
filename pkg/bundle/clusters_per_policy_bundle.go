@@ -38,10 +38,12 @@ func (bundle *ClustersPerPolicyBundle) UpdateObject(object Object) {
 		return // do not handle objects other than policy
 	}
 
-	originPolicyID, found := object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
-	if !found {
-		return // origin owner reference annotation not found, not handling this policy (wasn't sent from hub of hubs)
-	}
+	// originPolicyID, found := object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
+	// if !found {
+	//	return // origin owner reference annotation not found, not handling this policy (wasn't sent from hub of hubs)
+	// }
+
+	originPolicyID := string(policy.UID)
 
 	index, err := bundle.getObjectIndexByUID(originPolicyID)
 	if err != nil { // object not found, need to add it to the bundle

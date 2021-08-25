@@ -105,6 +105,7 @@ func (s *SyncService) SendAsync(id string, msgType string, version string, paylo
 func (s *SyncService) GetVersion(id string, msgType string) string {
 	objectMetadata, err := s.client.GetObjectMetadata(msgType, id)
 	if err != nil {
+		s.log.Info(fmt.Sprintf("----------------- this is id %s and msgType %s", id, msgType))
 		return ""
 	}
 
@@ -134,8 +135,10 @@ func (s *SyncService) sendMessages() {
 				continue
 			}
 
-			s.log.Info(fmt.Sprintf("Message '%s' from type '%s' with version '%s' sent", msg.id, msg.msgType,
+			s.log.Info(fmt.Sprintf("Message '%s' from type '%s' with version '%s' sent",
+				msg.id, msg.msgType,
 				msg.version))
+			s.log.Info(string(msg.payload))
 		}
 	}
 }

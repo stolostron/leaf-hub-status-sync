@@ -12,7 +12,6 @@ import (
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
-	"github.com/open-horizon/edge-utilities/logger/log"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -171,18 +170,11 @@ func (c *genericStatusSyncController) removeFinalizer(ctx context.Context, objec
 func (c *genericStatusSyncController) periodicSync() {
 	ticker := time.NewTicker(c.periodicSyncInterval)
 
-	log.Info("in periodic sync")
-
 	for {
-		log.Info("in periodic sync loop")
-
 		<-ticker.C // wait for next time interval
 
 		for _, entry := range c.orderedBundleCollection {
-			log.Info(fmt.Sprintf("hiiiiiiiii its %s", entry.transportBundleKey))
-
 			if !entry.predicate() { // evaluate if bundle has to be sent only if predicate is true
-				log.Info(fmt.Sprintf("hiiiiiiiii its %s and my predicate is failing", entry.transportBundleKey))
 				continue
 			}
 
@@ -194,8 +186,6 @@ func (c *genericStatusSyncController) periodicSync() {
 					strconv.FormatUint(bundleGeneration, BASE), entry.bundle)
 
 				entry.lastSentBundleGeneration = bundleGeneration
-			} else {
-				log.Info(fmt.Sprintf("hiiiiiiiii its %s and my generation is failing", entry.transportBundleKey))
 			}
 		}
 	}
