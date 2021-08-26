@@ -43,3 +43,14 @@ func HasAnnotation(obj metav1.Object, annotation string) bool {
 
 	return found
 }
+
+// HasLabel returns a bool if the given label exists in labels.
+func HasLabel(obj metav1.Object, annotation string) bool {
+	if obj == nil || obj.GetLabels() == nil {
+		return false
+	}
+
+	_, found := obj.GetLabels()[annotation]
+
+	return found
+}
