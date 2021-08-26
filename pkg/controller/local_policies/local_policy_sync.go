@@ -20,7 +20,10 @@ import (
 const (
 	policiesStatusSyncLog  = "policies-status-sync"
 	policyCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/policy-cleanup"
-	rootReferenceLabel     = "policy.open-cluster-management.io/root-policy"
+	// may need to move
+	rootReferenceLabel = "policy.open-cluster-management.io/root-policy"
+	// may need to move
+	showLocalInformation = true
 )
 
 // AddLocalPoliciesController this function adds a new local policies sync controller.
@@ -56,10 +59,10 @@ func AddLocalPoliciesController(mgr ctrl.Manager, transport transport.Transport,
 		bundle.NewGenericStatusBundle(leafHubName,
 			helpers.GetBundleGenerationFromTransport(transport, localSpecPerPolicyTransportKey, datatypes.StatusBundle),
 			cleanFunc),
-		func() bool { return true })
+		func() bool { return showLocalInformation })
 
 	// check for full information
-	fullStatusPredicate := func() bool { return true }
+	fullStatusPredicate := func() bool { return showLocalInformation }
 
 	bundleCollection := []*generic.BundleCollectionEntry{ // multiple bundles for policy status
 		generic.NewBundleCollectionEntry(localClustersPerPolicyTransportKey,
