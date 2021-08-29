@@ -42,12 +42,11 @@ func (bundle *ComplianceStatusBundle) UpdateObject(object Object) {
 		return // do not handle objects other than policy
 	}
 
-	// originPolicyID, found := object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
-	// if !found {
-	// 	return // origin owner reference annotation not found, not handling policy that wasn't sent from hub of hubs
-	// }
-
-	originPolicyID := string(policy.UID)
+	originPolicyID, found := object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
+	if !found {
+		// origin owner reference annotation not found meaning this is a local policy so we use the local ID.
+		originPolicyID = string(policy.UID)
+	}
 
 	index, err := bundle.getObjectIndexByUID(originPolicyID)
 	if err != nil { // object not found, need to add it to the bundle
@@ -88,9 +87,15 @@ func (bundle *ComplianceStatusBundle) DeleteObject(object Object) {
 
 	bundle.BaseBundleGeneration = bundle.baseBundle.GetBundleGeneration()
 
+	policy, ok := object.(*policyv1.Policy)
+	if !ok {
+		return // do not handle objects other than policy
+	}
+
 	originPolicyID, found := object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
 	if !found {
-		return // origin owner reference annotation not found, cannot handle this policy
+		// origin owner reference annotation not found meaning this is a local policy so we use the local ID.
+		originPolicyID = string(policy.UID)
 	}
 
 	index, err := bundle.getObjectIndexByUID(originPolicyID)
