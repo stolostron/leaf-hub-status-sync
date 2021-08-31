@@ -28,46 +28,46 @@ The leaf hub status sync component of [Hub-of-Hubs](https://github.com/open-clus
 
 ## Deploy on a leaf hub
 
-1.  Set the `REGISTRY` environment variable to hold the name of your docker registry:
+1. Set the `REGISTRY` environment variable to hold the name of your docker registry:
     ```
     $ export REGISTRY=...
     ```
     
-1.  Set the `IMAGE` environment variable to hold the name of the image.
+2. Set the `IMAGE` environment variable to hold the name of the image.
 
     ```
     $ export IMAGE=$REGISTRY/$(basename $(pwd)):latest
     ```
     
-1.  Set the `LH_ID` environment variable to hold the leaf hub unique id.
+3. Set the `LH_ID` environment variable to hold the leaf hub unique id.
     ```
     $ export LH_ID=...
     ```
     
-1.  Set the `TRANSPORT_TYPE` environment variable to "kafka" or "syncservice" to set which transport to use.
+4. Set the `TRANSPORT_TYPE` environment variable to "kafka" or "syncservice" to set which transport to use.
     ```
     $ export TRANSPORT_TYPE=...
     ```
     
-If you chose Kafka for transport, set the following environment variables:
+5. If you chose Kafka for transport, set the following environment variables:
 
-1. If you use secured (SSL/TLS) client authorization, set `KAFKA_SSL_CA` environment variable to hold the
-   certificate (PEM format) encoded in base64.
-    ```
-    $ export KAFKA_SSL_CA=$(cat PATH_TO_CA | base64 -w 0)
-    ```
+   1. If you use secured (SSL/TLS) client authorization, set `KAFKA_SSL_CA` environment variable to hold the
+      certificate (PEM format) encoded in base64.
+       ```
+       $ export KAFKA_SSL_CA=$(cat PATH_TO_CA | base64 -w 0)
+       ```
    
-Otherwise, if you chose Sync-Service as transport, set the following:
+6. Otherwise, if you chose Sync-Service as transport, set the following:
 
-1.  Set the `SYNC_SERVICE_PORT` environment variable to hold the ESS port as was setup in the leaf hub.
-    ```
-    $ export SYNC_SERVICE_PORT=...
-    ```
+   1. Set the `SYNC_SERVICE_PORT` environment variable to hold the ESS port as was setup in the leaf hub.
+       ```
+       $ export SYNC_SERVICE_PORT=...
+       ```
 
-1.  Run the following command to deploy the `leaf-hub-status-sync` to your leaf hub cluster:  
-    ```
-    envsubst < deploy/leaf-hub-status-sync.yaml.template | kubectl apply -f -
-    ```
+   2. Run the following command to deploy the `leaf-hub-status-sync` to your leaf hub cluster:  
+       ```
+       envsubst < deploy/leaf-hub-status-sync.yaml.template | kubectl apply -f -
+       ```
     
 ## Cleanup from a leaf hub
     

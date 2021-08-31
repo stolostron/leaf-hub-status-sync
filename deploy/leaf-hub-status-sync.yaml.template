@@ -98,11 +98,11 @@ spec:
             - name: TRANSPORT_TYPE
               value: "$TRANSPORT_TYPE"
             - name: KAFKA_PRODUCER_ID
-              value: "lh-status-producer"
+              value: "hub3"
             - name: KAFKA_PRODUCER_HOSTS
-              value: "my-cluster-kafka-tls-bootstrap-kafka.apps.veisenbe-hoh2.dev10.red-chesterfield.com:443"
+              value: "kafka-brokers-cluster-kafka-tls-bootstrap-kafka.apps.veisenbe-hoh2.dev10.red-chesterfield.com:443"
             - name: KAFKA_PRODUCER_TOPIC
-              value: "status-path-topic"
+              value: "status"
             - name: KAFKA_SSL_CA
               value: "$KAFKA_SSL_CA"
             - name: KAFKA_MESSAGE_SIZE_LIMIT_KB

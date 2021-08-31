@@ -70,7 +70,7 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 			completeComplianceBundle, completeBundlePred, complianceBundleDeliveryConsumerFunc),
 		generic.NewBundleCollectionEntry(minComplianceStatusTransportKey, minComplianceStatusBundle,
 			minStatusPredicate, defaultDeliveryConsumer),
-	} // IMPORTANT: delta-state bundle has to be placed before the complete-state bundle!
+	}
 
 	hohNamespacePredicate := predicate.NewPredicateFuncs(func(meta metav1.Object, object runtime.Object) bool {
 		return meta.GetNamespace() == datatypes.HohSystemNamespace
@@ -98,16 +98,16 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 // All the returned elements are used inside bundleCollectionEntries.
 func initHybridComplianceStatusManager(mgr ctrl.Manager, leafHubName string,
 	completeComplianceBaseBundle bundle.Bundle, completeCompliancePred func() bool,
-	deltaCompliancePred func() bool) (bundle.HybridBundle, bundle.HybridBundle, func(int), func() bool, func() bool,
-	error) {
+	deltaCompliancePred func() bool) (bundle.HybridBundle, bundle.DeltaStateBundle, func(int), func() bool,
+	func() bool, error) {
 	// policies map to serve as policies cache for delta bundles
-	policiesMap := make(map[string]bool)
+	existingPoliciesMap := make(map[string]struct{})
 	// complete compliance status bundle
 	completeComplianceStatusBundle := bundle.NewCompleteComplianceStatusBundle(leafHubName,
-		completeComplianceBaseBundle, 0, policiesMap)
+		completeComplianceBaseBundle, 0, existingPoliciesMap)
 	// delta compliance status bundle
 	deltaComplianceStatusBundle := bundle.NewDeltaComplianceStatusBundle(leafHubName,
-		0, completeComplianceStatusBundle, policiesMap)
+		0, completeComplianceBaseBundle, completeComplianceStatusBundle, existingPoliciesMap)
 
 	// hybrid compliance status manager
 	hybridComplianceStatusManager := generic.NewGenericHybridStatusController(completeComplianceStatusBundle,
