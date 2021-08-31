@@ -11,7 +11,7 @@ import (
 
 // NewCompleteComplianceStatusBundle creates a new instance of CompleteComplianceStatusBundle.
 func NewCompleteComplianceStatusBundle(leafHubName string, baseBundle Bundle,
-	generation uint64, policiesMap map[string]bool) HybridBundle {
+	generation uint64, existingPoliciesMap map[string]struct{}) HybridBundle {
 	return &CompleteComplianceStatusBundle{
 		BaseCompleteComplianceStatusBundle: statusbundle.BaseCompleteComplianceStatusBundle{
 			Objects:              make([]*statusbundle.PolicyCompleteComplianceStatus, 0),
@@ -19,26 +19,30 @@ func NewCompleteComplianceStatusBundle(leafHubName string, baseBundle Bundle,
 			BaseBundleGeneration: baseBundle.GetBundleGeneration(),
 			Generation:           0,
 		},
-		baseBundle:  baseBundle,
-		policiesMap: policiesMap,
-		enabled:     false,
-		lock:        sync.Mutex{},
+		baseBundle:          baseBundle,
+		existingPoliciesMap: existingPoliciesMap,
+		enabled:             false,
+		lock:                sync.Mutex{},
 	}
 }
 
 // CompleteComplianceStatusBundle abstracts management of compliance status bundle.
 type CompleteComplianceStatusBundle struct {
 	statusbundle.BaseCompleteComplianceStatusBundle
-	baseBundle  Bundle
-	policiesMap map[string]bool
-	enabled     bool
-	lock        sync.Mutex
+	baseBundle          Bundle
+	existingPoliciesMap map[string]struct{}
+	enabled             bool
+	lock                sync.Mutex
 }
 
 // UpdateObject function to update a single object inside a bundle.
 func (bundle *CompleteComplianceStatusBundle) UpdateObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
+
+	if !bundle.enabled {
+		return
+	}
 
 	bundle.BaseBundleGeneration = bundle.baseBundle.GetBundleGeneration()
 
@@ -52,8 +56,9 @@ func (bundle *CompleteComplianceStatusBundle) UpdateObject(object Object) {
 		return // origin owner reference annotation not found, not handling policy that wasn't sent from hub of hubs
 	}
 
-	if _, exists := bundle.policiesMap[originPolicyID]; !exists {
-		bundle.policiesMap[originPolicyID] = true
+	// add to policies map so delta bundles are able to infer statuses correctly
+	if _, exists := bundle.existingPoliciesMap[originPolicyID]; !exists {
+		bundle.existingPoliciesMap[originPolicyID] = struct{}{}
 	}
 
 	index, err := bundle.getObjectIndexByUID(originPolicyID)
@@ -93,6 +98,10 @@ func (bundle *CompleteComplianceStatusBundle) DeleteObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
+	if !bundle.enabled {
+		return
+	}
+
 	bundle.BaseBundleGeneration = bundle.baseBundle.GetBundleGeneration()
 
 	originPolicyID, found := object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
@@ -107,6 +116,8 @@ func (bundle *CompleteComplianceStatusBundle) DeleteObject(object Object) {
 
 	// do not increase generation, no need to send bundle when policy is removed (clusters per policy bundle is sent)
 	bundle.Objects = append(bundle.Objects[:index], bundle.Objects[index+1:]...) // remove from objects
+
+	delete(bundle.existingPoliciesMap, originPolicyID)
 }
 
 // GetBundleGeneration function to get bundle generation.
@@ -117,30 +128,20 @@ func (bundle *CompleteComplianceStatusBundle) GetBundleGeneration() uint64 {
 	return bundle.Generation
 }
 
-// DeleteOrderedObjects function to delete a number of objects from the bundle.
-func (bundle *CompleteComplianceStatusBundle) DeleteOrderedObjects(count int) {
-	bundle.lock.Lock()
-	defer bundle.lock.Unlock()
-
-	if count <= len(bundle.Objects) {
-		bundle.Objects = bundle.Objects[count:]
-	}
-}
-
-// GetObjects function to return the hybrid bundle's objects.
-func (bundle *CompleteComplianceStatusBundle) GetObjects() interface{} {
-	bundle.lock.Lock()
-	defer bundle.lock.Unlock()
-
-	return bundle.Objects
-}
-
 // GetObjectsCount function to get bundle objects count.
 func (bundle *CompleteComplianceStatusBundle) GetObjectsCount() int {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
 	return len(bundle.Objects)
+}
+
+// GetObjects returns the bundle's objects.
+func (bundle *CompleteComplianceStatusBundle) GetObjects() interface{} {
+	bundle.lock.Lock()
+	defer bundle.lock.Unlock()
+
+	return bundle.Objects
 }
 
 // Enable function to sync bundle's recorded baseline generation and enable it for object updates.
