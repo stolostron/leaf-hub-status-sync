@@ -60,7 +60,6 @@ func (hsc *HybridStatusController) GenerateDeliveryConsumptionFunc() func(int) {
 			// means a complete-state bundle was sent, should switch mode now and update delta-state bundle's base
 			hsc.mode = deltaStateMode
 			hsc.deltaStateBundle.Enable()
-			hsc.completeStateBundle.Disable()
 		} else {
 			// delta bundle was sent, remove the transported objects
 			hsc.deltaStateBundle.FlushOrderedObjects(sentObjectsCount)
