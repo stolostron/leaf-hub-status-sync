@@ -2,11 +2,11 @@ package syncservice
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"os"
 	"strconv"
+	"sync"
 
 	"github.com/go-logr/logr"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
@@ -24,6 +24,16 @@ var (
 	errEnvVarWrongType = errors.New("wrong type of environment variable")
 )
 
+// SyncService abstracts Sync Service client.
+type SyncService struct {
+	client    *client.SyncServiceClient
+	msgChan   chan *transport.Message
+	stopChan  chan struct{}
+	startOnce sync.Once
+	stopOnce  sync.Once
+	log       logr.Logger
+}
+
 // NewSyncService creates a new instance of SyncService.
 func NewSyncService(log logr.Logger) (*SyncService, error) {
 	serverProtocol, host, port, err := readEnvVars()
@@ -36,17 +46,11 @@ func NewSyncService(log logr.Logger) (*SyncService, error) {
 	syncServiceClient.SetAppKeyAndSecret("user@myorg", "")
 
 	return &SyncService{
-		client:  syncServiceClient,
-		log:     log,
-		msgChan: make(chan *transport.Message),
+		client:   syncServiceClient,
+		log:      log,
+		msgChan:  make(chan *transport.Message),
+		stopChan: make(chan struct{}, 1),
 	}, nil
-}
-
-// SyncService abstracts Sync Service client.
-type SyncService struct {
-	client  *client.SyncServiceClient
-	msgChan chan *transport.Message
-	log     logr.Logger
 }
 
 func readEnvVars() (string, string, uint16, error) {
@@ -73,21 +77,18 @@ func readEnvVars() (string, string, uint16, error) {
 	return protocol, host, uint16(port), nil
 }
 
-// Start starts the sync service.
-func (s *SyncService) Start(stopChannel <-chan struct{}) error {
-	ctx, cancelContext := context.WithCancel(context.Background())
-	defer cancelContext()
+// Start function starts sync service.
+func (s *SyncService) Start() {
+	s.startOnce.Do(func() {
+		go s.sendMessages()
+	})
+}
 
-	go s.sendMessages(ctx)
-
-	for {
-		<-stopChannel // blocking wait until getting stop event on the stop channel.
-		cancelContext()
-		close(s.msgChan)
-		s.log.Info("stopped sync service")
-
-		return nil
-	}
+// Stop function stops sync service.
+func (s *SyncService) Stop() {
+	s.stopOnce.Do(func() {
+		close(s.stopChan)
+	})
 }
 
 // SendAsync function sends a message to the sync service asynchronously.
@@ -111,12 +112,11 @@ func (s *SyncService) GetVersion(id string, msgType string) string {
 	return objectMetadata.Version
 }
 
-func (s *SyncService) sendMessages(ctx context.Context) {
+func (s *SyncService) sendMessages() {
 	for {
 		select {
-		case <-ctx.Done():
+		case <-s.stopChan:
 			return
-
 		case msg := <-s.msgChan:
 			metaData := client.ObjectMetaData{
 				ObjectID:   msg.ID,

@@ -14,7 +14,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
-	kafka "github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport/kafka-client"
+	kafka "github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport/kafka"
 	lhSyncService "github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport/sync-service"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
@@ -52,9 +52,9 @@ func printVersion(log logr.Logger) {
 func getTransport(transportType string) (transport.Transport, error) {
 	switch transportType {
 	case kafkaTransportTypeName:
-		kafkaProducer, err := kafka.NewProducer(ctrl.Log.WithName("kafka-client"))
+		kafkaProducer, err := kafka.NewProducer(ctrl.Log.WithName("kafka"))
 		if err != nil {
-			return nil, fmt.Errorf("failed to create lh-kafka-producer: %w", err)
+			return nil, fmt.Errorf("failed to create kafka-producer: %w", err)
 		}
 
 		return kafkaProducer, nil
@@ -66,39 +66,35 @@ func getTransport(transportType string) (transport.Transport, error) {
 
 		return syncService, nil
 	default:
-		return nil, errEnvVarIllegalValue
+		return nil, fmt.Errorf("%w: %s", errEnvVarIllegalValue, transportType)
 	}
 }
 
-func readEnvVars(log logr.Logger) (string, time.Duration, string, string, error) {
+func readEnvVars() (string, time.Duration, string, string, error) {
 	leaderElectionNamespace, found := os.LookupEnv(envVarControllerNamespace)
 	if !found {
-		log.Error(nil, "Not found:", "environment variable", envVarControllerNamespace)
-		return "", 0, "", "", errEnvVarNotFound
+		return "", 0, "", "", fmt.Errorf("%w: %s", errEnvVarNotFound, envVarControllerNamespace)
 	}
 
 	syncIntervalString, found := os.LookupEnv(envVarSyncInterval)
 	if !found {
-		log.Error(nil, "Not found:", "environment variable", envVarSyncInterval)
-		return "", 0, "", "", errEnvVarNotFound
+		return "", 0, "", "", fmt.Errorf("%w: %s", errEnvVarNotFound, envVarSyncInterval)
 	}
 
 	syncInterval, err := time.ParseDuration(syncIntervalString)
 	if err != nil {
-		log.Error(err, "the environment var ", envVarSyncInterval, " is not valid duration")
-		return "", 0, "", "", errEnvVarNotFound
+		return "", 0, "", "", fmt.Errorf("the environment var %s is not a valid duration - %w",
+			envVarSyncInterval, err)
 	}
 
 	leafHubName, found := os.LookupEnv(envVarLeafHubName)
 	if !found {
-		log.Error(nil, "Not found:", "environment variable", envVarLeafHubName)
-		return "", 0, "", "", errEnvVarNotFound
+		return "", 0, "", "", fmt.Errorf("%w: %s", errEnvVarNotFound, envVarLeafHubName)
 	}
 
 	transportType, found := os.LookupEnv(envVarTransportType)
 	if !found {
-		log.Error(nil, "Not found:", "environment variable", envVarTransportType)
-		return "", 0, "", "", errEnvVarNotFound
+		return "", 0, "", "", fmt.Errorf("%w: %s", errEnvVarNotFound, envVarTransportType)
 	}
 
 	return leaderElectionNamespace, syncInterval, leafHubName, transportType, nil
@@ -114,19 +110,24 @@ func doMain() int {
 
 	printVersion(log)
 
-	leaderElectionNamespace, syncInterval, leafHubName, transportType, err := readEnvVars(log)
+	leaderElectionNamespace, syncInterval, leafHubName, transportType, err := readEnvVars()
 	if err != nil {
+		log.Error(err, "initialization error")
 		return 1
 	}
 
 	// transport layer initialization
 	transportObj, err := getTransport(transportType)
 	if err != nil {
-		log.Error(err, "initialization error", "failed to initialize", transportType)
+		log.Error(err, "transport initialization error")
 		return 1
 	}
 
-	mgr, err := createManager(leaderElectionNamespace, metricsHost, metricsPort, transportObj, syncInterval, leafHubName)
+	transportObj.Start()
+	defer transportObj.Stop()
+
+	mgr, err := createManager(leaderElectionNamespace, metricsHost, metricsPort, transportObj, syncInterval,
+		leafHubName)
 	if err != nil {
 		log.Error(err, "Failed to create manager")
 		return 1
@@ -158,10 +159,6 @@ func createManager(leaderElectionNamespace, metricsHost string, metricsPort int3
 
 	if err := controller.AddToScheme(mgr.GetScheme()); err != nil {
 		return nil, fmt.Errorf("failed to add schemes: %w", err)
-	}
-
-	if err = mgr.Add(transport); err != nil {
-		return nil, fmt.Errorf("failed to add transport: %w", err)
 	}
 
 	if err := controller.AddControllers(mgr, transport, syncInterval, leafHubName); err != nil {
