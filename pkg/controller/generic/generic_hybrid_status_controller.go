@@ -14,7 +14,7 @@ const (
 
 // NewGenericHybridStatusController creates a new instance of GenericHybridStatusManager.
 func NewGenericHybridStatusController(completeStateBundle bundle.HybridBundle,
-	deltaStateBundle bundle.HybridBundle) *HybridStatusController {
+	deltaStateBundle bundle.DeltaStateBundle) *HybridStatusController {
 	return &HybridStatusController{
 		completeStateBundle: completeStateBundle,
 		deltaStateBundle:    deltaStateBundle,
@@ -26,7 +26,7 @@ func NewGenericHybridStatusController(completeStateBundle bundle.HybridBundle,
 // HybridStatusController manages two bundle collection entries, one per mode (complete/delta sync).
 type HybridStatusController struct {
 	completeStateBundle bundle.HybridBundle
-	deltaStateBundle    bundle.HybridBundle
+	deltaStateBundle    bundle.DeltaStateBundle
 	mode                int
 	lock                sync.Mutex
 }
@@ -60,9 +60,10 @@ func (hsc *HybridStatusController) GenerateDeliveryConsumptionFunc() func(int) {
 			// means a complete-state bundle was sent, should switch mode now and update delta-state bundle's base
 			hsc.mode = deltaStateMode
 			hsc.deltaStateBundle.Enable()
+			hsc.completeStateBundle.Disable()
 		} else {
 			// delta bundle was sent, remove the transported objects
-			hsc.deltaStateBundle.DeleteOrderedObjects(sentObjectsCount)
+			hsc.deltaStateBundle.FlushOrderedObjects(sentObjectsCount)
 		}
 	}
 }
