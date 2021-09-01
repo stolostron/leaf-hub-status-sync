@@ -20,10 +20,8 @@ import (
 const (
 	policiesStatusSyncLog  = "policies-status-sync"
 	policyCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/policy-cleanup"
-	// may need to move
+	// may need to move.
 	rootReferenceLabel = "policy.open-cluster-management.io/root-policy"
-	// may need to move
-	showLocalInformation = true
 )
 
 // AddLocalPoliciesController this function adds a new local policies sync controller.
@@ -34,12 +32,14 @@ func AddLocalPoliciesController(mgr ctrl.Manager, transport transport.Transport,
 	// clusters per policy (base bundle)
 	localClustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalClustersPerPolicyMsgKey)
 	localClustersPerPolicyBundle := bundle.NewClustersPerPolicyBundle(leafHubName,
-		helpers.GetBundleGenerationFromTransport(transport, localClustersPerPolicyTransportKey, datatypes.StatusBundle))
+		helpers.GetBundleGenerationFromTransport(transport, localClustersPerPolicyTransportKey, datatypes.StatusBundle),
+		bundle.LocalBundle)
 
 	// compliance status bundle
 	localComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalPolicyComplianceMsgKey)
 	localComplianceStatusBundle := bundle.NewComplianceStatusBundle(leafHubName, localClustersPerPolicyBundle,
-		helpers.GetBundleGenerationFromTransport(transport, localComplianceStatusTransportKey, datatypes.StatusBundle))
+		helpers.GetBundleGenerationFromTransport(transport, localComplianceStatusTransportKey, datatypes.StatusBundle),
+		bundle.LocalBundle)
 
 	// spec per policy bundle
 	cleanFunc :=
@@ -59,10 +59,10 @@ func AddLocalPoliciesController(mgr ctrl.Manager, transport transport.Transport,
 		bundle.NewGenericStatusBundle(leafHubName,
 			helpers.GetBundleGenerationFromTransport(transport, localSpecPerPolicyTransportKey, datatypes.StatusBundle),
 			cleanFunc),
-		func() bool { return showLocalInformation })
+		func() bool { return configv1.ShowLocalPolicies })
 
 	// check for full information
-	fullStatusPredicate := func() bool { return showLocalInformation }
+	fullStatusPredicate := func() bool { return configv1.ShowLocalPolicies }
 
 	bundleCollection := []*generic.BundleCollectionEntry{ // multiple bundles for policy status
 		generic.NewBundleCollectionEntry(localClustersPerPolicyTransportKey,
@@ -78,7 +78,7 @@ func AddLocalPoliciesController(mgr ctrl.Manager, transport transport.Transport,
 
 	if err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, transport, policyCleanupFinalizer,
 		bundleCollection, createObjFunc, syncInterval,
-		isLocalPolicyPredic); err != nil {
+		isLocalPolicyPredic, true); err != nil {
 		return fmt.Errorf("local policy failed to add controller to the manager - %w", err)
 	}
 

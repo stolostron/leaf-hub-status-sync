@@ -29,10 +29,12 @@ const (
 // CreateObjectFunction is a function for how to create an object that is stored inside the bundle.
 type CreateObjectFunction func() bundle.Object
 
-// NewGenericStatusSyncController creates a new instnace of genericStatusSyncController and adds it to the manager.
+// TODO: finalize is temporary for demo.
+
+// NewGenericStatusSyncController creates a new instance of genericStatusSyncController and adds it to the manager.
 func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport transport.Transport,
 	finalizerName string, orderedBundleCollection []*BundleCollectionEntry, createObjFunc CreateObjectFunction,
-	syncInterval time.Duration, predicate predicate.Predicate) error {
+	syncInterval time.Duration, predicate predicate.Predicate, finalize bool) error {
 	statusSyncCtrl := &genericStatusSyncController{
 		client:                  mgr.GetClient(),
 		log:                     ctrl.Log.WithName(logName),
@@ -41,6 +43,7 @@ func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport 
 		finalizerName:           finalizerName,
 		createObjFunc:           createObjFunc,
 		periodicSyncInterval:    syncInterval,
+		finalize:                finalize,
 	}
 	statusSyncCtrl.init()
 
@@ -65,6 +68,7 @@ type genericStatusSyncController struct {
 	createObjFunc           CreateObjectFunction
 	periodicSyncInterval    time.Duration
 	startOnce               sync.Once
+	finalize                bool
 }
 
 func (c *genericStatusSyncController) init() {
@@ -121,14 +125,15 @@ func (c *genericStatusSyncController) updateObjectAndFinalizer(ctx context.Conte
 	cleanObject(object)
 
 	for _, entry := range c.orderedBundleCollection {
-		entry.bundle.UpdateObject(object) // update in each bundle from the collection according to their order
+		entry.bundle.UpdateObject(object) // update in each bundle from the collection according to their order.
 	}
 
 	return nil
 }
 
 func (c *genericStatusSyncController) addFinalizer(ctx context.Context, object bundle.Object, log logr.Logger) error {
-	if controllerutil.ContainsFinalizer(object, c.finalizerName) {
+	// TODO: get rid of finalize.
+	if controllerutil.ContainsFinalizer(object, c.finalizerName) || !c.finalize {
 		return nil
 	}
 
@@ -145,7 +150,7 @@ func (c *genericStatusSyncController) addFinalizer(ctx context.Context, object b
 func (c *genericStatusSyncController) deleteObjectAndFinalizer(ctx context.Context, object bundle.Object,
 	log logr.Logger) error {
 	for _, entry := range c.orderedBundleCollection {
-		entry.bundle.DeleteObject(object) // delete from all bundles
+		entry.bundle.DeleteObject(object) // delete from all bundles.
 	}
 
 	return c.removeFinalizer(ctx, object, log)
@@ -153,8 +158,9 @@ func (c *genericStatusSyncController) deleteObjectAndFinalizer(ctx context.Conte
 
 func (c *genericStatusSyncController) removeFinalizer(ctx context.Context, object bundle.Object,
 	log logr.Logger) error {
-	if !controllerutil.ContainsFinalizer(object, c.finalizerName) {
-		return nil // if finalizer is not there, do nothing
+	// TODO: get rid of finalizer.
+	if !controllerutil.ContainsFinalizer(object, c.finalizerName) || !c.finalize {
+		return nil // if finalizer is not there, do nothing.
 	}
 
 	log.Info("removing finalizer")
@@ -174,7 +180,7 @@ func (c *genericStatusSyncController) periodicSync() {
 		<-ticker.C // wait for next time interval
 
 		for _, entry := range c.orderedBundleCollection {
-			if !entry.predicate() { // evaluate if bundle has to be sent only if predicate is true
+			if !entry.predicate() { // evaluate if bundle has to be sent only if predicate is true.
 				continue
 			}
 

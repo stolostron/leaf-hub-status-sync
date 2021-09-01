@@ -40,7 +40,7 @@ func AddLocalPlacementruleController(mgr ctrl.Manager, transport transport.Trans
 			helpers.GetBundleGenerationFromTransport(transport, localPlacementruleTransportKey, datatypes.StatusBundle),
 			cleanFunc),
 		func() bool { // bundle predicate
-			return showLocalInformation
+			return configv1.ShowLocalPolicies
 		})
 
 	bundleCollection := []*generic.BundleCollectionEntry{localPlacementRuleBundle}
@@ -51,7 +51,7 @@ func AddLocalPlacementruleController(mgr ctrl.Manager, transport transport.Trans
 
 	if err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, transport, policyCleanupFinalizer,
 		bundleCollection, createObjFunc, syncInterval,
-		isLocalPlacementrulePred); err != nil {
+		isLocalPlacementrulePred, false); err != nil {
 		return fmt.Errorf("placement rule failed to add controller to the manager - %w", err)
 	}
 
