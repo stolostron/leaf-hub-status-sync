@@ -33,12 +33,13 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 	// clusters per policy (base bundle)
 	clustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.ClustersPerPolicyMsgKey)
 	clustersPerPolicyBundle := bundle.NewClustersPerPolicyBundle(leafHubName, helpers.GetBundleGenerationFromTransport(
-		transport, clustersPerPolicyTransportKey, datatypes.StatusBundle))
+		transport, clustersPerPolicyTransportKey, datatypes.StatusBundle), bundle.GlobalBundle)
 
 	// compliance status bundle
 	complianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.PolicyComplianceMsgKey)
 	complianceStatusBundle := bundle.NewComplianceStatusBundle(leafHubName, clustersPerPolicyBundle,
-		helpers.GetBundleGenerationFromTransport(transport, complianceStatusTransportKey, datatypes.StatusBundle))
+		helpers.GetBundleGenerationFromTransport(transport, complianceStatusTransportKey, datatypes.StatusBundle),
+		bundle.GlobalBundle)
 
 	// minimal compliance status bundle
 	minComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.MinimalPolicyComplianceMsgKey)
@@ -65,7 +66,7 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 	// initialize policy status controller (contains multiple bundles)
 	if err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, transport, policyCleanupFinalizer,
 		bundleCollection, createObjFunction, syncInterval,
-		predicate.And(hohNamespacePredicate, ownerRefAnnotationPredicate)); err != nil {
+		predicate.And(hohNamespacePredicate, ownerRefAnnotationPredicate), true); err != nil {
 		return fmt.Errorf("failed to add controller to the manager - %w", err)
 	}
 

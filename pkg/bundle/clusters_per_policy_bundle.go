@@ -10,22 +10,34 @@ import (
 	"github.com/pkg/errors"
 )
 
+// BundType used to define an enum for whether the bundle carries global or local policies.
+type BundType int
+
+const (
+	// LocalBundle means this bundle contains local policies.
+	LocalBundle BundType = iota
+	// GlobalBundle means this bundle contains global policies.
+	GlobalBundle
+)
+
 // NewClustersPerPolicyBundle creates a new instance of ClustersPerPolicyBundle.
-func NewClustersPerPolicyBundle(leafHubName string, generation uint64) Bundle {
+func NewClustersPerPolicyBundle(leafHubName string, generation uint64, bundType BundType) Bundle {
 	return &ClustersPerPolicyBundle{
 		BaseClustersPerPolicyBundle: statusbundle.BaseClustersPerPolicyBundle{
 			Objects:     make([]*statusbundle.ClustersPerPolicy, 0),
 			LeafHubName: leafHubName,
 			Generation:  generation,
 		},
-		lock: sync.Mutex{},
+		lock:     sync.Mutex{},
+		bundType: bundType,
 	}
 }
 
 // ClustersPerPolicyBundle abstracts management of clusters per policy bundle.
 type ClustersPerPolicyBundle struct {
 	statusbundle.BaseClustersPerPolicyBundle
-	lock sync.Mutex
+	lock     sync.Mutex
+	bundType BundType
 }
 
 // UpdateObject function to update a single object inside a bundle.
@@ -38,9 +50,11 @@ func (bundle *ClustersPerPolicyBundle) UpdateObject(object Object) {
 		return // do not handle objects other than policy
 	}
 
-	originPolicyID, found := object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
-	if !found {
-		// origin owner reference annotation not found meaning this is a local policy so we use the local ID.
+	var originPolicyID string
+
+	if bundle.bundType == GlobalBundle {
+		originPolicyID = object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
+	} else {
 		originPolicyID = string(policy.UID)
 	}
 
@@ -75,9 +89,11 @@ func (bundle *ClustersPerPolicyBundle) DeleteObject(object Object) {
 		return // wont handle anything other than policies
 	}
 
-	originPolicyID, found := object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
-	if !found {
-		// origin owner reference annotation not found meaning this is a local policy so we use the local ID.
+	var originPolicyID string
+
+	if bundle.bundType == GlobalBundle {
+		originPolicyID = object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
+	} else {
 		originPolicyID = string(policy.UID)
 	}
 

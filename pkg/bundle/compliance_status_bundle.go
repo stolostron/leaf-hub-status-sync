@@ -10,7 +10,7 @@ import (
 )
 
 // NewComplianceStatusBundle creates a new instance of ComplianceStatusBundle.
-func NewComplianceStatusBundle(leafHubName string, baseBundle Bundle, generation uint64) Bundle {
+func NewComplianceStatusBundle(leafHubName string, baseBundle Bundle, generation uint64, bundType BundType) Bundle {
 	return &ComplianceStatusBundle{
 		BaseComplianceStatusBundle: statusbundle.BaseComplianceStatusBundle{
 			Objects:              make([]*statusbundle.PolicyComplianceStatus, 0),
@@ -20,6 +20,7 @@ func NewComplianceStatusBundle(leafHubName string, baseBundle Bundle, generation
 		},
 		baseBundle: baseBundle,
 		lock:       sync.Mutex{},
+		bundType:   bundType,
 	}
 }
 
@@ -28,6 +29,7 @@ type ComplianceStatusBundle struct {
 	statusbundle.BaseComplianceStatusBundle
 	baseBundle Bundle
 	lock       sync.Mutex
+	bundType   BundType
 }
 
 // UpdateObject function to update a single object inside a bundle.
@@ -42,9 +44,11 @@ func (bundle *ComplianceStatusBundle) UpdateObject(object Object) {
 		return // do not handle objects other than policy
 	}
 
-	originPolicyID, found := object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
-	if !found {
-		// origin owner reference annotation not found meaning this is a local policy so we use the local ID.
+	var originPolicyID string
+
+	if bundle.bundType == GlobalBundle {
+		originPolicyID = object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
+	} else {
 		originPolicyID = string(policy.UID)
 	}
 
@@ -92,9 +96,11 @@ func (bundle *ComplianceStatusBundle) DeleteObject(object Object) {
 		return // do not handle objects other than policy
 	}
 
-	originPolicyID, found := object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
-	if !found {
-		// origin owner reference annotation not found meaning this is a local policy so we use the local ID.
+	var originPolicyID string
+
+	if bundle.bundType == GlobalBundle {
+		originPolicyID = object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
+	} else {
 		originPolicyID = string(policy.UID)
 	}
 
