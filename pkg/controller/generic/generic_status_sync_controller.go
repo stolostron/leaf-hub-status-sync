@@ -32,6 +32,7 @@ const (
 	EnvNumberOfSimulatedLeafHubs = "NUMBER_OF_SIMULATED_LEAF_HUBS"
 	// TransportBundleKeyParts is a number of parts in BundleCollectionEntry.transportBundleKey field.
 	TransportBundleKeyParts = 2
+	sleepInterval1          = 3
 )
 
 // CreateObjectFunction is a function for how to create an object that is stored inside the bundle.
@@ -66,6 +67,7 @@ func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport 
 
 type simulatedContext struct {
 	numOfLeafHubs int
+	mutex         sync.Mutex
 }
 
 func newSimulatedContext(c *genericStatusSyncController) *simulatedContext {
@@ -114,6 +116,9 @@ func (c *genericStatusSyncController) init() {
 }
 
 func (c *genericStatusSyncController) Reconcile(request ctrl.Request) (ctrl.Result, error) {
+	c.sc.mutex.Lock()
+	defer c.sc.mutex.Unlock()
+
 	reqLogger := c.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
 	ctx := context.Background()
@@ -213,10 +218,14 @@ func (c *genericStatusSyncController) periodicSync() {
 	for {
 		<-ticker.C // wait for next time interval
 
+		c.log.Info("periodicSync started")
+
 		for _, entry := range c.orderedBundleCollection {
 			if !entry.predicate() { // evaluate if bundle has to be sent only if predicate is true
 				continue
 			}
+
+			c.sc.mutex.Lock()
 
 			bundleGeneration := entry.bundle.GetBundleGeneration()
 
@@ -243,7 +252,13 @@ func (c *genericStatusSyncController) periodicSync() {
 
 				entry.lastSentBundleGeneration = bundleGeneration
 			}
+
+			c.sc.mutex.Unlock()
+
+			time.Sleep(sleepInterval1 * time.Second)
 		}
+
+		c.log.Info("periodicSync finished")
 	}
 }
 
@@ -275,8 +290,6 @@ func (c *genericStatusSyncController) changeLeafHubName(entry *BundleCollectionE
 		c.log.Info(fmt.Sprintf("unable to parse transportBundleKey '%s'", entry.transportBundleKey))
 		return
 	}
-
-	c.log.Info(fmt.Sprintf("changing leaf hub name to '%s'", newLeafHubName))
 
 	// change transport bundle key as it depends on leaf hub name
 	entry.transportBundleKey = fmt.Sprintf("%s.%s", newLeafHubName, tokens[1])
