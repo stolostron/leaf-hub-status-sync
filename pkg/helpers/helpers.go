@@ -7,6 +7,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// Base10 is the base for strconv.FormatUint method.
+	Base10 = 10
+)
+
 // ContainsString returns true if the string exists in the array and false otherwise.
 func ContainsString(slice []string, s string) bool {
 	for _, item := range slice {

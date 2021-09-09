@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	lhControlInfo "github.com/open-cluster-management/leaf-hub-status-sync/pkg/controlinfo"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	lhSyncService "github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport/sync-service"
@@ -39,24 +40,15 @@ func printVersion(log logr.Logger) {
 }
 
 func doMain() int {
-	pflag.CommandLine.AddFlagSet(zap.FlagSet())
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	pflag.Parse()
+	log := initializeLog()
 
-	ctrl.SetLogger(zap.Logger())
-	log := ctrl.Log.WithName("cmd")
-
-	printVersion(log)
-
-	leaderElectionNamespace, found := os.LookupEnv(envVarControllerNamespace)
+	leaderElectionNamespace, found := readEnvironmentVariable(envVarControllerNamespace, log)
 	if !found {
-		log.Error(nil, "Not found:", "environment variable", envVarControllerNamespace)
 		return 1
 	}
 
-	syncIntervalString, found := os.LookupEnv(envVarSyncInterval)
+	syncIntervalString, found := readEnvironmentVariable(envVarSyncInterval, log)
 	if !found {
-		log.Error(nil, "Not found:", "environment variable", envVarSyncInterval)
 		return 1
 	}
 
@@ -66,9 +58,8 @@ func doMain() int {
 		return 1
 	}
 
-	leafHubName, found := os.LookupEnv(envVarLeafHubName)
+	leafHubName, found := readEnvironmentVariable(envVarLeafHubName, log)
 	if !found {
-		log.Error(nil, "Not found:", "environment variable", envVarLeafHubName)
 		return 1
 	}
 
@@ -81,6 +72,16 @@ func doMain() int {
 
 	syncService.Start()
 	defer syncService.Stop()
+
+	// control info manager initialization
+	controlInfoManager, err := lhControlInfo.NewManager(syncService, leafHubName, ctrl.Log)
+	if err != nil {
+		log.Error(err, "failed to initialize control info manager")
+		return 1
+	}
+
+	controlInfoManager.Start()
+	defer controlInfoManager.Stop()
 
 	mgr, err := createManager(leaderElectionNamespace, metricsHost, metricsPort, syncService, syncInterval, leafHubName)
 	if err != nil {
@@ -96,6 +97,29 @@ func doMain() int {
 	}
 
 	return 0
+}
+
+func initializeLog() logr.Logger {
+	pflag.CommandLine.AddFlagSet(zap.FlagSet())
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	pflag.Parse()
+
+	ctrl.SetLogger(zap.Logger())
+	log := ctrl.Log.WithName("cmd")
+
+	printVersion(log)
+
+	return log
+}
+
+func readEnvironmentVariable(name string, log logr.Logger) (string, bool) {
+	value, found := os.LookupEnv(name)
+
+	if !found {
+		log.Error(nil, "Not found:", "environment variable", name)
+	}
+
+	return value, found
 }
 
 func createManager(leaderElectionNamespace, metricsHost string, metricsPort int32, transport transport.Transport,

@@ -11,6 +11,7 @@ import (
 	"github.com/go-logr/logr"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -197,7 +198,7 @@ func (c *genericStatusSyncController) syncBundles() {
 		// send to transport only if bundle has changed
 		if bundleGeneration > entry.lastSentBundleGeneration {
 			c.syncToTransport(entry.transportBundleKey, datatypes.StatusBundle,
-				strconv.FormatUint(bundleGeneration, 10), entry.bundle)
+				strconv.FormatUint(bundleGeneration, helpers.Base10), entry.bundle)
 
 			entry.lastSentBundleGeneration = bundleGeneration
 		}
