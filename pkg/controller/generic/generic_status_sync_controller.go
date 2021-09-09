@@ -34,7 +34,7 @@ type CreateObjectFunction func() bundle.Object
 // NewGenericStatusSyncController creates a new instance of genericStatusSyncController and adds it to the manager.
 func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport transport.Transport,
 	finalizerName string, orderedBundleCollection []*BundleCollectionEntry, createObjFunc CreateObjectFunction,
-	syncInterval time.Duration, predicate predicate.Predicate, finalize bool) error {
+	syncInterval time.Duration, predicate predicate.Predicate) error {
 	statusSyncCtrl := &genericStatusSyncController{
 		client:                  mgr.GetClient(),
 		log:                     ctrl.Log.WithName(logName),
@@ -43,7 +43,6 @@ func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport 
 		finalizerName:           finalizerName,
 		createObjFunc:           createObjFunc,
 		periodicSyncInterval:    syncInterval,
-		finalize:                finalize,
 	}
 	statusSyncCtrl.init()
 
@@ -68,7 +67,6 @@ type genericStatusSyncController struct {
 	createObjFunc           CreateObjectFunction
 	periodicSyncInterval    time.Duration
 	startOnce               sync.Once
-	finalize                bool
 }
 
 func (c *genericStatusSyncController) init() {
@@ -132,8 +130,7 @@ func (c *genericStatusSyncController) updateObjectAndFinalizer(ctx context.Conte
 }
 
 func (c *genericStatusSyncController) addFinalizer(ctx context.Context, object bundle.Object, log logr.Logger) error {
-	// TODO: get rid of finalize.
-	if controllerutil.ContainsFinalizer(object, c.finalizerName) || !c.finalize {
+	if controllerutil.ContainsFinalizer(object, c.finalizerName) {
 		return nil
 	}
 
@@ -158,8 +155,7 @@ func (c *genericStatusSyncController) deleteObjectAndFinalizer(ctx context.Conte
 
 func (c *genericStatusSyncController) removeFinalizer(ctx context.Context, object bundle.Object,
 	log logr.Logger) error {
-	// TODO: get rid of finalizer.
-	if !controllerutil.ContainsFinalizer(object, c.finalizerName) || !c.finalize {
+	if !controllerutil.ContainsFinalizer(object, c.finalizerName) {
 		return nil // if finalizer is not there, do nothing.
 	}
 

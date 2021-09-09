@@ -66,7 +66,7 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 	// initialize policy status controller (contains multiple bundles)
 	if err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, transport, policyCleanupFinalizer,
 		bundleCollection, createObjFunction, syncInterval,
-		predicate.And(hohNamespacePredicate, ownerRefAnnotationPredicate), true); err != nil {
+		predicate.And(hohNamespacePredicate, ownerRefAnnotationPredicate)); err != nil {
 		return fmt.Errorf("failed to add controller to the manager - %w", err)
 	}
 

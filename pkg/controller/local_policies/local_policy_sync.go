@@ -78,7 +78,7 @@ func AddLocalPoliciesController(mgr ctrl.Manager, transport transport.Transport,
 
 	if err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, transport, policyCleanupFinalizer,
 		bundleCollection, createObjFunc, syncInterval,
-		isLocalPolicyPredic, true); err != nil {
+		isLocalPolicyPredic); err != nil {
 		return fmt.Errorf("local policy failed to add controller to the manager - %w", err)
 	}
 

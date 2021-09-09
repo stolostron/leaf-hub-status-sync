@@ -51,7 +51,7 @@ func AddLocalPlacementruleController(mgr ctrl.Manager, transport transport.Trans
 
 	if err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, transport, policyCleanupFinalizer,
 		bundleCollection, createObjFunc, syncInterval,
-		isLocalPlacementrulePred, false); err != nil {
+		isLocalPlacementrulePred); err != nil {
 		return fmt.Errorf("placement rule failed to add controller to the manager - %w", err)
 	}
 
