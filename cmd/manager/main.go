@@ -4,6 +4,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -11,7 +12,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	lhControlInfo "github.com/open-cluster-management/leaf-hub-status-sync/pkg/controlinfo"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	lhSyncService "github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport/sync-service"
@@ -33,6 +33,11 @@ const (
 	leaderElectionLockName          = "leaf-hub-status-sync-lock"
 )
 
+var (
+	errEnvVarNotFound  = errors.New("not found environment variable")
+	errEnvVarWrongType = errors.New("wrong type of environment variable")
+)
+
 func printVersion(log logr.Logger) {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
@@ -40,52 +45,41 @@ func printVersion(log logr.Logger) {
 }
 
 func doMain() int {
+	// initialize log
 	log := initializeLog()
 
-	leaderElectionNamespace, found := readEnvironmentVariable(envVarControllerNamespace, log)
-	if !found {
-		return 1
-	}
-
-	syncIntervalString, found := readEnvironmentVariable(envVarSyncInterval, log)
-	if !found {
-		return 1
-	}
-
-	syncInterval, err := time.ParseDuration(syncIntervalString)
+	// read environment variables
+	leaderElectionNamespace, syncInterval, leafHubName, err := readEnvVars()
 	if err != nil {
-		log.Error(err, "the environment var ", envVarSyncInterval, " is not valid duration")
-		return 1
-	}
-
-	leafHubName, found := readEnvironmentVariable(envVarLeafHubName, log)
-	if !found {
+		log.Error(err, "failed to read environment variables- %w", err)
 		return 1
 	}
 
 	// transport layer initialization
 	syncService, err := lhSyncService.NewSyncService(ctrl.Log.WithName("sync-service"))
 	if err != nil {
-		log.Error(err, "failed to initialize")
+		log.Error(err, "failed to initialize sync service")
 		return 1
 	}
 
 	syncService.Start()
 	defer syncService.Stop()
 
-	// control info manager initialization
-	controlInfoManager, err := lhControlInfo.NewManager(syncService, leafHubName, ctrl.Log)
+	mgr, err := createManager(leaderElectionNamespace, metricsHost, metricsPort, syncService, syncInterval, leafHubName)
 	if err != nil {
-		log.Error(err, "failed to initialize control info manager")
+		log.Error(err, "failed to create manager")
 		return 1
 	}
 
-	controlInfoManager.Start()
-	defer controlInfoManager.Stop()
-
-	mgr, err := createManager(leaderElectionNamespace, metricsHost, metricsPort, syncService, syncInterval, leafHubName)
+	// control info controller initialization
+	controlInfoController, err := controller.NewControlInfoController(syncService, leafHubName, ctrl.Log)
 	if err != nil {
-		log.Error(err, "Failed to create manager")
+		log.Error(err, "failed to initialize control info controller")
+		return 1
+	}
+
+	if err := mgr.Add(controlInfoController); err != nil {
+		log.Error(err, "failed to add control info controller to the manager")
 		return 1
 	}
 
@@ -112,14 +106,28 @@ func initializeLog() logr.Logger {
 	return log
 }
 
-func readEnvironmentVariable(name string, log logr.Logger) (string, bool) {
-	value, found := os.LookupEnv(name)
-
+func readEnvVars() (string, time.Duration, string, error) {
+	leaderElectionNamespace, found := os.LookupEnv(envVarControllerNamespace)
 	if !found {
-		log.Error(nil, "Not found:", "environment variable", name)
+		return "", 0, "", fmt.Errorf("%w: %s", errEnvVarNotFound, envVarControllerNamespace)
 	}
 
-	return value, found
+	syncIntervalString, found := os.LookupEnv(envVarSyncInterval)
+	if !found {
+		return "", 0, "", fmt.Errorf("%w: %s", errEnvVarNotFound, envVarSyncInterval)
+	}
+
+	syncInterval, err := time.ParseDuration(syncIntervalString)
+	if err != nil {
+		return "", 0, "", fmt.Errorf("%w: %s must be an integer", errEnvVarWrongType, envVarSyncInterval)
+	}
+
+	leafHubName, found := os.LookupEnv(envVarLeafHubName)
+	if !found {
+		return "", 0, "", fmt.Errorf("%w: %s", errEnvVarNotFound, envVarLeafHubName)
+	}
+
+	return leaderElectionNamespace, syncInterval, leafHubName, nil
 }
 
 func createManager(leaderElectionNamespace, metricsHost string, metricsPort int32, transport transport.Transport,
