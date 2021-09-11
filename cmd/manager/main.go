@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller"
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/controlinfo"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	lhSyncService "github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport/sync-service"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
@@ -72,7 +73,7 @@ func doMain() int {
 	}
 
 	// control info controller initialization
-	controlInfoController, err := controller.NewControlInfoController(syncService, leafHubName, ctrl.Log)
+	controlInfoController, err := controlinfo.NewLeafHubControlInfoController(syncService, leafHubName, ctrl.Log)
 	if err != nil {
 		log.Error(err, "failed to initialize control info controller")
 		return 1

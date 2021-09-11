@@ -1,4 +1,4 @@
-package controller
+package controlinfo
 
 import (
 	"context"
@@ -19,17 +19,17 @@ const (
 	defaultGeneration    = 0
 )
 
-// ControlInfoController manages control info bundle traffic.
-type ControlInfoController struct {
+// LeafHubControlInfoController manages control info bundle traffic.
+type LeafHubControlInfoController struct {
 	transport transport.Transport
 	bundle    *bundle.ControlInfoBundle
 	log       logr.Logger
 }
 
-// NewControlInfoController creates a new instance of ControlInfoController.
-func NewControlInfoController(transport transport.Transport,
-	leafHubName string, log logr.Logger) (*ControlInfoController, error) {
-	return &ControlInfoController{
+// NewLeafHubControlInfoController creates a new instance of LeafHubControlInfoController.
+func NewLeafHubControlInfoController(transport transport.Transport,
+	leafHubName string, log logr.Logger) (*LeafHubControlInfoController, error) {
+	return &LeafHubControlInfoController{
 		transport: transport,
 		bundle:    &bundle.ControlInfoBundle{LeafHubName: leafHubName},
 		log:       log.WithName("controlinfo"),
@@ -37,7 +37,7 @@ func NewControlInfoController(transport transport.Transport,
 }
 
 // Start function starts control info controller.
-func (m *ControlInfoController) Start(stopChannel <-chan struct{}) error {
+func (m *LeafHubControlInfoController) Start(stopChannel <-chan struct{}) error {
 	ctx, cancelContext := context.WithCancel(context.Background())
 	defer cancelContext()
 
@@ -54,7 +54,7 @@ func (m *ControlInfoController) Start(stopChannel <-chan struct{}) error {
 	}
 }
 
-func (m *ControlInfoController) periodicSend(ctx context.Context) {
+func (m *LeafHubControlInfoController) periodicSend(ctx context.Context) {
 	ticker := time.NewTicker(defaultPeriodSeconds * time.Second)
 	id := fmt.Sprintf("%s.%s", m.bundle.LeafHubName, datatypes.ControlInfoKey)
 	version := strconv.FormatUint(defaultGeneration, helpers.Base10)
