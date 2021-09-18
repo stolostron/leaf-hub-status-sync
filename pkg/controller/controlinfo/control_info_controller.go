@@ -56,7 +56,7 @@ func (m *LeafHubControlInfoController) Start(stopChannel <-chan struct{}) error 
 
 func (m *LeafHubControlInfoController) periodicSend(ctx context.Context) {
 	ticker := time.NewTicker(defaultPeriodSeconds * time.Second)
-	id := fmt.Sprintf("%s.%s", m.bundle.LeafHubName, datatypes.ControlInfoKey)
+	id := fmt.Sprintf("%s.%s", m.bundle.LeafHubName, datatypes.ControlInfoMsgKey)
 	version := strconv.FormatUint(defaultGeneration, helpers.Base10)
 
 	payload, err := json.Marshal(m.bundle)
