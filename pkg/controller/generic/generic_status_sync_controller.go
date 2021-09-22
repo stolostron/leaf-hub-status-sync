@@ -41,6 +41,7 @@ func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport 
 		finalizerName:           finalizerName,
 		createObjFunc:           createObjFunc,
 		periodicSyncInterval:    syncInterval,
+		lock:                    sync.Mutex{},
 	}
 	statusSyncCtrl.init()
 
@@ -65,6 +66,7 @@ type genericStatusSyncController struct {
 	createObjFunc           CreateObjectFunction
 	periodicSyncInterval    time.Duration
 	startOnce               sync.Once
+	lock                    sync.Mutex
 }
 
 func (c *genericStatusSyncController) init() {
@@ -120,6 +122,9 @@ func (c *genericStatusSyncController) updateObjectAndFinalizer(ctx context.Conte
 
 	cleanObject(object)
 
+	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
+	defer c.lock.Unlock()
+
 	for _, entry := range c.orderedBundleCollection {
 		entry.bundle.UpdateObject(object) // update in each bundle from the collection according to their order.
 	}
@@ -144,9 +149,13 @@ func (c *genericStatusSyncController) addFinalizer(ctx context.Context, object b
 
 func (c *genericStatusSyncController) deleteObjectAndFinalizer(ctx context.Context, object bundle.Object,
 	log logr.Logger) error {
+	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
+
 	for _, entry := range c.orderedBundleCollection {
 		entry.bundle.DeleteObject(object) // delete from all bundles.
 	}
+
+	c.lock.Unlock() // not using defer since remove finalizer may get delayed. release lock as soon as possible.
 
 	return c.removeFinalizer(ctx, object, log)
 }
@@ -172,21 +181,27 @@ func (c *genericStatusSyncController) periodicSync() {
 
 	for {
 		<-ticker.C // wait for next time interval
+		c.syncBundles()
+	}
+}
 
-		for _, entry := range c.orderedBundleCollection {
-			if !entry.predicate() { // evaluate if bundle has to be sent only if predicate is true.
-				continue
-			}
+func (c *genericStatusSyncController) syncBundles() {
+	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
+	defer c.lock.Unlock()
 
-			bundleGeneration := entry.bundle.GetBundleGeneration()
+	for _, entry := range c.orderedBundleCollection {
+		if !entry.predicate() { // evaluate if bundle has to be sent only if predicate is true.
+			continue
+		}
 
-			// send to transport only if bundle has changed.
-			if bundleGeneration > entry.lastSentBundleGeneration {
-				c.syncToTransport(entry.transportBundleKey, datatypes.StatusBundle,
-					strconv.FormatUint(bundleGeneration, BASE), entry.bundle)
+		bundleGeneration := entry.bundle.GetBundleGeneration()
 
-				entry.lastSentBundleGeneration = bundleGeneration
-			}
+		// send to transport only if bundle has changed.
+		if bundleGeneration > entry.lastSentBundleGeneration {
+			c.syncToTransport(entry.transportBundleKey, datatypes.StatusBundle,
+				strconv.FormatUint(bundleGeneration, BASE), entry.bundle)
+
+			entry.lastSentBundleGeneration = bundleGeneration
 		}
 	}
 }
