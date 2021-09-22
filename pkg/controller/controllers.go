@@ -11,11 +11,13 @@ import (
 	placementrulev1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/apps/v1"
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/applications"
 	configCtrl "github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/config"
 	localpolicies "github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/local_policies"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/managedclusters"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/policies"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
+	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
@@ -30,7 +32,7 @@ func AddToScheme(s *runtime.Scheme) error {
 
 	schemeBuilders := []*scheme.Builder{
 		policiesv1.SchemeBuilder, configv1.SchemeBuilder,
-		placementrulev1.SchemeBuilder,
+		placementrulev1.SchemeBuilder, subv1.SchemeBuilder,
 	} // add schemes
 
 	for _, schemeBuilder := range schemeBuilders {
@@ -54,6 +56,7 @@ func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, syncInt
 	addControllerFunctions := []func(ctrl.Manager, transport.Transport, time.Duration, string, *configv1.Config) error{
 		managedclusters.AddClustersStatusController, policies.AddPoliciesStatusController,
 		localpolicies.AddLocalPoliciesController, localpolicies.AddLocalPlacementruleController,
+		applications.AddSubscriptionStatusController,
 	}
 
 	for i, addControllerFunction := range addControllerFunctions {
