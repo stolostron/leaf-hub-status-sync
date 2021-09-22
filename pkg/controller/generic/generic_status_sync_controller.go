@@ -29,8 +29,6 @@ const (
 // CreateObjectFunction is a function for how to create an object that is stored inside the bundle.
 type CreateObjectFunction func() bundle.Object
 
-// TODO: finalize is temporary for demo.
-
 // NewGenericStatusSyncController creates a new instance of genericStatusSyncController and adds it to the manager.
 func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport transport.Transport,
 	finalizerName string, orderedBundleCollection []*BundleCollectionEntry, createObjFunc CreateObjectFunction,
@@ -182,7 +180,7 @@ func (c *genericStatusSyncController) periodicSync() {
 
 			bundleGeneration := entry.bundle.GetBundleGeneration()
 
-			// send to transport only if bundle has changed
+			// send to transport only if bundle has changed.
 			if bundleGeneration > entry.lastSentBundleGeneration {
 				c.syncToTransport(entry.transportBundleKey, datatypes.StatusBundle,
 					strconv.FormatUint(bundleGeneration, BASE), entry.bundle)
