@@ -52,8 +52,8 @@ func (bundle *ClustersPerPolicyBundle) UpdateObject(object Object) {
 	}
 
 	// if we reached here, object already exists in the bundle, check if the object has changed.
-	if object.GetResourceVersion() <= bundle.Objects[index].ResourceVersion {
-		return // update object only if there is a newer version. check for changes using resourceVersion field
+	if object.GetResourceVersion() == bundle.Objects[index].ResourceVersion {
+		return // update in bundle only if object changed. check for changes using resourceVersion field
 	}
 
 	if !bundle.updateObjectIfChanged(index, bundle.getClusterNames(policy), policy.Spec.RemediationAction) {

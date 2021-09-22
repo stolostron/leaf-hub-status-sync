@@ -60,8 +60,8 @@ func (bundle *ComplianceStatusBundle) UpdateObject(object Object) {
 	}
 
 	// if we reached here, object already exists in the bundle with at least one non compliant or unknown cluster.
-	if object.GetResourceVersion() <= bundle.Objects[index].ResourceVersion { // check if the object has changed.
-		return // update object only if there is a newer version. check for changes using resourceVersion field
+	if object.GetResourceVersion() == bundle.Objects[index].ResourceVersion { // check if the object has changed.
+		return // update in bundle only if object changed. check for changes using resourceVersion field
 	}
 
 	if !bundle.updateBundleIfObjectChanged(index, policy) {
