@@ -95,14 +95,32 @@ spec:
                 fieldRef:
                  apiVersion: v1
                  fieldPath: metadata.namespace
+            - name: TRANSPORT_TYPE
+              value: "$TRANSPORT_TYPE"
+            - name: LH_ID
+              value: "$LH_ID"
+            - name: KAFKA_PRODUCER_ID
+              value: "$LH_ID"
+            - name: KAFKA_PRODUCER_HOSTS
+              value: "kafka-brokers-cluster-kafka-tls-bootstrap-kafka.apps.veisenbe-hoh2.dev10.red-chesterfield.com:443"
+            - name: KAFKA_PRODUCER_TOPIC
+              value: "status"
+            - name: KAFKA_PRODUCER_PARTITION
+              value: "0"
+            - name: KAFKA_SSL_CA
+              value: "$KAFKA_SSL_CA"
+            - name: KAFKA_MESSAGE_SIZE_LIMIT_KB
+              value: "2"
+            - name: COMPLIANCE_HYBRID_MODE_DELTA_COUNT_SWITCH
+              value: "5"
+            - name: COMPLIANCE_HYBRID_MODE_FAIL_COUNT_SWITCH
+              value: "3"
             - name: SYNC_SERVICE_PROTOCOL
               value: "http"
             - name: SYNC_SERVICE_HOST
               value: sync-service-ess.sync-service.svc.cluster.local
             - name: SYNC_SERVICE_PORT
               value: "$SYNC_SERVICE_PORT"
-            - name: LH_ID
-              value: "$LH_ID"
             - name: PERIODIC_SYNC_INTERVAL
               value: 5s
             - name: POD_NAMESPACE
