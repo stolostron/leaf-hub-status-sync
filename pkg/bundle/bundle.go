@@ -23,4 +23,6 @@ type Bundle interface {
 	DeleteObject(object Object)
 	// GetBundleGeneration function to get bundle generation.
 	GetBundleGeneration() uint64
+	// GetObjectsCount function to get objects count inside a bundle.
+	GetObjectsCount() int
 }

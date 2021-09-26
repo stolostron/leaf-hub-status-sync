@@ -9,12 +9,12 @@ import (
 )
 
 // NewMinimalComplianceStatusBundle creates a new instance of MinimalComplianceStatusBundle.
-func NewMinimalComplianceStatusBundle(leafHubName string, generation uint64) Bundle {
+func NewMinimalComplianceStatusBundle(leafHubName string, incarnation uint64, generation uint64) Bundle {
 	return &MinimalComplianceStatusBundle{
 		BaseMinimalComplianceStatusBundle: statusbundle.BaseMinimalComplianceStatusBundle{
-			Objects:     make([]*statusbundle.MinimalPolicyComplianceStatus, 0),
-			LeafHubName: leafHubName,
-			Generation:  generation,
+			Objects:       make([]*statusbundle.MinimalPolicyComplianceStatus, 0),
+			LeafHubName:   leafHubName,
+			BundleVersion: *statusbundle.NewBundleVersion(incarnation, generation),
 		},
 		lock: sync.Mutex{},
 	}
@@ -77,12 +77,20 @@ func (bundle *MinimalComplianceStatusBundle) DeleteObject(object Object) {
 	bundle.Generation++
 }
 
-// GetBundleGeneration function to get bundle generation.
+// GetBundleGeneration function to get bundle's generation.
 func (bundle *MinimalComplianceStatusBundle) GetBundleGeneration() uint64 {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
 	return bundle.Generation
+}
+
+// GetObjectsCount function to get bundle objects count.
+func (bundle *MinimalComplianceStatusBundle) GetObjectsCount() int {
+	bundle.lock.Lock()
+	defer bundle.lock.Unlock()
+
+	return len(bundle.Objects)
 }
 
 func (bundle *MinimalComplianceStatusBundle) getObjectIndexByUID(uid string) (int, error) {

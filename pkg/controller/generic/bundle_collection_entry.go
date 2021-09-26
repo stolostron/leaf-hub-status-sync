@@ -2,23 +2,22 @@ package generic
 
 import (
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 )
 
-// NewBundleCollectionEntry creates a new instnace of BundleCollectionEntry.
+// NewBundleCollectionEntry creates a new instance of BundleCollectionEntry.
 func NewBundleCollectionEntry(transportBundleKey string, bundle bundle.Bundle,
-	predicate func() bool) *BundleCollectionEntry {
+	deliveryRegistration *transport.BundleDeliveryRegistration) *BundleCollectionEntry {
 	return &BundleCollectionEntry{
-		transportBundleKey:       transportBundleKey,
-		bundle:                   bundle,
-		predicate:                predicate,
-		lastSentBundleGeneration: bundle.GetBundleGeneration(),
+		transportBundleKey:   transportBundleKey,
+		bundle:               bundle,
+		deliveryRegistration: deliveryRegistration,
 	}
 }
 
 // BundleCollectionEntry holds information about a specific bundle.
 type BundleCollectionEntry struct {
-	transportBundleKey       string
-	bundle                   bundle.Bundle
-	predicate                func() bool
-	lastSentBundleGeneration uint64
+	transportBundleKey   string
+	bundle               bundle.Bundle
+	deliveryRegistration *transport.BundleDeliveryRegistration
 }

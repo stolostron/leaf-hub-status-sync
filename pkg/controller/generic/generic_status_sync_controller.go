@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"strconv"
 	"sync"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/go-logr/logr"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -21,25 +23,31 @@ import (
 
 const (
 	// RequeuePeriodSeconds is the time to wait until reconciliation retry in failure cases.
-	RequeuePeriodSeconds = 5
+	RequeuePeriodSeconds          = 5
+	decimal                       = 10
+	uint64Size                    = 64
+	exponentialBackOffBase        = 2
+	exponentialBackOffAttemptsCap = 9
+	exponentialBackOffTimeUnitMS  = 200 * 1000
 )
 
 // CreateObjectFunction is a function for how to create an object that is stored inside the bundle.
 type CreateObjectFunction func() bundle.Object
 
-// NewGenericStatusSyncController creates a new instnace of genericStatusSyncController and adds it to the manager.
-func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport transport.Transport,
+// NewGenericStatusSyncController creates a new instance of genericStatusSyncController and adds it to the manager.
+func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, incarnation uint64, transport transport.Transport,
 	finalizerName string, orderedBundleCollection []*BundleCollectionEntry, createObjFunc CreateObjectFunction,
-	syncInterval time.Duration, predicate predicate.Predicate) error {
+	syncInterval time.Duration, transportRetryChan chan *transport.Message, predicate predicate.Predicate) error {
 	statusSyncCtrl := &genericStatusSyncController{
+		incarnation:             incarnation,
 		client:                  mgr.GetClient(),
 		log:                     ctrl.Log.WithName(logName),
 		transport:               transport,
+		transportRetryChan:      transportRetryChan,
 		orderedBundleCollection: orderedBundleCollection,
 		finalizerName:           finalizerName,
 		createObjFunc:           createObjFunc,
 		periodicSyncInterval:    syncInterval,
-		lock:                    sync.Mutex{},
 	}
 	statusSyncCtrl.init()
 
@@ -56,9 +64,11 @@ func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport 
 }
 
 type genericStatusSyncController struct {
+	incarnation             uint64
 	client                  client.Client
 	log                     logr.Logger
 	transport               transport.Transport
+	transportRetryChan      chan *transport.Message
 	orderedBundleCollection []*BundleCollectionEntry
 	finalizerName           string
 	createObjFunc           CreateObjectFunction
@@ -70,6 +80,7 @@ type genericStatusSyncController struct {
 func (c *genericStatusSyncController) init() {
 	c.startOnce.Do(func() {
 		go c.periodicSync()
+		go c.handleRetries()
 	})
 }
 
@@ -183,28 +194,88 @@ func (c *genericStatusSyncController) periodicSync() {
 	}
 }
 
+func (c *genericStatusSyncController) handleRetries() {
+	// retry attempts counter map for exponential backoff
+	retryCounterMap := make(map[string]*int)
+	// add reset actions on delivery success for all bundles
+	for _, entry := range c.orderedBundleCollection {
+		retryCounter := 0
+		retryCounterMap[entry.transportBundleKey] = &retryCounter
+
+		entry.deliveryRegistration.AddAction(transport.DeliverySuccess, transport.ArgTypeNone,
+			func(interface{}) {
+				retryCounter = 0
+			})
+	}
+
+	for {
+		transportMessage := <-c.transportRetryChan
+		// find the entry that is responsible for the bundle to be retried
+		for _, entry := range c.orderedBundleCollection {
+			if entry.transportBundleKey == transportMessage.ID {
+				// check if it meets retry pre-attempt conditions
+				if !entry.deliveryRegistration.CheckEventCondition(transport.BeforeDeliveryRetry, transport.ArgTypeNone,
+					nil) {
+					break
+				}
+
+				// get generation
+				messageGeneration, err := strconv.ParseUint(transportMessage.Version, decimal, uint64Size)
+				if err != nil {
+					c.log.Error(err, "failed to handle retry: illegal message version",
+						"message id", transportMessage.ID, "message type", transportMessage.MsgType,
+						"message version", transportMessage.Version)
+
+					break
+				}
+
+				// exponential backoff
+				go func() {
+					backOffScale := helpers.Min(*retryCounterMap[transportMessage.ID], exponentialBackOffAttemptsCap)
+					backOffDuration := time.Duration(math.Pow(exponentialBackOffBase,
+						float64(backOffScale)) * exponentialBackOffTimeUnitMS)
+					time.Sleep(backOffDuration)
+
+					if entry.deliveryRegistration.CheckEventCondition(transport.BeforeDeliveryRetry,
+						transport.ArgTypeBundleGeneration, messageGeneration) {
+						// message should be retried, it is the most recent of this type
+						c.log.Info("retrying bundle delivery", "bundle id", transportMessage.ID,
+							"bundle version", transportMessage.Version,
+							"attempt", *retryCounterMap[transportMessage.ID])
+						c.transport.SendAsync(transportMessage)
+					}
+				}()
+			}
+		}
+	}
+}
+
 func (c *genericStatusSyncController) syncBundles() {
 	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
 	defer c.lock.Unlock()
 
 	for _, entry := range c.orderedBundleCollection {
-		if !entry.predicate() { // evaluate if bundle has to be sent only if predicate is true
+		// evaluate if bundle has to be sent only if delivery pre-attempt conditions are met
+		if !entry.deliveryRegistration.CheckEventCondition(transport.BeforeDeliveryAttempt, transport.ArgTypeNone, nil) {
 			continue
 		}
 
 		bundleGeneration := entry.bundle.GetBundleGeneration()
 
-		// send to transport only if bundle has changed
-		if bundleGeneration > entry.lastSentBundleGeneration {
-			c.syncToTransport(entry.transportBundleKey, datatypes.StatusBundle,
-				strconv.FormatUint(bundleGeneration, 10), entry.bundle)
+		// send to transport only if delivery pre-attempt generation conditions are met
+		if entry.deliveryRegistration.CheckEventCondition(transport.BeforeDeliveryAttempt,
+			transport.ArgTypeBundleGeneration, bundleGeneration) {
+			c.syncToTransport(entry.transportBundleKey, datatypes.StatusBundle, bundleGeneration, entry.bundle)
 
-			entry.lastSentBundleGeneration = bundleGeneration
+			// update last-sent-gen and invoke delegate actions for delivery attempt event
+			entry.deliveryRegistration.UpdateSentGeneration(bundleGeneration)
+			entry.deliveryRegistration.InvokeEventActions(transport.AfterDeliveryAttempt,
+				transport.ArgTypeBundleObjectsCount, entry.bundle.GetObjectsCount())
 		}
 	}
 }
 
-func (c *genericStatusSyncController) syncToTransport(id string, objType string, generation string,
+func (c *genericStatusSyncController) syncToTransport(id string, objType string, generation uint64,
 	payload bundle.Bundle) {
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
@@ -212,7 +283,14 @@ func (c *genericStatusSyncController) syncToTransport(id string, objType string,
 		return
 	}
 
-	c.transport.SendAsync(id, objType, generation, payloadBytes)
+	transportMessage := &transport.Message{
+		ID:      id,
+		MsgType: objType,
+		Version: fmt.Sprintf("%d.%d", c.incarnation, generation), //TODO: limit to sync-service
+		Payload: payloadBytes,
+	}
+
+	c.transport.SendAsync(transportMessage)
 }
 
 func cleanObject(object bundle.Object) {

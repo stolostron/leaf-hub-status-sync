@@ -12,7 +12,6 @@ import (
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/generic"
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -23,22 +22,35 @@ const (
 )
 
 // AddClustersStatusController adds managed clusters status controller to the manager.
-func AddClustersStatusController(mgr ctrl.Manager, transport transport.Transport, syncInterval time.Duration,
-	leafHubName string, hubOfHubsConfig *configv1.Config) error {
+func AddClustersStatusController(mgr ctrl.Manager, transportObj transport.Transport, syncInterval time.Duration,
+	leafHubName string, incarnation uint64, _ *configv1.Config) error {
 	createObjFunction := func() bundle.Object { return &clusterv1.ManagedCluster{} }
 	transportBundleKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.ManagedClustersMsgKey)
 
+	transportRetryChan := make(chan *transport.Message)
+
+	// create bundle delivery registration and register conditions
+	clustersStatusDeliveryRegistration := transport.NewBundleDeliveryRegistration(0, transportRetryChan, nil)
+	// add condition on pre-attempt
+	clustersStatusDeliveryRegistration.AddCondition(transport.BeforeDeliveryAttempt,
+		transport.ArgTypeBundleGeneration, func(generation interface{}) bool {
+			return generation.(uint64) > clustersStatusDeliveryRegistration.GetLastSentGeneration()
+		})
+	// add condition on pre-retry-attempt
+	clustersStatusDeliveryRegistration.AddCondition(transport.BeforeDeliveryRetry,
+		transport.ArgTypeBundleGeneration, func(generation interface{}) bool {
+			return generation.(uint64) == clustersStatusDeliveryRegistration.GetLastSentGeneration()
+		})
+
 	bundleCollection := []*generic.BundleCollectionEntry{ // single bundle for managed clusters
-		generic.NewBundleCollectionEntry(transportBundleKey, bundle.NewGenericStatusBundle(leafHubName,
-			helpers.GetBundleGenerationFromTransport(transport, transportBundleKey, datatypes.StatusBundle)),
-			func() bool { // bundle predicate
-				return hubOfHubsConfig.Spec.AggregationLevel == configv1.Full ||
-					hubOfHubsConfig.Spec.AggregationLevel == configv1.Minimal
-			}), // at this point send all managed clusters even if aggregation level is minimal
+		generic.NewBundleCollectionEntry(transportBundleKey,
+			bundle.NewGenericStatusBundle(leafHubName, incarnation, 0),
+			clustersStatusDeliveryRegistration), // at this point send all managed clusters even if aggregation level is minimal
 	}
 
-	if err := generic.NewGenericStatusSyncController(mgr, clusterStatusSyncLogName, transport,
-		managedClusterCleanupFinalizer, bundleCollection, createObjFunction, syncInterval, nil); err != nil {
+	if err := generic.NewGenericStatusSyncController(mgr, clusterStatusSyncLogName, incarnation, transportObj,
+		managedClusterCleanupFinalizer, bundleCollection, createObjFunction, syncInterval, transportRetryChan,
+		nil); err != nil {
 		return fmt.Errorf("failed to add controller to the manager - %w", err)
 	}
 

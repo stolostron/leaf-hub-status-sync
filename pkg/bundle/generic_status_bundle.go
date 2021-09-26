@@ -3,17 +3,17 @@ package bundle
 import (
 	"sync"
 
-	"github.com/pkg/errors"
+	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 // NewGenericStatusBundle creates a new instance of GenericStatusBundle.
-func NewGenericStatusBundle(leafHubName string, generation uint64) Bundle {
+func NewGenericStatusBundle(leafHubName string, incarnation uint64, generation uint64) Bundle {
 	return &GenericStatusBundle{
-		Objects:     make([]Object, 0),
-		LeafHubName: leafHubName,
-		Generation:  generation,
-		lock:        sync.Mutex{},
+		Objects:       make([]Object, 0),
+		LeafHubName:   leafHubName,
+		BundleVersion: *statusbundle.NewBundleVersion(incarnation, generation),
+		lock:          sync.Mutex{},
 	}
 }
 
@@ -23,8 +23,8 @@ func NewGenericStatusBundle(leafHubName string, generation uint64) Bundle {
 type GenericStatusBundle struct {
 	Objects     []Object `json:"objects"`
 	LeafHubName string   `json:"leafHubName"`
-	Generation  uint64   `json:"generation"`
-	lock        sync.Mutex
+	statusbundle.BundleVersion
+	lock sync.Mutex
 }
 
 // UpdateObject function to update a single object inside a bundle.
@@ -64,12 +64,20 @@ func (bundle *GenericStatusBundle) DeleteObject(object Object) {
 	bundle.Generation++
 }
 
-// GetBundleGeneration function to get bundle generation.
+// GetBundleGeneration function to get bundle's generation.
 func (bundle *GenericStatusBundle) GetBundleGeneration() uint64 {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
 	return bundle.Generation
+}
+
+// GetObjectsCount function to get bundle objects count.
+func (bundle *GenericStatusBundle) GetObjectsCount() int {
+	bundle.lock.Lock()
+	defer bundle.lock.Unlock()
+
+	return len(bundle.Objects)
 }
 
 func (bundle *GenericStatusBundle) getObjectIndexByUID(uid types.UID) (int, error) {
@@ -79,5 +87,5 @@ func (bundle *GenericStatusBundle) getObjectIndexByUID(uid types.UID) (int, erro
 		}
 	}
 
-	return -1, errors.New("object not found")
+	return -1, errObjectNotFound
 }

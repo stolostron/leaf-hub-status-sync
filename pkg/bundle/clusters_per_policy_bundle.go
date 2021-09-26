@@ -11,12 +11,12 @@ import (
 )
 
 // NewClustersPerPolicyBundle creates a new instance of ClustersPerPolicyBundle.
-func NewClustersPerPolicyBundle(leafHubName string, generation uint64) Bundle {
+func NewClustersPerPolicyBundle(leafHubName string, incarnation uint64, generation uint64) Bundle {
 	return &ClustersPerPolicyBundle{
 		BaseClustersPerPolicyBundle: statusbundle.BaseClustersPerPolicyBundle{
-			Objects:     make([]*statusbundle.ClustersPerPolicy, 0),
-			LeafHubName: leafHubName,
-			Generation:  generation,
+			Objects:       make([]*statusbundle.ClustersPerPolicy, 0),
+			LeafHubName:   leafHubName,
+			BundleVersion: *statusbundle.NewBundleVersion(incarnation, generation),
 		},
 		lock: sync.Mutex{},
 	}
@@ -83,12 +83,20 @@ func (bundle *ClustersPerPolicyBundle) DeleteObject(object Object) {
 	bundle.Generation++
 }
 
-// GetBundleGeneration function to get bundle generation.
+// GetBundleGeneration function to get bundle's generation.
 func (bundle *ClustersPerPolicyBundle) GetBundleGeneration() uint64 {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
 	return bundle.Generation
+}
+
+// GetObjectsCount function to get bundle objects count.
+func (bundle *ClustersPerPolicyBundle) GetObjectsCount() int {
+	bundle.lock.Lock()
+	defer bundle.lock.Unlock()
+
+	return len(bundle.Objects)
 }
 
 func (bundle *ClustersPerPolicyBundle) getObjectIndexByUID(uid string) (int, error) {
