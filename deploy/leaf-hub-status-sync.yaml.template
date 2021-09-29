@@ -106,7 +106,7 @@ spec:
             - name: NUMBER_OF_SIMULATED_LEAF_HUBS
               value: "$NUMBER_OF_SIMULATED_LEAF_HUBS"
             - name: PERIODIC_SYNC_INTERVAL
-              value: 60s
+              value: 30s
             - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:

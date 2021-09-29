@@ -32,7 +32,6 @@ const (
 	EnvNumberOfSimulatedLeafHubs = "NUMBER_OF_SIMULATED_LEAF_HUBS"
 	// TransportBundleKeyParts is a number of parts in BundleCollectionEntry.transportBundleKey field.
 	TransportBundleKeyParts = 2
-	sleepInterval1          = 3
 )
 
 // CreateObjectFunction is a function for how to create an object that is stored inside the bundle.
@@ -254,8 +253,6 @@ func (c *genericStatusSyncController) periodicSync() {
 			}
 
 			c.sc.mutex.Unlock()
-
-			time.Sleep(sleepInterval1 * time.Second)
 		}
 
 		c.log.Info("periodicSync finished")
