@@ -6,7 +6,6 @@ require (
 	github.com/daixiang0/gci v0.2.9 // indirect
 	github.com/go-logr/logr v0.2.1
 	github.com/go-logr/zapr v0.2.0 // indirect
-	github.com/jinzhu/copier v0.3.2 // indirect
 	github.com/open-cluster-management/api v0.0.0-20210527013639-a6845f2ebcb1
 	github.com/open-cluster-management/governance-policy-propagator v0.0.0-20210520203318-a78632de1e26
 	github.com/open-cluster-management/hub-of-hubs-data-types v0.1.0
