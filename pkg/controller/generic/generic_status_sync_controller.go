@@ -26,8 +26,8 @@ import (
 const (
 	// RequeuePeriodSeconds is the time to wait until reconciliation retry in failure cases.
 	RequeuePeriodSeconds = 5
-	// EnvNumberOfSimulatedLeafHubs is environment variable used to control number of simulated leaf hubs.
-	EnvNumberOfSimulatedLeafHubs = "NUMBER_OF_SIMULATED_LEAF_HUBS"
+	// envNumberOfSimulatedLeafHubs is environment variable used to control number of simulated leaf hubs.
+	envNumberOfSimulatedLeafHubs = "NUMBER_OF_SIMULATED_LEAF_HUBS"
 	// transportBundleKeyParts is a number of parts in BundleCollectionEntry.transportBundleKey field.
 	transportBundleKeyParts = 2
 	// base10 is used for int to string conversion.
@@ -69,29 +69,27 @@ type simulationContext struct {
 	mutex         sync.Mutex
 }
 
-func newSimulatedContext(log logr.Logger) *simulationContext {
-	simContext := new(simulationContext)
-
-	envNumOfSimulateLeafHubs, found := os.LookupEnv(EnvNumberOfSimulatedLeafHubs)
+func newSimulationContext(log logr.Logger) *simulationContext {
+	envNumOfSimulateLeafHubs, found := os.LookupEnv(envNumberOfSimulatedLeafHubs)
 
 	if found {
 		if value, err := strconv.Atoi(envNumOfSimulateLeafHubs); err != nil {
 			log.Info(fmt.Sprintf("Failed to convert environment variable '%s', value: %s, err: %s",
-				EnvNumberOfSimulatedLeafHubs, envNumOfSimulateLeafHubs, err))
+				envNumberOfSimulatedLeafHubs, envNumOfSimulateLeafHubs, err))
 		} else {
 			switch {
 			case value >= 0:
 				return &simulationContext{numOfLeafHubs: value}
 			default:
 				log.Info(fmt.Sprintf("Environment variable '%s' must be a non-negative integer value, provided value '%s'.",
-					EnvNumberOfSimulatedLeafHubs, envNumOfSimulateLeafHubs))
+					envNumberOfSimulatedLeafHubs, envNumOfSimulateLeafHubs))
 			}
 		}
 	} else {
-		log.Info(fmt.Sprintf("Environment variable '%s' is not defined", EnvNumberOfSimulatedLeafHubs))
+		log.Info(fmt.Sprintf("Environment variable '%s' is not defined", envNumberOfSimulatedLeafHubs))
 	}
 
-	return simContext
+	return &simulationContext{numOfLeafHubs: 0}
 }
 
 type genericStatusSyncController struct {
@@ -103,11 +101,11 @@ type genericStatusSyncController struct {
 	createObjFunc           CreateObjectFunction
 	periodicSyncInterval    time.Duration
 	startOnce               sync.Once
-	sc                      *simulationContext
+	simulationContext       *simulationContext
 }
 
 func (c *genericStatusSyncController) init() {
-	c.sc = newSimulatedContext(c.log)
+	c.simulationContext = newSimulationContext(c.log)
 
 	c.startOnce.Do(func() {
 		go c.periodicSync()
@@ -115,8 +113,8 @@ func (c *genericStatusSyncController) init() {
 }
 
 func (c *genericStatusSyncController) Reconcile(request ctrl.Request) (ctrl.Result, error) {
-	c.sc.mutex.Lock()
-	defer c.sc.mutex.Unlock()
+	c.simulationContext.mutex.Lock()
+	defer c.simulationContext.mutex.Unlock()
 
 	reqLogger := c.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
@@ -224,7 +222,7 @@ func (c *genericStatusSyncController) periodicSync() {
 				continue
 			}
 
-			c.sc.mutex.Lock()
+			c.simulationContext.mutex.Lock()
 
 			bundleGeneration := entry.bundle.GetBundleGeneration()
 
@@ -237,7 +235,7 @@ func (c *genericStatusSyncController) periodicSync() {
 					strconv.FormatUint(bundleGeneration, base10), entry.bundle)
 
 				// send simulated entries
-				for i := 1; i <= c.sc.numOfLeafHubs; i++ {
+				for i := 1; i <= c.simulationContext.numOfLeafHubs; i++ {
 					simulatedLeafHubName := fmt.Sprintf("%s_simulated_%d", leafHubName, i)
 
 					c.changeLeafHubName(entry, simulatedLeafHubName)
@@ -252,7 +250,7 @@ func (c *genericStatusSyncController) periodicSync() {
 				entry.lastSentBundleGeneration = bundleGeneration
 			}
 
-			c.sc.mutex.Unlock()
+			c.simulationContext.mutex.Unlock()
 		}
 
 		c.log.Info("periodicSync finished")
@@ -270,16 +268,16 @@ func (c *genericStatusSyncController) syncToTransport(id string, objType string,
 	c.transport.SendAsync(id, objType, generation, payloadBytes)
 }
 
-func getLeafHubNameFieldPointer(entry *BundleCollectionEntry) unsafe.Pointer {
+func getLeafHubNameFieldPointer(entry *BundleCollectionEntry) *string {
 	ptrToBundle := reflect.ValueOf(entry.bundle)
 	reflectedBundle := reflect.Indirect(ptrToBundle)
 	privateMember := reflectedBundle.FieldByName("LeafHubName")
 
-	return unsafe.Pointer(privateMember.UnsafeAddr())
+	return (*string)(unsafe.Pointer(privateMember.UnsafeAddr()))
 }
 
 func getLeafHubName(entry *BundleCollectionEntry) string {
-	return *((*string)(getLeafHubNameFieldPointer(entry)))
+	return *getLeafHubNameFieldPointer(entry)
 }
 
 func (c *genericStatusSyncController) changeLeafHubName(entry *BundleCollectionEntry, newLeafHubName string) {
@@ -294,7 +292,7 @@ func (c *genericStatusSyncController) changeLeafHubName(entry *BundleCollectionE
 	entry.transportBundleKey = fmt.Sprintf("%s.%s", newLeafHubName, tokens[1])
 
 	// change bundle's 'leafHubName' field value
-	realPtrToLeafHubName := (*string)(getLeafHubNameFieldPointer(entry))
+	realPtrToLeafHubName := getLeafHubNameFieldPointer(entry)
 	*realPtrToLeafHubName = newLeafHubName
 }
 
