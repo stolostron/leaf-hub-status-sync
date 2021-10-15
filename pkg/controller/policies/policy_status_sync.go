@@ -11,6 +11,7 @@ import (
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/configmap"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/generic"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
@@ -26,8 +27,8 @@ const (
 )
 
 // AddPoliciesStatusController adds policies status controller to the manager.
-func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport, syncInterval time.Duration,
-	leafHubName string, hubOfHubsConfig *configv1.Config) error {
+func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport, leafHubName string,
+	hubOfHubsConfig *configv1.Config, configMapData *configmap.HohConfigMapData) error {
 	createObjFunction := func() bundle.Object { return &policiesv1.Policy{} }
 
 	// clusters per policy (base bundle)
@@ -64,8 +65,10 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 
 	// initialize policy status controller (contains multiple bundles)
 	if err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, transport, policyCleanupFinalizer,
-		bundleCollection, createObjFunction, syncInterval,
-		predicate.And(hohNamespacePredicate, ownerRefAnnotationPredicate)); err != nil {
+		bundleCollection, createObjFunction, predicate.And(hohNamespacePredicate, ownerRefAnnotationPredicate),
+		configMapData, func(configMapData *configmap.HohConfigMapData) time.Duration {
+			return configMapData.Intervals.Policies
+		}); err != nil {
 		return fmt.Errorf("failed to add controller to the manager - %w", err)
 	}
 

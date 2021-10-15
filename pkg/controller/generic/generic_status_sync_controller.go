@@ -11,6 +11,7 @@ import (
 	"github.com/go-logr/logr"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/configmap"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -22,6 +23,7 @@ import (
 const (
 	// RequeuePeriodSeconds is the time to wait until reconciliation retry in failure cases.
 	RequeuePeriodSeconds = 5
+	base10               = 10
 )
 
 // CreateObjectFunction is a function for how to create an object that is stored inside the bundle.
@@ -30,16 +32,18 @@ type CreateObjectFunction func() bundle.Object
 // NewGenericStatusSyncController creates a new instnace of genericStatusSyncController and adds it to the manager.
 func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport transport.Transport,
 	finalizerName string, orderedBundleCollection []*BundleCollectionEntry, createObjFunc CreateObjectFunction,
-	syncInterval time.Duration, predicate predicate.Predicate) error {
+	predicate predicate.Predicate, configMapData *configmap.HohConfigMapData,
+	periodicSyncIntervalResolver configmap.PeriodicSyncIntervalResolver) error {
 	statusSyncCtrl := &genericStatusSyncController{
-		client:                  mgr.GetClient(),
-		log:                     ctrl.Log.WithName(logName),
-		transport:               transport,
-		orderedBundleCollection: orderedBundleCollection,
-		finalizerName:           finalizerName,
-		createObjFunc:           createObjFunc,
-		periodicSyncInterval:    syncInterval,
-		lock:                    sync.Mutex{},
+		client:                       mgr.GetClient(),
+		log:                          ctrl.Log.WithName(logName),
+		transport:                    transport,
+		orderedBundleCollection:      orderedBundleCollection,
+		finalizerName:                finalizerName,
+		createObjFunc:                createObjFunc,
+		configMapData:                configMapData,
+		periodicSyncIntervalResolver: periodicSyncIntervalResolver,
+		lock:                         sync.Mutex{},
 	}
 	statusSyncCtrl.init()
 
@@ -56,15 +60,16 @@ func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport 
 }
 
 type genericStatusSyncController struct {
-	client                  client.Client
-	log                     logr.Logger
-	transport               transport.Transport
-	orderedBundleCollection []*BundleCollectionEntry
-	finalizerName           string
-	createObjFunc           CreateObjectFunction
-	periodicSyncInterval    time.Duration
-	startOnce               sync.Once
-	lock                    sync.Mutex
+	client                       client.Client
+	log                          logr.Logger
+	transport                    transport.Transport
+	orderedBundleCollection      []*BundleCollectionEntry
+	finalizerName                string
+	createObjFunc                CreateObjectFunction
+	configMapData                *configmap.HohConfigMapData
+	periodicSyncIntervalResolver configmap.PeriodicSyncIntervalResolver
+	startOnce                    sync.Once
+	lock                         sync.Mutex
 }
 
 func (c *genericStatusSyncController) init() {
@@ -175,11 +180,21 @@ func (c *genericStatusSyncController) removeFinalizer(ctx context.Context, objec
 }
 
 func (c *genericStatusSyncController) periodicSync() {
-	ticker := time.NewTicker(c.periodicSyncInterval)
+	currentPeriodicSyncInterval := c.periodicSyncIntervalResolver(c.configMapData)
+	ticker := time.NewTicker(currentPeriodicSyncInterval)
 
 	for {
 		<-ticker.C // wait for next time interval
 		c.syncBundles()
+
+		// reset ticker if sync interval has changed
+		interval := c.periodicSyncIntervalResolver(c.configMapData)
+
+		if interval != currentPeriodicSyncInterval {
+			currentPeriodicSyncInterval = interval
+			ticker.Reset(currentPeriodicSyncInterval)
+			c.log.Info(fmt.Sprintf("ticker has been reset to %s", currentPeriodicSyncInterval.String()))
+		}
 	}
 }
 
@@ -197,7 +212,7 @@ func (c *genericStatusSyncController) syncBundles() {
 		// send to transport only if bundle has changed
 		if bundleGeneration > entry.lastSentBundleGeneration {
 			c.syncToTransport(entry.transportBundleKey, datatypes.StatusBundle,
-				strconv.FormatUint(bundleGeneration, 10), entry.bundle)
+				strconv.FormatUint(bundleGeneration, base10), entry.bundle)
 
 			entry.lastSentBundleGeneration = bundleGeneration
 		}

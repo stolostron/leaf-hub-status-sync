@@ -5,12 +5,12 @@ package controller
 
 import (
 	"fmt"
-	"time"
 
 	clustersv1 "github.com/open-cluster-management/api/cluster/v1"
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
 	configCtrl "github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/config"
+	hohConfigMap "github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/configmap"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/managedclusters"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/policies"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
@@ -38,20 +38,25 @@ func AddToScheme(s *runtime.Scheme) error {
 }
 
 // AddControllers adds all the controllers to the Manager.
-func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, syncInterval time.Duration,
-	leafHubName string) error {
+func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, leafHubName string) error {
 	config := &configv1.Config{}
+	configMapData := hohConfigMap.NewHohConfigMapData()
 
 	if err := configCtrl.AddConfigController(mgr, "hub-of-hubs-config", config); err != nil {
 		return fmt.Errorf("failed to add controller: %w", err)
 	}
 
-	addControllerFunctions := []func(ctrl.Manager, transport.Transport, time.Duration, string, *configv1.Config) error{
+	if err := hohConfigMap.AddConfigMapController(mgr, "config-map", configMapData); err != nil {
+		return fmt.Errorf("failed to add controller: %w", err)
+	}
+
+	addControllerFunctions := []func(ctrl.Manager, transport.Transport, string, *configv1.Config,
+		*hohConfigMap.HohConfigMapData) error{
 		managedclusters.AddClustersStatusController, policies.AddPoliciesStatusController,
 	}
 
 	for _, addControllerFunction := range addControllerFunctions {
-		if err := addControllerFunction(mgr, transportImpl, syncInterval, leafHubName, config); err != nil {
+		if err := addControllerFunction(mgr, transportImpl, leafHubName, config, configMapData); err != nil {
 			return fmt.Errorf("failed to add controller: %w", err)
 		}
 	}
