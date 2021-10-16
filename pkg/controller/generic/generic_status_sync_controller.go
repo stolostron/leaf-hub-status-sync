@@ -187,9 +187,9 @@ func (c *genericStatusSyncController) periodicSync() {
 		<-ticker.C // wait for next time interval
 		c.syncBundles()
 
-		// reset ticker if sync interval has changed
 		interval := c.periodicSyncIntervalResolver(c.configMapData)
 
+		// reset ticker if sync interval has changed
 		if interval != currentPeriodicSyncInterval {
 			currentPeriodicSyncInterval = interval
 			ticker.Reset(currentPeriodicSyncInterval)
