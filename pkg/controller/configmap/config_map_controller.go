@@ -75,10 +75,11 @@ func (c *configMapController) Reconcile(request ctrl.Request) (ctrl.Result, erro
 func (c *configMapController) setPeriodicSyncInterval(log logr.Logger, configMap *v1.ConfigMap,
 	key string, syncInterval *time.Duration) {
 	if intervalStr, found := configMap.Data[key]; !found {
-		log.Info(fmt.Sprintf("%s periodic sync interval not defined, using %s", key, *syncInterval))
+		log.Info(fmt.Sprintf("%s periodic sync interval not defined, using %s", key, syncInterval.String()))
 	} else {
 		if interval, err := time.ParseDuration(intervalStr); err != nil {
-			log.Info(fmt.Sprintf("%s periodic sync interval has invalid format, using %s", key, *syncInterval))
+			log.Info(fmt.Sprintf("%s periodic sync interval has invalid format, using %s",
+				key, syncInterval.String()))
 		} else {
 			*syncInterval = interval
 		}
