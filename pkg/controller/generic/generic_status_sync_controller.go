@@ -41,7 +41,6 @@ func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport 
 		orderedBundleCollection:      orderedBundleCollection,
 		finalizerName:                finalizerName,
 		createObjFunc:                createObjFunc,
-		configMapData:                configMapData,
 		periodicSyncIntervalResolver: periodicSyncIntervalResolver,
 		lock:                         sync.Mutex{},
 	}
@@ -66,7 +65,6 @@ type genericStatusSyncController struct {
 	orderedBundleCollection      []*BundleCollectionEntry
 	finalizerName                string
 	createObjFunc                CreateObjectFunction
-	configMapData                *configmap.HohConfigMapData
 	periodicSyncIntervalResolver configmap.PeriodicSyncIntervalResolver
 	startOnce                    sync.Once
 	lock                         sync.Mutex
@@ -180,14 +178,14 @@ func (c *genericStatusSyncController) removeFinalizer(ctx context.Context, objec
 }
 
 func (c *genericStatusSyncController) periodicSync() {
-	currentPeriodicSyncInterval := c.periodicSyncIntervalResolver(c.configMapData)
+	currentPeriodicSyncInterval := c.periodicSyncIntervalResolver()
 	ticker := time.NewTicker(currentPeriodicSyncInterval)
 
 	for {
 		<-ticker.C // wait for next time interval
 		c.syncBundles()
 
-		interval := c.periodicSyncIntervalResolver(c.configMapData)
+		interval := c.periodicSyncIntervalResolver()
 
 		// reset ticker if sync interval has changed
 		if interval != currentPeriodicSyncInterval {

@@ -28,4 +28,4 @@ func NewHohConfigMapData() *HohConfigMapData {
 }
 
 // PeriodicSyncIntervalResolver is a function for resolving corresponding periodic sync interval from HohConfigMapData.
-type PeriodicSyncIntervalResolver func(*HohConfigMapData) time.Duration
+type PeriodicSyncIntervalResolver func() time.Duration
