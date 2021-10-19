@@ -40,9 +40,7 @@ func AddClustersStatusController(mgr ctrl.Manager, transport transport.Transport
 
 	if err := generic.NewGenericStatusSyncController(mgr, clusterStatusSyncLogName, transport,
 		managedClusterCleanupFinalizer, bundleCollection, createObjFunction, nil,
-		configMapData, func() time.Duration {
-			return configMapData.Intervals.ManagedClusters
-		}); err != nil {
+		func() time.Duration { return configMapData.Intervals.ManagedClusters }); err != nil {
 		return fmt.Errorf("failed to add controller to the manager - %w", err)
 	}
 

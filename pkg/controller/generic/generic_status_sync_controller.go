@@ -32,8 +32,7 @@ type CreateObjectFunction func() bundle.Object
 // NewGenericStatusSyncController creates a new instnace of genericStatusSyncController and adds it to the manager.
 func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport transport.Transport,
 	finalizerName string, orderedBundleCollection []*BundleCollectionEntry, createObjFunc CreateObjectFunction,
-	predicate predicate.Predicate, configMapData *configmap.HohConfigMapData,
-	periodicSyncIntervalResolver configmap.PeriodicSyncIntervalResolver) error {
+	predicate predicate.Predicate, periodicSyncIntervalResolver configmap.PeriodicSyncIntervalResolver) error {
 	statusSyncCtrl := &genericStatusSyncController{
 		client:                       mgr.GetClient(),
 		log:                          ctrl.Log.WithName(logName),
