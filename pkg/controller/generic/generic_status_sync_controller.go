@@ -190,7 +190,7 @@ func (c *genericStatusSyncController) periodicSync() {
 		if interval != currentPeriodicSyncInterval {
 			currentPeriodicSyncInterval = interval
 			ticker.Reset(currentPeriodicSyncInterval)
-			c.log.Info(fmt.Sprintf("ticker has been reset to %s", currentPeriodicSyncInterval.String()))
+			c.log.Info(fmt.Sprintf("periodic sync interval has been reset to %s", currentPeriodicSyncInterval.String()))
 		}
 	}
 }
