@@ -14,7 +14,7 @@ import (
 func NewClustersPerPolicyBundle(leafHubName string, generation uint64) Bundle {
 	return &ClustersPerPolicyBundle{
 		BaseClustersPerPolicyBundle: statusbundle.BaseClustersPerPolicyBundle{
-			Objects:     make([]*statusbundle.ClustersPerPolicy, 0),
+			Objects:     make([]*statusbundle.PolicyGenericComplianceStatus, 0),
 			LeafHubName: leafHubName,
 			Generation:  generation,
 		},
@@ -50,18 +50,13 @@ func (bundle *ClustersPerPolicyBundle) UpdateObject(object Object) {
 
 		return
 	}
-
-	// if we reached here, object already exists in the bundle, check if the object has changed.
-	if object.GetResourceVersion() == bundle.Objects[index].ResourceVersion {
-		return // update in bundle only if object changed. check for changes using resourceVersion field
-	}
-
-	if !bundle.updateObjectIfChanged(index, bundle.getClusterNames(policy), policy.Spec.RemediationAction) {
-		return // returns true if changed, otherwise false. if cluster list didn't change, don't increment generation.
-	}
-	// if cluster list has changed - update resource version of the object and bundle generation
-	bundle.Objects[index].ResourceVersion = object.GetResourceVersion()
-	bundle.Generation++
+	// when we update object (if changed), no need to increase generation.
+	// for this use case where no policy was added/removed, we use the status compliance bundle to update hub of hubs
+	// and not the clusters per policy bundle which contains a lot more information (full state).
+	//
+	// that being said, we still want to update the internal data and keep it always up to date in case a policy will be
+	// inserted/removed and full state bundle will be triggered.
+	bundle.updateObjectIfChanged(index, policy)
 }
 
 // DeleteObject function to delete a single object inside a bundle.
@@ -101,50 +96,64 @@ func (bundle *ClustersPerPolicyBundle) getObjectIndexByUID(uid string) (int, err
 	return -1, errors.New("object not found")
 }
 
-func (bundle *ClustersPerPolicyBundle) getClusterNames(policy *policiesv1.Policy) []string {
-	clusterNames := make([]string, len(policy.Status.Status))
-	for i, clusterStatus := range policy.Status.Status {
-		clusterNames[i] = clusterStatus.ClusterName
+// getClusterStatuses returns (list of compliant clusters, list of nonCompliant clusters, list of unknown clusters).
+func (bundle *ClustersPerPolicyBundle) getClusterStatuses(policy *policiesv1.Policy) ([]string, []string, []string) {
+	compliantClusters := make([]string, 0)
+	nonCompliantClusters := make([]string, 0)
+	unknownComplianceClusters := make([]string, 0)
+
+	for _, clusterStatus := range policy.Status.Status {
+		if clusterStatus.ComplianceState == policiesv1.Compliant {
+			compliantClusters = append(compliantClusters, clusterStatus.ClusterName)
+			continue
+		} // else
+
+		if clusterStatus.ComplianceState == policiesv1.NonCompliant {
+			nonCompliantClusters = append(nonCompliantClusters, clusterStatus.ClusterName)
+			continue
+		} // else
+
+		unknownComplianceClusters = append(unknownComplianceClusters, clusterStatus.ClusterName)
 	}
 
-	return clusterNames
+	return compliantClusters, nonCompliantClusters, unknownComplianceClusters
 }
 
 func (bundle *ClustersPerPolicyBundle) getClustersPerPolicy(originPolicyID string,
-	policy *policiesv1.Policy) *statusbundle.ClustersPerPolicy {
-	return &statusbundle.ClustersPerPolicy{
-		PolicyID:          originPolicyID,
-		Clusters:          bundle.getClusterNames(policy),
-		RemediationAction: policy.Spec.RemediationAction,
-		ResourceVersion:   policy.GetResourceVersion(),
+	policy *policiesv1.Policy) *statusbundle.PolicyGenericComplianceStatus {
+	compliantClusters, nonCompliantClusters, unknownComplianceClusters := bundle.getClusterStatuses(policy)
+
+	return &statusbundle.PolicyGenericComplianceStatus{
+		PolicyID:                  originPolicyID,
+		CompliantClusters:         compliantClusters,
+		NonCompliantClusters:      nonCompliantClusters,
+		UnknownComplianceClusters: unknownComplianceClusters,
 	}
 }
 
-func (bundle *ClustersPerPolicyBundle) updateObjectIfChanged(objectIndex int, newClusterNames []string,
-	remediationAction policiesv1.RemediationAction) bool {
-	oldClusterNames := bundle.Objects[objectIndex].Clusters
-	for _, newClusterName := range newClusterNames {
-		if !helpers.ContainsString(oldClusterNames, newClusterName) {
-			bundle.Objects[objectIndex].Clusters = newClusterNames // we found a new cluster, update and mark as changed
-			bundle.Objects[objectIndex].RemediationAction = remediationAction
+func (bundle *ClustersPerPolicyBundle) updateObjectIfChanged(objectIndex int, policy *policiesv1.Policy) {
+	newCompliantClusters, newNonCompliantClusters, newUnknownComplianceClusters := bundle.getClusterStatuses(policy)
+	oldPolicyStatus := bundle.Objects[objectIndex]
 
-			return true // if we update clusters, update remediation as well without checking
+	if !bundle.clusterListsEqual(oldPolicyStatus.CompliantClusters, newCompliantClusters) ||
+		!bundle.clusterListsEqual(oldPolicyStatus.NonCompliantClusters, newNonCompliantClusters) ||
+		!bundle.clusterListsEqual(oldPolicyStatus.UnknownComplianceClusters, newUnknownComplianceClusters) {
+		oldPolicyStatus.CompliantClusters = newCompliantClusters
+		oldPolicyStatus.NonCompliantClusters = newNonCompliantClusters
+		oldPolicyStatus.UnknownComplianceClusters = newUnknownComplianceClusters
+	}
+}
+
+func (bundle *ClustersPerPolicyBundle) clusterListsEqual(oldClusters []string, newClusters []string) bool {
+	if len(oldClusters) != len(newClusters) {
+		return false
+	}
+
+	for _, newClusterName := range newClusters {
+		if !helpers.ContainsString(oldClusters, newClusterName) {
+			return false
 		}
 	}
-	// if we finished for loop, all new clusters can be found inside the existing clusters per policy list.
-	// need to make sure there are no other clusters which are not relevant anymore (removed ones).
-	// comparing length, if not equal there is at least one old cluster which is not relevant anymore.
-	if len(oldClusterNames) != len(newClusterNames) {
-		bundle.Objects[objectIndex].Clusters = newClusterNames
-		bundle.Objects[objectIndex].RemediationAction = remediationAction
 
-		return true // if we update clusters, update remediation as well without checking
-	}
-	// check if remediation action was changed or not
-	if bundle.Objects[objectIndex].RemediationAction != remediationAction {
-		bundle.Objects[objectIndex].RemediationAction = remediationAction // no need to update clusters, identical
-		return true
-	}
-
-	return false
+	return true
 }

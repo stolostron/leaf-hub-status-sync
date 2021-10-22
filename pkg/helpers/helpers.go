@@ -18,8 +18,8 @@ func ContainsString(slice []string, s string) bool {
 	return false
 }
 
-// GetBundleGenerationFromTransport returns bundle generation from transport layer.
-func GetBundleGenerationFromTransport(transport transport.Transport, msgID string, msgType string) uint64 {
+// GetGenerationFromTransport returns bundle generation from transport layer.
+func GetGenerationFromTransport(transport transport.Transport, msgID string, msgType string) uint64 {
 	version := transport.GetVersion(msgID, msgType)
 	if version == "" {
 		return 0

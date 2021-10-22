@@ -32,27 +32,30 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 
 	// clusters per policy (base bundle)
 	clustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.ClustersPerPolicyMsgKey)
-	clustersPerPolicyBundle := bundle.NewClustersPerPolicyBundle(leafHubName, helpers.GetBundleGenerationFromTransport(
+	clustersPerPolicyBundle := bundle.NewClustersPerPolicyBundle(leafHubName, helpers.GetGenerationFromTransport(
 		transport, clustersPerPolicyTransportKey, datatypes.StatusBundle))
 
-	// compliance status bundle
-	complianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.PolicyComplianceMsgKey)
-	complianceStatusBundle := bundle.NewComplianceStatusBundle(leafHubName, clustersPerPolicyBundle,
-		helpers.GetBundleGenerationFromTransport(transport, complianceStatusTransportKey, datatypes.StatusBundle))
+	// complete compliance status bundle
+	completeComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
+		datatypes.PolicyCompleteComplianceMsgKey)
+	completeComplianceStatusBundle := bundle.NewCompleteComplianceStatusBundle(leafHubName, clustersPerPolicyBundle,
+		helpers.GetGenerationFromTransport(transport, completeComplianceStatusTransportKey, datatypes.StatusBundle))
 
 	// minimal compliance status bundle
-	minComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.MinimalPolicyComplianceMsgKey)
-	minComplianceStatusBundle := bundle.NewMinimalComplianceStatusBundle(leafHubName,
-		helpers.GetBundleGenerationFromTransport(transport, minComplianceStatusTransportKey, datatypes.StatusBundle))
+	minimalComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
+		datatypes.MinimalPolicyComplianceMsgKey)
+	minimalComplianceStatusBundle := bundle.NewMinimalComplianceStatusBundle(leafHubName,
+		helpers.GetGenerationFromTransport(transport, minimalComplianceStatusTransportKey, datatypes.StatusBundle))
 
 	fullStatusPredicate := func() bool { return hubOfHubsConfig.Spec.AggregationLevel == configv1.Full }
-	minStatusPredicate := func() bool { return hubOfHubsConfig.Spec.AggregationLevel == configv1.Minimal }
+	minimalStatusPredicate := func() bool { return hubOfHubsConfig.Spec.AggregationLevel == configv1.Minimal }
 
 	bundleCollection := []*generic.BundleCollectionEntry{ // multiple bundles for policy status
 		generic.NewBundleCollectionEntry(clustersPerPolicyTransportKey, clustersPerPolicyBundle, fullStatusPredicate),
-		generic.NewBundleCollectionEntry(complianceStatusTransportKey, complianceStatusBundle, fullStatusPredicate),
-		generic.NewBundleCollectionEntry(minComplianceStatusTransportKey, minComplianceStatusBundle,
-			minStatusPredicate),
+		generic.NewBundleCollectionEntry(completeComplianceStatusTransportKey, completeComplianceStatusBundle,
+			fullStatusPredicate),
+		generic.NewBundleCollectionEntry(minimalComplianceStatusTransportKey, minimalComplianceStatusBundle,
+			minimalStatusPredicate),
 	}
 
 	hohNamespacePredicate := predicate.NewPredicateFuncs(func(meta metav1.Object, object runtime.Object) bool {
