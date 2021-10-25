@@ -40,7 +40,7 @@ func AddLocalPlacementruleController(mgr ctrl.Manager, transport transport.Trans
 			helpers.GetBundleGenerationFromTransport(transport, localPlacementruleTransportKey, datatypes.StatusBundle),
 			cleanFunc),
 		func() bool { // bundle predicate
-			return configv1.ShowLocalPolicies
+			return hubOfHubsConfig.Spec.EnableLocalPolicies
 		})
 
 	bundleCollection := []*generic.BundleCollectionEntry{localPlacementRuleBundle}

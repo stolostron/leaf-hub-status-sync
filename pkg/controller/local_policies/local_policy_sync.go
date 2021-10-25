@@ -59,10 +59,12 @@ func AddLocalPoliciesController(mgr ctrl.Manager, transport transport.Transport,
 		bundle.NewGenericStatusBundle(leafHubName,
 			helpers.GetBundleGenerationFromTransport(transport, localSpecPerPolicyTransportKey, datatypes.StatusBundle),
 			cleanFunc),
-		func() bool { return configv1.ShowLocalPolicies })
+		func() bool { return hubOfHubsConfig.Spec.EnableLocalPolicies })
 
 	// check for full information
-	fullStatusPredicate := func() bool { return configv1.ShowLocalPolicies }
+	fullStatusPredicate := func() bool {
+		return hubOfHubsConfig.Spec.AggregationLevel == configv1.Full && hubOfHubsConfig.Spec.EnableLocalPolicies
+	}
 
 	bundleCollection := []*generic.BundleCollectionEntry{ // multiple bundles for policy status
 		generic.NewBundleCollectionEntry(localClustersPerPolicyTransportKey,

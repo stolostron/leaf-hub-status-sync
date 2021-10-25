@@ -24,7 +24,7 @@ const (
 func NewClustersPerPolicyBundle(leafHubName string, generation uint64, bundType BundType) Bundle {
 	return &ClustersPerPolicyBundle{
 		BaseClustersPerPolicyBundle: statusbundle.BaseClustersPerPolicyBundle{
-			Objects:     make([]*statusbundle.ClustersPerPolicy, 0),
+			Objects:     make([]*statusbundle.Com, 0),
 			LeafHubName: leafHubName,
 			Generation:  generation,
 		},
