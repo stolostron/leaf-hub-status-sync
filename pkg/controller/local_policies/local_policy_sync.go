@@ -32,14 +32,15 @@ func AddLocalPoliciesController(mgr ctrl.Manager, transport transport.Transport,
 	// clusters per policy (base bundle)
 	localClustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalClustersPerPolicyMsgKey)
 	localClustersPerPolicyBundle := bundle.NewClustersPerPolicyBundle(leafHubName,
-		helpers.GetBundleGenerationFromTransport(transport, localClustersPerPolicyTransportKey, datatypes.StatusBundle),
+		helpers.GetGenerationFromTransport(transport, localClustersPerPolicyTransportKey, datatypes.StatusBundle),
 		bundle.LocalBundle)
 
 	// compliance status bundle
-	localComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalPolicyComplianceMsgKey)
-	localComplianceStatusBundle := bundle.NewComplianceStatusBundle(leafHubName, localClustersPerPolicyBundle,
-		helpers.GetBundleGenerationFromTransport(transport, localComplianceStatusTransportKey, datatypes.StatusBundle),
-		bundle.LocalBundle)
+	localCompleteComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
+		datatypes.PolicyCompleteComplianceMsgKey)
+	localCompleteComplianceStatusBundle := bundle.NewCompleteComplianceStatusBundle(leafHubName,
+		localClustersPerPolicyBundle, helpers.GetGenerationFromTransport(transport,
+			localCompleteComplianceStatusTransportKey, datatypes.StatusBundle), bundle.LocalBundle)
 
 	// spec per policy bundle
 	cleanFunc :=
@@ -57,7 +58,7 @@ func AddLocalPoliciesController(mgr ctrl.Manager, transport transport.Transport,
 	localSpecPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalSpecPerPolicyMsgKey)
 	localPolicySpecBundle := generic.NewBundleCollectionEntry(localSpecPerPolicyTransportKey,
 		bundle.NewGenericStatusBundle(leafHubName,
-			helpers.GetBundleGenerationFromTransport(transport, localSpecPerPolicyTransportKey, datatypes.StatusBundle),
+			helpers.GetGenerationFromTransport(transport, localSpecPerPolicyTransportKey, datatypes.StatusBundle),
 			cleanFunc),
 		func() bool { return hubOfHubsConfig.Spec.EnableLocalPolicies })
 
@@ -69,8 +70,8 @@ func AddLocalPoliciesController(mgr ctrl.Manager, transport transport.Transport,
 	bundleCollection := []*generic.BundleCollectionEntry{ // multiple bundles for policy status
 		generic.NewBundleCollectionEntry(localClustersPerPolicyTransportKey,
 			localClustersPerPolicyBundle, fullStatusPredicate),
-		generic.NewBundleCollectionEntry(localComplianceStatusTransportKey, localComplianceStatusBundle, fullStatusPredicate),
-		localPolicySpecBundle,
+		generic.NewBundleCollectionEntry(localCompleteComplianceStatusTransportKey,
+			localCompleteComplianceStatusBundle, fullStatusPredicate), localPolicySpecBundle,
 	}
 
 	isLocalPolicyPredic := predicate.NewPredicateFuncs(func(meta metav1.Object, object runtime.Object) bool {

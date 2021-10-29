@@ -52,8 +52,8 @@ func (bundle *GenericStatusBundle) UpdateObject(object Object) {
 	}
 
 	// if we reached here, object already exists in the bundle.. check if we need to update the object
-	if object.GetResourceVersion() <= bundle.Objects[index].GetResourceVersion() {
-		return // update object only if there is a newer version. check for changes using resourceVersion field
+	if object.GetResourceVersion() == bundle.Objects[index].GetResourceVersion() {
+		return // update in bundle only if object changed. check for changes using resourceVersion field
 	}
 
 	bundle.Objects[index] = object

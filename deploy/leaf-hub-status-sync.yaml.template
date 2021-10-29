@@ -97,6 +97,8 @@ spec:
       containers:
         - name: leaf-hub-status-sync
           image: $IMAGE
+          args:
+            - '--zap-devel=true'
           imagePullPolicy: Always
           env:
             - name: WATCH_NAMESPACE

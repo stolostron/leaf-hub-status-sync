@@ -37,7 +37,7 @@ func AddLocalPlacementruleController(mgr ctrl.Manager, transport transport.Trans
 	localPlacementruleTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalPlacementRulesMsgKey)
 	localPlacementRuleBundle := generic.NewBundleCollectionEntry(localPlacementruleTransportKey,
 		bundle.NewGenericStatusBundle(leafHubName,
-			helpers.GetBundleGenerationFromTransport(transport, localPlacementruleTransportKey, datatypes.StatusBundle),
+			helpers.GetGenerationFromTransport(transport, localPlacementruleTransportKey, datatypes.StatusBundle),
 			cleanFunc),
 		func() bool { // bundle predicate
 			return hubOfHubsConfig.Spec.EnableLocalPolicies
