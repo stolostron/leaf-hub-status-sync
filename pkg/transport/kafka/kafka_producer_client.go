@@ -50,24 +50,11 @@ func (p *Producer) deliveryHandler(kafkaMessage *kafka.Message) {
 	// TODO (maybe): take out logic into a separate controller
 	transportMessage := &transport.Message{}
 	if err := json.Unmarshal(kafkaMessage.Value, transportMessage); err != nil {
-		// not ours to handle
 		return
 	}
 
 	if kafkaMessage.TopicPartition.Error != nil {
-		// alert registered channels
-		if deliveryRegistration, found := p.deliveryRegistrationMap[transportMessage.ID]; found {
-			go func() {
-				// let relevant handlers know of this failure
-				deliveryRegistration.PropagateFailure(&kafkaMessage.TopicPartition.Error)
-				// let relevant handlers schedule retry (if enabled)
-				deliveryRegistration.PropagateRetry(transportMessage)
-			}()
-		}
-
-		p.log.Error(kafkaMessage.TopicPartition.Error, "failed to deliver message",
-			"bundle id", transportMessage.ID, "bundle type", transportMessage.MsgType,
-			"bundle version", transportMessage.Version, "topic", kafkaMessage.TopicPartition)
+		p.handleFailure(transportMessage, &kafkaMessage.TopicPartition.Error)
 
 		return
 	}
@@ -109,8 +96,10 @@ func (p *Producer) SendAsync(message *transport.Message) {
 		{Key: "msgType", Value: []byte(message.MsgType)},
 	}
 	if err = p.kafkaProducer.ProduceAsync(messageBytes, headers); err != nil {
-		p.log.Error(err, "failed to send message", "message id", message.ID)
+		p.handleFailure(message, &err)
 	}
+
+	p.log.Info("sent bundle", "ID", message.ID, "version", message.Version, "type", message.MsgType)
 }
 
 // Register maps type to bundle delivery registration info.
@@ -133,4 +122,20 @@ func (p *Producer) handleDelivery() {
 			}
 		}
 	}
+}
+
+func (p *Producer) handleFailure(transportMessage *transport.Message, err *error) {
+	// alert registered channels
+	if deliveryRegistration, found := p.deliveryRegistrationMap[transportMessage.ID]; found {
+		go func() {
+			// let relevant handlers know of this failure
+			deliveryRegistration.PropagateFailure(err)
+			// let relevant handlers schedule retry (if enabled)
+			deliveryRegistration.PropagateRetry(transportMessage)
+		}()
+	}
+
+	p.log.Error(*err, "failed to deliver message",
+		"bundle id", transportMessage.ID, "bundle type", transportMessage.MsgType,
+		"bundle version", transportMessage.Version)
 }

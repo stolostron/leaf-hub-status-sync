@@ -22,4 +22,7 @@ require (
 	sigs.k8s.io/controller-runtime v0.6.2
 )
 
-replace k8s.io/client-go => k8s.io/client-go v0.20.5
+replace (
+	k8s.io/client-go => k8s.io/client-go v0.20.5
+	github.com/open-cluster-management/hub-of-hubs-kafka-transport => ../hub-of-hubs-kafka-transport
+)

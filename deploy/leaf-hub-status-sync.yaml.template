@@ -104,7 +104,7 @@ spec:
             - name: KAFKA_PRODUCER_ID
               value: "$LH_ID"
             - name: KAFKA_PRODUCER_HOSTS
-              value: "kafka-brokers-cluster-kafka-tls-bootstrap-kafka.apps.veisenbe-hoh2.dev10.red-chesterfield.com:443"
+              value: "kafka-brokers-cluster-kafka-tls-bootstrap-kafka.apps.veisenbe-hoh3.dev10.red-chesterfield.com:443"
             - name: KAFKA_PRODUCER_TOPIC
               value: "status"
             - name: KAFKA_PRODUCER_PARTITION
@@ -112,11 +112,13 @@ spec:
             - name: KAFKA_SSL_CA
               value: "$KAFKA_SSL_CA"
             - name: KAFKA_MESSAGE_SIZE_LIMIT_KB
-              value: "2"
+              value: "940"
             - name: COMPLIANCE_HYBRID_MODE_DELTA_COUNT_SWITCH
-              value: "5"
+              value: "567"
             - name: COMPLIANCE_HYBRID_MODE_FAIL_COUNT_SWITCH
-              value: "3"
+              value: "1"
+            - name: NUMBER_OF_SIMULATED_LEAF_HUBS
+              value: "0"
             - name: SYNC_SERVICE_PROTOCOL
               value: "http"
             - name: SYNC_SERVICE_HOST

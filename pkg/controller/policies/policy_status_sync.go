@@ -169,8 +169,8 @@ func getMinComplianceStatusBundleInfo(leafHubName string, incarnation uint64,
 }
 
 func getCompleteComplianceStatusBundleInfo(clustersPerPolicyBundle bundle.Bundle,
-	leafHubName string, incarnation uint64, existingPoliciesMap map[string]struct{}, retryChan chan *transport.Message,
-	failChan chan *error) *bundleInfo {
+	leafHubName string, incarnation uint64, existingPoliciesMap map[string]map[string]struct{},
+	retryChan chan *transport.Message, failChan chan *error) *bundleInfo {
 	completeComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
 		datatypes.PolicyCompleteComplianceMsgKey)
 	completeComplianceStatusBundle := bundle.NewCompleteComplianceStatusBundle(leafHubName, incarnation, 0,
@@ -186,7 +186,8 @@ func getCompleteComplianceStatusBundleInfo(clustersPerPolicyBundle bundle.Bundle
 
 func getDeltaComplianceStatusBundleInfo(clustersPerPolicyBundle bundle.Bundle,
 	completeComplianceBundle bundle.HybridBundle, leafHubName string, incarnation uint64,
-	existingPoliciesMap map[string]struct{}, retryChan chan *transport.Message, failChan chan *error) *bundleInfo {
+	existingPoliciesMap map[string]map[string]struct{}, retryChan chan *transport.Message,
+	failChan chan *error) *bundleInfo {
 	deltaComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
 		datatypes.PolicyDeltaComplianceMsgKey)
 	deltaComplianceStatusBundle := bundle.NewDeltaComplianceStatusBundle(leafHubName, incarnation, 0,
@@ -214,7 +215,7 @@ func initHybridComplianceStatusManager(mgr ctrl.Manager, leafHubName string,
 	}
 
 	// policies map to serve as policies cache for delta bundles
-	existingPoliciesMap := make(map[string]struct{})
+	existingPoliciesMap := make(map[string]map[string]struct{})
 	// delivery fail channel
 	failChan := make(chan *error, internalChanBufferSize)
 
@@ -229,8 +230,9 @@ func initHybridComplianceStatusManager(mgr ctrl.Manager, leafHubName string,
 	dComplianceStatusBundle, _ := dComplianceStatusBundleInfo.bundle.(bundle.DeltaStateBundle)
 
 	// hybrid compliance status manager
-	hybridComplianceStatusManager := generic.NewGenericHybridSyncController(sentDeltaCountSwitchFactor,
-		failCountSwitchFactor, cComplianceStatusBundle, dComplianceStatusBundle,
+	hybridStatusManagerLogger := ctrl.Log.WithName("policies compliance status hybrid-syncer")
+	hybridComplianceStatusManager := generic.NewGenericHybridSyncController(hybridStatusManagerLogger,
+		sentDeltaCountSwitchFactor, failCountSwitchFactor, cComplianceStatusBundle, dComplianceStatusBundle,
 		cComplianceStatusBundleInfo.deliveryRegistration, dComplianceStatusBundleInfo.deliveryRegistration, failChan)
 
 	if err := mgr.Add(hybridComplianceStatusManager); err != nil {

@@ -5,9 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"os"
+	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
+	"unsafe"
 
 	"github.com/go-logr/logr"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
@@ -29,6 +33,11 @@ const (
 	exponentialBackOffBase        = 2
 	exponentialBackOffAttemptsCap = 9
 	exponentialBackOffTimeUnitMS  = 200 * 1000
+
+	// envNumberOfSimulatedLeafHubs is environment variable used to control number of simulated leaf hubs.
+	envNumberOfSimulatedLeafHubs = "NUMBER_OF_SIMULATED_LEAF_HUBS"
+	// transportBundleKeyParts is a number of parts in BundleCollectionEntry.transportBundleKey field.
+	transportBundleKeyParts = 2
 )
 
 // CreateObjectFunction is a function for how to create an object that is stored inside the bundle.
@@ -63,6 +72,34 @@ func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, incarnatio
 	return nil
 }
 
+type simulationContext struct {
+	numOfLeafHubs int
+	mutex         sync.Mutex
+}
+
+func newSimulationContext(log logr.Logger) *simulationContext {
+	envNumOfSimulateLeafHubs, found := os.LookupEnv(envNumberOfSimulatedLeafHubs)
+
+	if found {
+		if value, err := strconv.Atoi(envNumOfSimulateLeafHubs); err != nil {
+			log.Info(fmt.Sprintf("Failed to convert environment variable '%s', value: %s, err: %s",
+				envNumberOfSimulatedLeafHubs, envNumOfSimulateLeafHubs, err))
+		} else {
+			switch {
+			case value >= 0:
+				return &simulationContext{numOfLeafHubs: value}
+			default:
+				log.Info(fmt.Sprintf("Environment variable '%s' must be a non-negative integer value, provided value '%s'.",
+					envNumberOfSimulatedLeafHubs, envNumOfSimulateLeafHubs))
+			}
+		}
+	} else {
+		log.Info(fmt.Sprintf("Environment variable '%s' is not defined", envNumberOfSimulatedLeafHubs))
+	}
+
+	return &simulationContext{numOfLeafHubs: 0}
+}
+
 type genericStatusSyncController struct {
 	incarnation             uint64
 	client                  client.Client
@@ -74,10 +111,11 @@ type genericStatusSyncController struct {
 	createObjFunc           CreateObjectFunction
 	periodicSyncInterval    time.Duration
 	startOnce               sync.Once
-	lock                    sync.Mutex
+	simulationContext       *simulationContext
 }
 
 func (c *genericStatusSyncController) init() {
+	c.simulationContext = newSimulationContext(c.log)
 	c.startOnce.Do(func() {
 		go c.periodicSync()
 		go c.handleRetries()
@@ -85,6 +123,8 @@ func (c *genericStatusSyncController) init() {
 }
 
 func (c *genericStatusSyncController) Reconcile(request ctrl.Request) (ctrl.Result, error) {
+	c.simulationContext.mutex.Lock()
+	defer c.simulationContext.mutex.Unlock()
 	reqLogger := c.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
 	ctx := context.Background()
@@ -131,9 +171,6 @@ func (c *genericStatusSyncController) updateObjectAndFinalizer(ctx context.Conte
 
 	cleanObject(object)
 
-	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
-	defer c.lock.Unlock()
-
 	for _, entry := range c.orderedBundleCollection {
 		entry.bundle.UpdateObject(object) // update in each bundle from the collection according to their order
 	}
@@ -158,13 +195,9 @@ func (c *genericStatusSyncController) addFinalizer(ctx context.Context, object b
 
 func (c *genericStatusSyncController) deleteObjectAndFinalizer(ctx context.Context, object bundle.Object,
 	log logr.Logger) error {
-	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
-
 	for _, entry := range c.orderedBundleCollection {
 		entry.bundle.DeleteObject(object) // delete from all bundles
 	}
-
-	c.lock.Unlock() // not using defer since remove finalizer may get delayed. release lock as soon as possible.
 
 	return c.removeFinalizer(ctx, object, log)
 }
@@ -251,14 +284,13 @@ func (c *genericStatusSyncController) handleRetries() {
 }
 
 func (c *genericStatusSyncController) syncBundles() {
-	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
-	defer c.lock.Unlock()
-
 	for _, entry := range c.orderedBundleCollection {
 		// evaluate if bundle has to be sent only if delivery pre-attempt conditions are met
 		if !entry.deliveryRegistration.CheckEventCondition(transport.BeforeDeliveryAttempt, transport.ArgTypeNone, nil) {
 			continue
 		}
+
+		c.simulationContext.mutex.Lock()
 
 		bundleGeneration := entry.bundle.GetBundleGeneration()
 
@@ -267,11 +299,25 @@ func (c *genericStatusSyncController) syncBundles() {
 			transport.ArgTypeBundleGeneration, bundleGeneration) {
 			c.syncToTransport(entry.transportBundleKey, datatypes.StatusBundle, bundleGeneration, entry.bundle)
 
+			leafHubName := getLeafHubName(entry)
+			// send simulated entries
+			for i := 1; i <= c.simulationContext.numOfLeafHubs; i++ {
+				simulatedLeafHubName := fmt.Sprintf("%s_simulated_%d", leafHubName, i)
+
+				c.changeLeafHubName(entry, simulatedLeafHubName)
+
+				c.syncToTransport(entry.transportBundleKey, datatypes.StatusBundle, bundleGeneration, entry.bundle)
+			}
+			// restore original leaf hub name for the entry
+			c.changeLeafHubName(entry, leafHubName)
+
 			// update last-sent-gen and invoke delegate actions for delivery attempt event
 			entry.deliveryRegistration.UpdateSentGeneration(bundleGeneration)
 			entry.deliveryRegistration.InvokeEventActions(transport.AfterDeliveryAttempt,
 				transport.ArgTypeBundleObjectsCount, entry.bundle.GetObjectsCount())
 		}
+
+		c.simulationContext.mutex.Unlock()
 	}
 }
 
@@ -286,7 +332,7 @@ func (c *genericStatusSyncController) syncToTransport(id string, objType string,
 	transportMessage := &transport.Message{
 		ID:      id,
 		MsgType: objType,
-		Version: fmt.Sprintf("%d.%d", c.incarnation, generation), //TODO: limit to sync-service
+		Version: fmt.Sprintf("%d.%d", c.incarnation, generation), // TODO: limit to sync-service
 		Payload: payloadBytes,
 	}
 
@@ -300,4 +346,32 @@ func cleanObject(object bundle.Object) {
 	object.SetOwnerReferences(nil)
 	object.SetSelfLink("")
 	object.SetClusterName("")
+}
+
+func getLeafHubNameFieldPointer(entry *BundleCollectionEntry) *string {
+	ptrToBundle := reflect.ValueOf(entry.bundle)
+	reflectedBundle := reflect.Indirect(ptrToBundle)
+	privateMember := reflectedBundle.FieldByName("LeafHubName")
+
+	return (*string)(unsafe.Pointer(privateMember.UnsafeAddr()))
+}
+
+func getLeafHubName(entry *BundleCollectionEntry) string {
+	return *getLeafHubNameFieldPointer(entry)
+}
+
+func (c *genericStatusSyncController) changeLeafHubName(entry *BundleCollectionEntry, newLeafHubName string) {
+	tokens := strings.Split(entry.transportBundleKey, ".")
+
+	if len(tokens) != transportBundleKeyParts {
+		c.log.Info(fmt.Sprintf("unable to parse transportBundleKey '%s'", entry.transportBundleKey))
+		return
+	}
+
+	// change transport bundle key as it depends on leaf hub name
+	entry.transportBundleKey = fmt.Sprintf("%s.%s", newLeafHubName, tokens[1])
+
+	// change bundle's 'leafHubName' field value
+	realPtrToLeafHubName := getLeafHubNameFieldPointer(entry)
+	*realPtrToLeafHubName = newLeafHubName
 }

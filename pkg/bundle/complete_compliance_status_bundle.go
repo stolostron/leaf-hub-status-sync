@@ -11,7 +11,7 @@ import (
 
 // NewCompleteComplianceStatusBundle creates a new instance of CompleteComplianceStatusBundle.
 func NewCompleteComplianceStatusBundle(leafHubName string, incarnation uint64, generation uint64, baseBundle Bundle,
-	existingPoliciesMap map[string]struct{}) HybridBundle {
+	existingPoliciesMap map[string]map[string]struct{}) HybridBundle {
 	return &CompleteComplianceStatusBundle{
 		BaseCompleteComplianceStatusBundle: statusbundle.BaseCompleteComplianceStatusBundle{
 			Objects:              make([]*statusbundle.PolicyCompleteComplianceStatus, 0),
@@ -30,7 +30,7 @@ func NewCompleteComplianceStatusBundle(leafHubName string, incarnation uint64, g
 type CompleteComplianceStatusBundle struct {
 	statusbundle.BaseCompleteComplianceStatusBundle
 	baseBundle          Bundle
-	existingPoliciesMap map[string]struct{}
+	existingPoliciesMap map[string]map[string]struct{}
 	enabled             bool
 	lock                sync.Mutex
 }
@@ -58,7 +58,7 @@ func (bundle *CompleteComplianceStatusBundle) UpdateObject(object Object) {
 
 	// add to policies map so delta bundles are able to infer statuses correctly
 	if _, exists := bundle.existingPoliciesMap[originPolicyID]; !exists {
-		bundle.existingPoliciesMap[originPolicyID] = struct{}{}
+		bundle.existingPoliciesMap[originPolicyID] = make(map[string]struct{})
 	}
 
 	index, err := bundle.getObjectIndexByUID(originPolicyID)
@@ -78,7 +78,7 @@ func (bundle *CompleteComplianceStatusBundle) UpdateObject(object Object) {
 		return // update object only if there is a newer version. check for changes using resourceVersion field
 	}
 
-	if !bundle.updateBundleIfObjectChanged(index, policy) {
+	if !bundle.updateBundleIfObjectChanged(originPolicyID, index, policy) {
 		return // true if changed, otherwise false. if policy compliance didn't change don't increment generation.
 	}
 
@@ -174,7 +174,7 @@ func (bundle *CompleteComplianceStatusBundle) getObjectIndexByUID(uid string) (i
 
 func (bundle *CompleteComplianceStatusBundle) getPolicyComplianceStatus(originPolicyID string,
 	policy *v1.Policy) *statusbundle.PolicyCompleteComplianceStatus {
-	nonCompliantClusters, unknownComplianceClusters := bundle.getNonCompliantAndUnknownClusters(policy)
+	nonCompliantClusters, unknownComplianceClusters := bundle.getNonCompliantAndUnknownClusters(originPolicyID, policy)
 
 	return &statusbundle.PolicyCompleteComplianceStatus{
 		PolicyID:                  originPolicyID,
@@ -185,12 +185,16 @@ func (bundle *CompleteComplianceStatusBundle) getPolicyComplianceStatus(originPo
 }
 
 // returns a list of non compliant clusters and a list of unknown compliance clusters.
-func (bundle *CompleteComplianceStatusBundle) getNonCompliantAndUnknownClusters(policy *v1.Policy) ([]string,
-	[]string) {
+func (bundle *CompleteComplianceStatusBundle) getNonCompliantAndUnknownClusters(originPolicyID string,
+	policy *v1.Policy) ([]string, []string) {
 	nonCompliantClusters := make([]string, 0)
 	unknownComplianceClusters := make([]string, 0)
 
 	for _, clusterCompliance := range policy.Status.Status {
+		if _, found := bundle.existingPoliciesMap[originPolicyID]; !found {
+			bundle.existingPoliciesMap[originPolicyID][clusterCompliance.ClusterName] = struct{}{}
+		}
+
 		if clusterCompliance.ComplianceState == v1.Compliant {
 			continue
 		}
@@ -206,9 +210,11 @@ func (bundle *CompleteComplianceStatusBundle) getNonCompliantAndUnknownClusters(
 }
 
 // if a cluster was removed, object is not considered as changed.
-func (bundle *CompleteComplianceStatusBundle) updateBundleIfObjectChanged(objectIndex int, policy *v1.Policy) bool {
+func (bundle *CompleteComplianceStatusBundle) updateBundleIfObjectChanged(originPolicyID string, objectIndex int,
+	policy *v1.Policy) bool {
 	oldPolicyComplianceStatus := bundle.Objects[objectIndex]
-	newNonCompliantClusters, newUnknownComplianceClusters := bundle.getNonCompliantAndUnknownClusters(policy)
+	newNonCompliantClusters, newUnknownComplianceClusters := bundle.getNonCompliantAndUnknownClusters(originPolicyID,
+		policy)
 	// comparing length, if not equal there is at least one cluster that it's compliance status was changed.
 	if len(oldPolicyComplianceStatus.NonCompliantClusters) != len(newNonCompliantClusters) ||
 		len(oldPolicyComplianceStatus.UnknownComplianceClusters) != len(newUnknownComplianceClusters) {

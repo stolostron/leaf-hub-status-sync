@@ -706,6 +706,8 @@ github.com/open-cluster-management/hub-of-hubs-data-types v0.1.1-0.2021092606453
 github.com/open-cluster-management/hub-of-hubs-data-types v0.1.1-0.20210926064535-bef997afa6db/go.mod h1:Th2t5lukBfvPb5tvNCMROedinKR4s64sK5hgMt8Er7w=
 github.com/open-cluster-management/hub-of-hubs-data-types v0.1.1-0.20210926070600-3baa9ffc16b8 h1:Nse7XTHWEA8d1zb5Z6ytJ+y2MklKhkr4S0zFNRMWRko=
 github.com/open-cluster-management/hub-of-hubs-data-types v0.1.1-0.20210926070600-3baa9ffc16b8/go.mod h1:Th2t5lukBfvPb5tvNCMROedinKR4s64sK5hgMt8Er7w=
+github.com/open-cluster-management/hub-of-hubs-data-types v0.1.1-0.20210926123616-36d90502da94 h1:aGb2YHnsueUPtSuvRwjaoEz/+TRhC0lZp796cEQOtNs=
+github.com/open-cluster-management/hub-of-hubs-data-types v0.1.1-0.20210926123616-36d90502da94/go.mod h1:Th2t5lukBfvPb5tvNCMROedinKR4s64sK5hgMt8Er7w=
 github.com/open-cluster-management/hub-of-hubs-data-types/apis/config v0.1.0 h1:qgTStCi+y6/nkFRF+cXHGLK50mGxA7YXB2Ey8BTsmyc=
 github.com/open-cluster-management/hub-of-hubs-data-types/apis/config v0.1.0/go.mod h1:xpGxw+0si9vuDABvcJ9FxjznPw/uAbICzhaX+9JLLho=
 github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-20210812092416-d58848afca24 h1:2tqUV/EE2m/L3XRAlQGaTfBP9DH1JWBPiLrdzAILdyg=
