@@ -22,7 +22,7 @@ func NewDeltaComplianceStatusBundle(leafHubName string, incarnation uint64, gene
 	existingPoliciesMap map[string]map[string]struct{}) DeltaStateBundle {
 	return &DeltaComplianceStatusBundle{
 		BaseDeltaComplianceStatusBundle: statusbundle.BaseDeltaComplianceStatusBundle{
-			Objects:              make([]*statusbundle.PolicyDeltaComplianceStatus, 0),
+			Objects:              make([]*statusbundle.PolicyGenericComplianceStatus, 0),
 			LeafHubName:          leafHubName,
 			BaseBundleGeneration: completeComplianceBaseBundle.GetBundleGeneration(),
 			BundleVersion:        *statusbundle.NewBundleVersion(incarnation, generation),
@@ -257,25 +257,24 @@ func (bundle *DeltaComplianceStatusBundle) getObjectIndexByUID(uid string) (int,
 
 // getPolicyComplianceStatus gets compliance statuses of a new policy object (relative to this bundle).
 func (bundle *DeltaComplianceStatusBundle) getPolicyComplianceStatus(originPolicyID string,
-	policy *v1.Policy) (*statusbundle.PolicyDeltaComplianceStatus, error) {
+	policy *v1.Policy) (*statusbundle.PolicyGenericComplianceStatus, error) {
 	compliantClusters, nonCompliantClusters, unknownComplianceClusters := bundle.getChangedClusters(policy)
 
 	if len(compliantClusters)+len(nonCompliantClusters)+len(unknownComplianceClusters) == 0 {
 		return nil, errPolicyStatusUnchanged
 	}
 
-	return &statusbundle.PolicyDeltaComplianceStatus{
+	return &statusbundle.PolicyGenericComplianceStatus{
 		PolicyID:                  originPolicyID,
 		CompliantClusters:         compliantClusters,
 		NonCompliantClusters:      nonCompliantClusters,
 		UnknownComplianceClusters: unknownComplianceClusters,
-		ResourceVersion:           policy.GetResourceVersion(),
 	}, nil
 }
 
 // updatePolicyComplianceStatus updates compliance statuses of an already listed policy object.
 func (bundle *DeltaComplianceStatusBundle) updatePolicyComplianceStatus(policyIndex int,
-	newPolicyStatus *statusbundle.PolicyDeltaComplianceStatus) {
+	newPolicyStatus *statusbundle.PolicyGenericComplianceStatus) {
 	// get existing policy state
 	existingPolicyState := bundle.getExistingPolicyState(policyIndex)
 

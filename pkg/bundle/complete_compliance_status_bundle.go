@@ -3,7 +3,7 @@ package bundle
 import (
 	"sync"
 
-	v1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
+	policyv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
@@ -40,15 +40,14 @@ func (bundle *CompleteComplianceStatusBundle) UpdateObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	if !bundle.enabled {
-		return
-	}
-
+	// if cluster per policy is sent, no need to send complete compliance as well.
+	// therefore we check if base generation was changed and decide whether we need to increase generation or not.
+	previousBaseBundleGeneration := bundle.BaseBundleGeneration // used to check if clusters per policy (base) changed.
 	bundle.BaseBundleGeneration = bundle.baseBundle.GetBundleGeneration()
 
-	policy, legal := object.(*v1.Policy)
-	if !legal {
-		return
+	policy, ok := object.(*policyv1.Policy)
+	if !ok {
+		return // do not handle objects other than policy
 	}
 
 	originPolicyID, found := object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
@@ -68,29 +67,26 @@ func (bundle *CompleteComplianceStatusBundle) UpdateObject(object Object) {
 		if bundle.containsNonCompliantOrUnknownClusters(policyComplianceObject) {
 			bundle.Objects = append(bundle.Objects, policyComplianceObject)
 		}
-		bundle.Generation++
+
+		if previousBaseBundleGeneration == bundle.BaseBundleGeneration {
+			bundle.Generation++ // clusters per policy doesn't increase generation on update(only in add/remove policy)
+		} // increase generation only if base generation didn't increase during the update of this object
 
 		return
 	}
-
-	// if we reached here, object already exists in the bundle with at least one non-compliant or unknown cluster.
-	if object.GetResourceVersion() <= bundle.Objects[index].ResourceVersion { // check if the object has changed.
-		return // update object only if there is a newer version. check for changes using resourceVersion field
-	}
-
-	if !bundle.updateBundleIfObjectChanged(originPolicyID, index, policy) {
+	// if we reached here, policy already exists in the bundle with at least one non compliant or unknown cluster.
+	if !bundle.updateBundleIfObjectChanged(index, policy) {
 		return // true if changed, otherwise false. if policy compliance didn't change don't increment generation.
 	}
 
 	// don't send in the bundle a policy where all clusters are compliant
 	if !bundle.containsNonCompliantOrUnknownClusters(bundle.Objects[index]) {
 		bundle.Objects = append(bundle.Objects[:index], bundle.Objects[index+1:]...) // remove from objects
-	} else { // we have at least one cluster non compliant or unknown and cluster list has changed
-		bundle.Objects[index].ResourceVersion = object.GetResourceVersion() // update resource version of the object
 	}
-
-	// increase bundle generation in the case where cluster lists were changed
-	bundle.Generation++
+	// increase bundle generation in the case where cluster lists were changed and base generation didn't increase
+	if previousBaseBundleGeneration == bundle.BaseBundleGeneration {
+		bundle.Generation++ // clusters per policy doesn't increase generation on update (only in add/remove policy).
+	}
 }
 
 // DeleteObject function to delete a single object inside a bundle.
@@ -114,13 +110,13 @@ func (bundle *CompleteComplianceStatusBundle) DeleteObject(object Object) {
 		return
 	}
 
-	// do not increase generation, no need to send bundle when policy is removed (clusters per policy bundle is sent)
+	// do not increase generation, no need to send bundle when policy is removed (clusters per policy bundle is sent).
 	bundle.Objects = append(bundle.Objects[:index], bundle.Objects[index+1:]...) // remove from objects
 
 	delete(bundle.existingPoliciesMap, originPolicyID)
 }
 
-// GetBundleGeneration function to get bundle's generation.
+// GetBundleGeneration function to get bundle generation.
 func (bundle *CompleteComplianceStatusBundle) GetBundleGeneration() uint64 {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
@@ -173,33 +169,27 @@ func (bundle *CompleteComplianceStatusBundle) getObjectIndexByUID(uid string) (i
 }
 
 func (bundle *CompleteComplianceStatusBundle) getPolicyComplianceStatus(originPolicyID string,
-	policy *v1.Policy) *statusbundle.PolicyCompleteComplianceStatus {
-	nonCompliantClusters, unknownComplianceClusters := bundle.getNonCompliantAndUnknownClusters(originPolicyID, policy)
+	policy *policyv1.Policy) *statusbundle.PolicyCompleteComplianceStatus {
+	nonCompliantClusters, unknownComplianceClusters := bundle.getNonCompliantAndUnknownClusters(policy)
 
 	return &statusbundle.PolicyCompleteComplianceStatus{
 		PolicyID:                  originPolicyID,
 		NonCompliantClusters:      nonCompliantClusters,
 		UnknownComplianceClusters: unknownComplianceClusters,
-		ResourceVersion:           policy.GetResourceVersion(),
 	}
 }
 
 // returns a list of non compliant clusters and a list of unknown compliance clusters.
-func (bundle *CompleteComplianceStatusBundle) getNonCompliantAndUnknownClusters(originPolicyID string,
-	policy *v1.Policy) ([]string, []string) {
+func (bundle *CompleteComplianceStatusBundle) getNonCompliantAndUnknownClusters(policy *policyv1.Policy) ([]string, []string) {
 	nonCompliantClusters := make([]string, 0)
 	unknownComplianceClusters := make([]string, 0)
 
 	for _, clusterCompliance := range policy.Status.Status {
-		if _, found := bundle.existingPoliciesMap[originPolicyID]; !found {
-			bundle.existingPoliciesMap[originPolicyID][clusterCompliance.ClusterName] = struct{}{}
-		}
-
-		if clusterCompliance.ComplianceState == v1.Compliant {
+		if clusterCompliance.ComplianceState == policyv1.Compliant {
 			continue
 		}
 
-		if clusterCompliance.ComplianceState == v1.NonCompliant {
+		if clusterCompliance.ComplianceState == policyv1.NonCompliant {
 			nonCompliantClusters = append(nonCompliantClusters, clusterCompliance.ClusterName)
 		} else { // not compliant not non compliant -> means unknown
 			unknownComplianceClusters = append(unknownComplianceClusters, clusterCompliance.ClusterName)
@@ -210,41 +200,33 @@ func (bundle *CompleteComplianceStatusBundle) getNonCompliantAndUnknownClusters(
 }
 
 // if a cluster was removed, object is not considered as changed.
-func (bundle *CompleteComplianceStatusBundle) updateBundleIfObjectChanged(originPolicyID string, objectIndex int,
-	policy *v1.Policy) bool {
+func (bundle *CompleteComplianceStatusBundle) updateBundleIfObjectChanged(objectIndex int, policy *policyv1.Policy) bool {
 	oldPolicyComplianceStatus := bundle.Objects[objectIndex]
-	newNonCompliantClusters, newUnknownComplianceClusters := bundle.getNonCompliantAndUnknownClusters(originPolicyID,
-		policy)
-	// comparing length, if not equal there is at least one cluster that it's compliance status was changed.
-	if len(oldPolicyComplianceStatus.NonCompliantClusters) != len(newNonCompliantClusters) ||
-		len(oldPolicyComplianceStatus.UnknownComplianceClusters) != len(newUnknownComplianceClusters) {
-		bundle.Objects[objectIndex].NonCompliantClusters = newNonCompliantClusters
-		bundle.Objects[objectIndex].UnknownComplianceClusters = newUnknownComplianceClusters
+	newNonCompliantClusters, newUnknownComplianceClusters := bundle.getNonCompliantAndUnknownClusters(policy)
+
+	if !bundle.clusterListsEqual(oldPolicyComplianceStatus.NonCompliantClusters, newNonCompliantClusters) ||
+		!bundle.clusterListsEqual(oldPolicyComplianceStatus.UnknownComplianceClusters, newUnknownComplianceClusters) {
+		oldPolicyComplianceStatus.NonCompliantClusters = newNonCompliantClusters
+		oldPolicyComplianceStatus.UnknownComplianceClusters = newUnknownComplianceClusters
 
 		return true
 	}
-	// otherwise the length of the lists are equals (old and new lists per type).
-	// check each cluster in the new list (could be that new cluster isn't in the list and old one was added and
-	// therefore length is equal
-	for _, nonCompliantCluster := range newNonCompliantClusters {
-		if !helpers.ContainsString(oldPolicyComplianceStatus.NonCompliantClusters, nonCompliantCluster) {
-			bundle.Objects[objectIndex].NonCompliantClusters = newNonCompliantClusters
-			bundle.Objects[objectIndex].UnknownComplianceClusters = newUnknownComplianceClusters
 
-			return true
-		}
-	}
-
-	for _, unknownComplianceCluster := range newUnknownComplianceClusters {
-		if !helpers.ContainsString(oldPolicyComplianceStatus.UnknownComplianceClusters, unknownComplianceCluster) {
-			bundle.Objects[objectIndex].NonCompliantClusters = newNonCompliantClusters
-			bundle.Objects[objectIndex].UnknownComplianceClusters = newUnknownComplianceClusters
-
-			return true
-		}
-	}
-	// if we finished the two for loops, all non compliant and unknown can be found inside the existing lists.
 	return false
+}
+
+func (bundle *CompleteComplianceStatusBundle) clusterListsEqual(oldClusters []string, newClusters []string) bool {
+	if len(oldClusters) != len(newClusters) {
+		return false
+	}
+
+	for _, newClusterName := range newClusters {
+		if !helpers.ContainsString(oldClusters, newClusterName) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (bundle *CompleteComplianceStatusBundle) containsNonCompliantOrUnknownClusters(

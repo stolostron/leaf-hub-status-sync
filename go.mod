@@ -8,7 +8,7 @@ require (
 	github.com/go-logr/zapr v0.2.0 // indirect
 	github.com/open-cluster-management/api v0.0.0-20210527013639-a6845f2ebcb1
 	github.com/open-cluster-management/governance-policy-propagator v0.0.0-20210520203318-a78632de1e26
-	github.com/open-cluster-management/hub-of-hubs-data-types v0.1.1-0.20210926070600-3baa9ffc16b8
+	github.com/open-cluster-management/hub-of-hubs-data-types v0.1.1-0.20211102174157-e2b6b6d854c5
 	github.com/open-cluster-management/hub-of-hubs-data-types/apis/config v0.1.0
 	github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-20210920161905-d6937c572623
 	github.com/open-horizon/edge-sync-service-client v0.0.0-20190711093406-dc3a19905da2
@@ -23,6 +23,6 @@ require (
 )
 
 replace (
-	k8s.io/client-go => k8s.io/client-go v0.20.5
 	github.com/open-cluster-management/hub-of-hubs-kafka-transport => ../hub-of-hubs-kafka-transport
+	k8s.io/client-go => k8s.io/client-go v0.20.5
 )
