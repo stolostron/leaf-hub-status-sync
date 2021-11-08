@@ -5,7 +5,6 @@ package managedclusters
 
 import (
 	"fmt"
-	"time"
 
 	clusterv1 "github.com/open-cluster-management/api/cluster/v1"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
@@ -40,7 +39,7 @@ func AddClustersStatusController(mgr ctrl.Manager, transport transport.Transport
 
 	if err := generic.NewGenericStatusSyncController(mgr, clusterStatusSyncLogName, transport,
 		managedClusterCleanupFinalizer, bundleCollection, createObjFunction, nil,
-		func() time.Duration { return syncIntervalsData.GetManagerClusters() }); err != nil {
+		syncIntervalsData.GetManagerClusters); err != nil {
 		return fmt.Errorf("failed to add controller to the manager - %w", err)
 	}
 

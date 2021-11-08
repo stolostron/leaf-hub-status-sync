@@ -178,12 +178,12 @@ func (c *genericStatusSyncController) periodicSync() {
 	ticker := time.NewTicker(currentSyncInterval)
 
 	for {
-		<-ticker.C // wait for next time resolvedInterval
+		<-ticker.C // wait for next time interval
 		c.syncBundles()
 
 		resolvedInterval := c.syncIntervalResolver()
 
-		// reset ticker if sync resolvedInterval has changed
+		// reset ticker if sync interval has changed
 		if resolvedInterval != currentSyncInterval {
 			currentSyncInterval = resolvedInterval
 			ticker.Reset(currentSyncInterval)

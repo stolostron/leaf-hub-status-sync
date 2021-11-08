@@ -12,7 +12,7 @@ import (
 	configCtrl "github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/config"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/managedclusters"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/policies"
-	syncIntervals "github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/syncintervals"
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/syncintervals"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -40,18 +40,18 @@ func AddToScheme(s *runtime.Scheme) error {
 // AddControllers adds all the controllers to the Manager.
 func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, leafHubName string) error {
 	config := &configv1.Config{}
-	syncIntervalsData := syncIntervals.NewSyncIntervals()
+	syncIntervalsData := syncintervals.NewSyncIntervals()
 
 	if err := configCtrl.AddConfigController(mgr, "hub-of-hubs-config", config); err != nil {
 		return fmt.Errorf("failed to add controller: %w", err)
 	}
 
-	if err := syncIntervals.AddSyncIntervalsController(mgr, "config-map", syncIntervalsData); err != nil {
+	if err := syncintervals.AddSyncIntervalsController(mgr, "sync-intervals", syncIntervalsData); err != nil {
 		return fmt.Errorf("failed to add controller: %w", err)
 	}
 
 	addControllerFunctions := []func(ctrl.Manager, transport.Transport, string, *configv1.Config,
-		*syncIntervals.SyncIntervals) error{
+		*syncintervals.SyncIntervals) error{
 		managedclusters.AddClustersStatusController, policies.AddPoliciesStatusController,
 	}
 

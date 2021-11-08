@@ -5,7 +5,6 @@ package policies
 
 import (
 	"fmt"
-	"time"
 
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
@@ -66,7 +65,7 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 	// initialize policy status controller (contains multiple bundles)
 	if err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, transport, policyCleanupFinalizer,
 		bundleCollection, createObjFunction, predicate.And(hohNamespacePredicate, ownerRefAnnotationPredicate),
-		func() time.Duration { return syncIntervalsData.GetPolicies() }); err != nil {
+		syncIntervalsData.GetPolicies); err != nil {
 		return fmt.Errorf("failed to add controller to the manager - %w", err)
 	}
 
