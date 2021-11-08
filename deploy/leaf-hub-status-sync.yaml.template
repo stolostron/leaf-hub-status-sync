@@ -72,7 +72,7 @@ metadata:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: leaf-hub-periodic-sync-intervals
+  name: sync-intervals
   namespace: hoh-system
 data:
   managed_clusters: "5s"

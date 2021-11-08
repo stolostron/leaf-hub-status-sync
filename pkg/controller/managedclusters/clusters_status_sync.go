@@ -11,8 +11,8 @@ import (
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/configmap"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/generic"
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/syncintervals"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -25,7 +25,7 @@ const (
 
 // AddClustersStatusController adds managed clusters status controller to the manager.
 func AddClustersStatusController(mgr ctrl.Manager, transport transport.Transport, leafHubName string,
-	hubOfHubsConfig *configv1.Config, configMapData *configmap.HohConfigMapData) error {
+	hubOfHubsConfig *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals) error {
 	createObjFunction := func() bundle.Object { return &clusterv1.ManagedCluster{} }
 	transportBundleKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.ManagedClustersMsgKey)
 
@@ -40,7 +40,7 @@ func AddClustersStatusController(mgr ctrl.Manager, transport transport.Transport
 
 	if err := generic.NewGenericStatusSyncController(mgr, clusterStatusSyncLogName, transport,
 		managedClusterCleanupFinalizer, bundleCollection, createObjFunction, nil,
-		func() time.Duration { return configMapData.Intervals.ManagedClusters }); err != nil {
+		func() time.Duration { return syncIntervalsData.GetManagerClusters() }); err != nil {
 		return fmt.Errorf("failed to add controller to the manager - %w", err)
 	}
 
