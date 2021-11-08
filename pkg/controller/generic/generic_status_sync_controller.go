@@ -11,6 +11,8 @@ import (
 	"github.com/go-logr/logr"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/syncintervals"
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -19,10 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-const (
-	// RequeuePeriodSeconds is the time to wait until reconciliation retry in failure cases.
-	RequeuePeriodSeconds = 5
-)
+const base10 = 10
 
 // CreateObjectFunction is a function for how to create an object that is stored inside the bundle.
 type CreateObjectFunction func() bundle.Object
@@ -30,7 +29,7 @@ type CreateObjectFunction func() bundle.Object
 // NewGenericStatusSyncController creates a new instnace of genericStatusSyncController and adds it to the manager.
 func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport transport.Transport,
 	finalizerName string, orderedBundleCollection []*BundleCollectionEntry, createObjFunc CreateObjectFunction,
-	syncInterval time.Duration, predicate predicate.Predicate) error {
+	predicate predicate.Predicate, syncIntervalResolver syncintervals.SyncIntervalResolver) error {
 	statusSyncCtrl := &genericStatusSyncController{
 		client:                  mgr.GetClient(),
 		log:                     ctrl.Log.WithName(logName),
@@ -38,7 +37,7 @@ func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport 
 		orderedBundleCollection: orderedBundleCollection,
 		finalizerName:           finalizerName,
 		createObjFunc:           createObjFunc,
-		periodicSyncInterval:    syncInterval,
+		syncIntervalResolver:    syncIntervalResolver,
 		lock:                    sync.Mutex{},
 	}
 	statusSyncCtrl.init()
@@ -62,7 +61,7 @@ type genericStatusSyncController struct {
 	orderedBundleCollection []*BundleCollectionEntry
 	finalizerName           string
 	createObjFunc           CreateObjectFunction
-	periodicSyncInterval    time.Duration
+	syncIntervalResolver    syncintervals.SyncIntervalResolver
 	startOnce               sync.Once
 	lock                    sync.Mutex
 }
@@ -87,19 +86,19 @@ func (c *genericStatusSyncController) Reconcile(request ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, nil
 	} else if err != nil {
 		reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
-		return ctrl.Result{Requeue: true, RequeueAfter: RequeuePeriodSeconds * time.Second},
+		return ctrl.Result{Requeue: true, RequeueAfter: helpers.RequeuePeriodSeconds * time.Second},
 			fmt.Errorf("reconciliation failed: %w", err)
 	}
 
 	if c.isObjectBeingDeleted(object) {
 		if err := c.deleteObjectAndFinalizer(ctx, object, reqLogger); err != nil {
 			reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
-			return ctrl.Result{Requeue: true, RequeueAfter: RequeuePeriodSeconds * time.Second}, err
+			return ctrl.Result{Requeue: true, RequeueAfter: helpers.RequeuePeriodSeconds * time.Second}, err
 		}
 	} else { // otherwise, the object was not deleted and no error occurred
 		if err := c.updateObjectAndFinalizer(ctx, object, reqLogger); err != nil {
 			reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
-			return ctrl.Result{Requeue: true, RequeueAfter: RequeuePeriodSeconds * time.Second}, err
+			return ctrl.Result{Requeue: true, RequeueAfter: helpers.RequeuePeriodSeconds * time.Second}, err
 		}
 	}
 
@@ -175,11 +174,21 @@ func (c *genericStatusSyncController) removeFinalizer(ctx context.Context, objec
 }
 
 func (c *genericStatusSyncController) periodicSync() {
-	ticker := time.NewTicker(c.periodicSyncInterval)
+	currentSyncInterval := c.syncIntervalResolver()
+	ticker := time.NewTicker(currentSyncInterval)
 
 	for {
 		<-ticker.C // wait for next time interval
 		c.syncBundles()
+
+		resolvedInterval := c.syncIntervalResolver()
+
+		// reset ticker if sync interval has changed
+		if resolvedInterval != currentSyncInterval {
+			currentSyncInterval = resolvedInterval
+			ticker.Reset(currentSyncInterval)
+			c.log.Info(fmt.Sprintf("sync interval has been reset to %s", currentSyncInterval.String()))
+		}
 	}
 }
 
@@ -197,7 +206,7 @@ func (c *genericStatusSyncController) syncBundles() {
 		// send to transport only if bundle has changed
 		if bundleGeneration > entry.lastSentBundleGeneration {
 			c.syncToTransport(entry.transportBundleKey, datatypes.StatusBundle,
-				strconv.FormatUint(bundleGeneration, 10), entry.bundle)
+				strconv.FormatUint(bundleGeneration, base10), entry.bundle)
 
 			entry.lastSentBundleGeneration = bundleGeneration
 		}
