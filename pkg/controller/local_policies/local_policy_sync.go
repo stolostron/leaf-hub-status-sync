@@ -55,7 +55,7 @@ func AddLocalPoliciesController(mgr ctrl.Manager, transport transport.Transport,
 			return policy, true
 		}
 
-	localSpecPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalSpecPerPolicyMsgKey)
+	localSpecPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalPolicySpecMsgKey)
 	localPolicySpecBundle := generic.NewBundleCollectionEntry(localSpecPerPolicyTransportKey,
 		bundle.NewGenericStatusBundle(leafHubName,
 			helpers.GetGenerationFromTransport(transport, localSpecPerPolicyTransportKey, datatypes.StatusBundle),
