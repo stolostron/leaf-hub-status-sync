@@ -6,9 +6,8 @@ import (
 
 const defaultSyncIntervalSeconds = 5
 
-// SyncIntervalResolver is a function for resolving corresponding periodic sync interval from
-// sync intervals data structure.
-type SyncIntervalResolver func() time.Duration
+// ResolveSyncIntervalFunc is a function for resolving corresponding sync interval from SyncIntervals data structure.
+type ResolveSyncIntervalFunc func() time.Duration
 
 // SyncIntervals holds periodic sync intervals.
 type SyncIntervals struct {

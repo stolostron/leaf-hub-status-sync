@@ -29,7 +29,7 @@ type CreateObjectFunction func() bundle.Object
 // NewGenericStatusSyncController creates a new instnace of genericStatusSyncController and adds it to the manager.
 func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport transport.Transport,
 	finalizerName string, orderedBundleCollection []*BundleCollectionEntry, createObjFunc CreateObjectFunction,
-	predicate predicate.Predicate, syncIntervalResolver syncintervals.SyncIntervalResolver) error {
+	predicate predicate.Predicate, resolveSyncIntervalFunc syncintervals.ResolveSyncIntervalFunc) error {
 	statusSyncCtrl := &genericStatusSyncController{
 		client:                  mgr.GetClient(),
 		log:                     ctrl.Log.WithName(logName),
@@ -37,7 +37,7 @@ func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport 
 		orderedBundleCollection: orderedBundleCollection,
 		finalizerName:           finalizerName,
 		createObjFunc:           createObjFunc,
-		syncIntervalResolver:    syncIntervalResolver,
+		resolveSyncIntervalFunc: resolveSyncIntervalFunc,
 		lock:                    sync.Mutex{},
 	}
 	statusSyncCtrl.init()
@@ -61,7 +61,7 @@ type genericStatusSyncController struct {
 	orderedBundleCollection []*BundleCollectionEntry
 	finalizerName           string
 	createObjFunc           CreateObjectFunction
-	syncIntervalResolver    syncintervals.SyncIntervalResolver
+	resolveSyncIntervalFunc syncintervals.ResolveSyncIntervalFunc
 	startOnce               sync.Once
 	lock                    sync.Mutex
 }
@@ -174,14 +174,14 @@ func (c *genericStatusSyncController) removeFinalizer(ctx context.Context, objec
 }
 
 func (c *genericStatusSyncController) periodicSync() {
-	currentSyncInterval := c.syncIntervalResolver()
+	currentSyncInterval := c.resolveSyncIntervalFunc()
 	ticker := time.NewTicker(currentSyncInterval)
 
 	for {
 		<-ticker.C // wait for next time interval
 		c.syncBundles()
 
-		resolvedInterval := c.syncIntervalResolver()
+		resolvedInterval := c.resolveSyncIntervalFunc()
 
 		// reset ticker if sync interval has changed
 		if resolvedInterval != currentSyncInterval {
