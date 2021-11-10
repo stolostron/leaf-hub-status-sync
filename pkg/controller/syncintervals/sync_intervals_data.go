@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-const defaultSyncIntervalSeconds = 5
+const defaultSyncInterval = 5 * time.Second
 
 // ResolveSyncIntervalFunc is a function for resolving corresponding sync interval from SyncIntervals data structure.
 type ResolveSyncIntervalFunc func() time.Duration
@@ -18,8 +18,8 @@ type SyncIntervals struct {
 // NewSyncIntervals returns new HohConfigMapData object initialized with default periodic sync intervals.
 func NewSyncIntervals() *SyncIntervals {
 	return &SyncIntervals{
-		managedClusters: defaultSyncIntervalSeconds * time.Second,
-		policies:        defaultSyncIntervalSeconds * time.Second,
+		managedClusters: defaultSyncInterval,
+		policies:        defaultSyncInterval,
 	}
 }
 
