@@ -4,40 +4,32 @@ import (
 	"sync"
 
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
-	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	"github.com/pkg/errors"
 )
 
-// BundType used to define an enum for whether the bundle carries global or local policies.
-type BundType int
-
-const (
-	// LocalBundle means this bundle contains local policies.
-	LocalBundle BundType = iota
-	// GlobalBundle means this bundle contains global policies.
-	GlobalBundle
-)
+type ExtractObjIDFunction func(obj Object) (string, bool)
 
 // NewClustersPerPolicyBundle creates a new instance of ClustersPerPolicyBundle.
-func NewClustersPerPolicyBundle(leafHubName string, generation uint64, bundType BundType) Bundle {
+func NewClustersPerPolicyBundle(leafHubName string, generation uint64,
+	extractIDFunc func(obj Object) (string, bool)) Bundle {
 	return &ClustersPerPolicyBundle{
 		BaseClustersPerPolicyBundle: statusbundle.BaseClustersPerPolicyBundle{
 			Objects:     make([]*statusbundle.PolicyGenericComplianceStatus, 0),
 			LeafHubName: leafHubName,
 			Generation:  generation,
 		},
-		lock:     sync.Mutex{},
-		bundType: bundType,
+		lock:          sync.Mutex{},
+		extractIDFunc: extractIDFunc,
 	}
 }
 
 // ClustersPerPolicyBundle abstracts management of clusters per policy bundle.
 type ClustersPerPolicyBundle struct {
 	statusbundle.BaseClustersPerPolicyBundle
-	lock     sync.Mutex
-	bundType BundType
+	lock          sync.Mutex
+	extractIDFunc ExtractObjIDFunction
 }
 
 // UpdateObject function to update a single object inside a bundle.
@@ -50,12 +42,9 @@ func (bundle *ClustersPerPolicyBundle) UpdateObject(object Object) {
 		return // do not handle objects other than policy
 	}
 
-	var originPolicyID string
-
-	if bundle.bundType == GlobalBundle {
-		originPolicyID = object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
-	} else {
-		originPolicyID = string(policy.UID)
+	originPolicyID, ok := bundle.extractIDFunc(object)
+	if !ok {
+		return // cant update the object without finding its id.
 	}
 
 	index, err := bundle.getObjectIndexByUID(originPolicyID)
@@ -79,17 +68,14 @@ func (bundle *ClustersPerPolicyBundle) DeleteObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	policy, ok := object.(*policiesv1.Policy)
+	_, ok := object.(*policiesv1.Policy)
 	if !ok {
 		return // wont handle anything other than policies
 	}
 
-	var originPolicyID string
-
-	if bundle.bundType == GlobalBundle {
-		originPolicyID = object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
-	} else {
-		originPolicyID = string(policy.UID)
+	originPolicyID, ok := bundle.extractIDFunc(object)
+	if !ok {
+		return // cant update the object without finding its id.
 	}
 
 	index, err := bundle.getObjectIndexByUID(originPolicyID)

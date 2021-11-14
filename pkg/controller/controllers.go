@@ -29,8 +29,7 @@ func AddToScheme(s *runtime.Scheme) error {
 	}
 
 	schemeBuilders := []*scheme.Builder{
-		policiesv1.SchemeBuilder, configv1.SchemeBuilder,
-		placementrulev1.SchemeBuilder,
+		policiesv1.SchemeBuilder, configv1.SchemeBuilder, placementrulev1.SchemeBuilder,
 	} // add schemes
 
 	for _, schemeBuilder := range schemeBuilders {
@@ -48,17 +47,17 @@ func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, syncInt
 	config := &configv1.Config{}
 
 	if err := configCtrl.AddConfigController(mgr, "hub-of-hubs-config", config); err != nil {
-		return fmt.Errorf("first failed to add controller: %w", err)
+		return fmt.Errorf("failed to add controller: %w", err)
 	}
 
 	addControllerFunctions := []func(ctrl.Manager, transport.Transport, time.Duration, string, *configv1.Config) error{
 		managedclusters.AddClustersStatusController, policies.AddPoliciesStatusController,
-		localpolicies.AddLocalPoliciesController, localpolicies.AddLocalPlacementruleController,
+		localpolicies.AddLocalPoliciesController, localpolicies.AddLocalPlacementRuleController,
 	}
 
 	for i, addControllerFunction := range addControllerFunctions {
 		if err := addControllerFunction(mgr, transportImpl, syncInterval, leafHubName, config); err != nil {
-			return fmt.Errorf("%d second failed to add controller: %w", i, err)
+			return fmt.Errorf("%d failed to add controller: %w", i, err)
 		}
 	}
 

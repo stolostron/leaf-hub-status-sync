@@ -8,13 +8,17 @@ import (
 )
 
 // NewGenericStatusBundle creates a new instance of GenericStatusBundle.
-func NewGenericStatusBundle(leafHubName string, generation uint64, cleanFunc func(obj Object) (Object, bool)) Bundle {
+func NewGenericStatusBundle(leafHubName string, generation uint64, cleanObjFunc func(obj Object)) Bundle {
+	if cleanObjFunc == nil {
+		cleanObjFunc = func(object Object) {}
+	}
+
 	return &GenericStatusBundle{
-		Objects:     make([]Object, 0),
-		LeafHubName: leafHubName,
-		Generation:  generation,
-		lock:        sync.Mutex{},
-		cleanFunc:   cleanFunc,
+		Objects:      make([]Object, 0),
+		LeafHubName:  leafHubName,
+		Generation:   generation,
+		lock:         sync.Mutex{},
+		cleanObjFunc: cleanObjFunc,
 	}
 }
 
@@ -22,11 +26,11 @@ func NewGenericStatusBundle(leafHubName string, generation uint64, cleanFunc fun
 // except for fields that are not relevant in the hub of hubs like finalizers, etc.
 // for bundles that require more specific behavior, it's required to implement your own status bundle struct.
 type GenericStatusBundle struct {
-	Objects     []Object `json:"objects"`
-	LeafHubName string   `json:"leafHubName"`
-	Generation  uint64   `json:"generation"`
-	lock        sync.Mutex
-	cleanFunc   func(obj Object) (Object, bool)
+	Objects      []Object `json:"objects"`
+	LeafHubName  string   `json:"leafHubName"`
+	Generation   uint64   `json:"generation"`
+	lock         sync.Mutex
+	cleanObjFunc func(obj Object)
 }
 
 // UpdateObject function to update a single object inside a bundle.
@@ -34,14 +38,7 @@ func (bundle *GenericStatusBundle) UpdateObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	var ok bool
-
-	if bundle.cleanFunc != nil {
-		object, ok = bundle.cleanFunc(object)
-		if !ok {
-			return
-		}
-	}
+	bundle.cleanObjFunc(object)
 
 	index, err := bundle.getObjectIndexByUID(object.GetUID())
 	if err != nil { // object not found, need to add it to the bundle

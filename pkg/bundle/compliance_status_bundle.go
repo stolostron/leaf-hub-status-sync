@@ -4,14 +4,13 @@ import (
 	"sync"
 
 	policyv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
-	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 )
 
 // NewCompleteComplianceStatusBundle creates a new instance of ComplianceStatusBundle.
 func NewCompleteComplianceStatusBundle(leafHubName string, baseBundle Bundle, generation uint64,
-	bundType BundType) Bundle {
+	extractIDFunc func(obj Object) (string, bool)) Bundle {
 	return &ComplianceStatusBundle{
 		BaseCompleteComplianceStatusBundle: statusbundle.BaseCompleteComplianceStatusBundle{
 			Objects:              make([]*statusbundle.PolicyCompleteComplianceStatus, 0),
@@ -19,18 +18,18 @@ func NewCompleteComplianceStatusBundle(leafHubName string, baseBundle Bundle, ge
 			BaseBundleGeneration: baseBundle.GetBundleGeneration(),
 			Generation:           generation,
 		},
-		baseBundle: baseBundle,
-		lock:       sync.Mutex{},
-		bundType:   bundType,
+		baseBundle:    baseBundle,
+		lock:          sync.Mutex{},
+		extractIDFunc: extractIDFunc,
 	}
 }
 
 // ComplianceStatusBundle abstracts management of compliance status bundle.
 type ComplianceStatusBundle struct {
 	statusbundle.BaseCompleteComplianceStatusBundle
-	baseBundle Bundle
-	lock       sync.Mutex
-	bundType   BundType
+	baseBundle    Bundle
+	lock          sync.Mutex
+	extractIDFunc func(obj Object) (string, bool)
 }
 
 // UpdateObject function to update a single object inside a bundle.
@@ -48,12 +47,9 @@ func (bundle *ComplianceStatusBundle) UpdateObject(object Object) {
 		return // do not handle objects other than policy
 	}
 
-	var originPolicyID string
-
-	if bundle.bundType == GlobalBundle {
-		originPolicyID = object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
-	} else {
-		originPolicyID = string(policy.UID)
+	originPolicyID, ok := bundle.extractIDFunc(object)
+	if !ok {
+		return // cant update the object without finding its id.
 	}
 
 	index, err := bundle.getObjectIndexByUID(originPolicyID)
@@ -92,17 +88,14 @@ func (bundle *ComplianceStatusBundle) DeleteObject(object Object) {
 
 	bundle.BaseBundleGeneration = bundle.baseBundle.GetBundleGeneration()
 
-	policy, ok := object.(*policyv1.Policy)
+	_, ok := object.(*policyv1.Policy)
 	if !ok {
 		return // do not handle objects other than policy
 	}
 
-	var originPolicyID string
-
-	if bundle.bundType == GlobalBundle {
-		originPolicyID = object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
-	} else {
-		originPolicyID = string(policy.UID)
+	originPolicyID, ok := bundle.extractIDFunc(object)
+	if !ok {
+		return // cant delete the object without its id.
 	}
 
 	index, err := bundle.getObjectIndexByUID(originPolicyID)

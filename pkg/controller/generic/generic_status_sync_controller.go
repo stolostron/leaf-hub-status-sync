@@ -22,8 +22,8 @@ import (
 const (
 	// RequeuePeriodSeconds is the time to wait until reconciliation retry in failure cases.
 	RequeuePeriodSeconds = 5
-	// BASE the base in which to format.
-	BASE = 10
+	// base the base in which to format.
+	base = 10
 )
 
 // CreateObjectFunction is a function for how to create an object that is stored inside the bundle.
@@ -199,7 +199,7 @@ func (c *genericStatusSyncController) syncBundles() {
 		// send to transport only if bundle has changed.
 		if bundleGeneration > entry.lastSentBundleGeneration {
 			c.syncToTransport(entry.transportBundleKey, datatypes.StatusBundle,
-				strconv.FormatUint(bundleGeneration, BASE), entry.bundle)
+				strconv.FormatUint(bundleGeneration, base), entry.bundle)
 
 			entry.lastSentBundleGeneration = bundleGeneration
 		}

@@ -33,14 +33,15 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 	// clusters per policy (base bundle)
 	clustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.ClustersPerPolicyMsgKey)
 	clustersPerPolicyBundle := bundle.NewClustersPerPolicyBundle(leafHubName, helpers.GetGenerationFromTransport(
-		transport, clustersPerPolicyTransportKey, datatypes.StatusBundle), bundle.GlobalBundle)
+		transport, clustersPerPolicyTransportKey, datatypes.StatusBundle),
+		extractPolicyID)
 
 	// complete compliance status bundle
 	completeComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
 		datatypes.PolicyCompleteComplianceMsgKey)
 	completeComplianceStatusBundle := bundle.NewCompleteComplianceStatusBundle(leafHubName, clustersPerPolicyBundle,
 		helpers.GetGenerationFromTransport(transport, completeComplianceStatusTransportKey, datatypes.StatusBundle),
-		bundle.GlobalBundle)
+		extractPolicyID)
 
 	// minimal compliance status bundle
 	minimalComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
@@ -74,4 +75,9 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 	}
 
 	return nil
+}
+
+func extractPolicyID(obj bundle.Object) (string, bool) {
+	val, ok := obj.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
+	return val, ok
 }
