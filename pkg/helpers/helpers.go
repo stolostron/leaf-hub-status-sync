@@ -7,10 +7,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	// Base10 is the base for strconv.FormatUint method.
-	Base10 = 10
-)
+// RequeuePeriodSeconds is the time to wait until reconciliation retry in failure cases.
+const RequeuePeriodSeconds = 5
 
 // ContainsString returns true if the string exists in the array and false otherwise.
 func ContainsString(slice []string, s string) bool {
@@ -23,8 +21,8 @@ func ContainsString(slice []string, s string) bool {
 	return false
 }
 
-// GetBundleGenerationFromTransport returns bundle generation from transport layer.
-func GetBundleGenerationFromTransport(transport transport.Transport, msgID string, msgType string) uint64 {
+// GetGenerationFromTransport returns bundle generation from transport layer.
+func GetGenerationFromTransport(transport transport.Transport, msgID string, msgType string) uint64 {
 	version := transport.GetVersion(msgID, msgType)
 	if version == "" {
 		return 0

@@ -12,6 +12,7 @@ func NewBundleCollectionEntry(transportBundleKey string, bundle bundle.Bundle,
 		bundle:                   bundle,
 		predicate:                predicate,
 		lastSentBundleGeneration: bundle.GetBundleGeneration(),
+		wasSentInLastCycle:       false,
 	}
 }
 
@@ -21,4 +22,10 @@ type BundleCollectionEntry struct {
 	bundle                   bundle.Bundle
 	predicate                func() bool
 	lastSentBundleGeneration uint64
+	wasSentInLastCycle       bool
+}
+
+// WasSentInLastCycle returns true is the bundle was sent in last periodic sync cycle, false otherwise.
+func (entry *BundleCollectionEntry) WasSentInLastCycle() bool {
+	return entry.wasSentInLastCycle
 }

@@ -677,8 +677,8 @@ github.com/open-cluster-management/api v0.0.0-20210527013639-a6845f2ebcb1 h1:AaF
 github.com/open-cluster-management/api v0.0.0-20210527013639-a6845f2ebcb1/go.mod h1:ot+A1DWq+v1IV+e1S7nhIteYAmNByFgtazvzpoeAfRQ=
 github.com/open-cluster-management/governance-policy-propagator v0.0.0-20210520203318-a78632de1e26 h1:EXnaCT1VMzyBenLpxBJ4gGQblX3LTlgq+P9Vi1S/OKw=
 github.com/open-cluster-management/governance-policy-propagator v0.0.0-20210520203318-a78632de1e26/go.mod h1:7gzDyC7PddcuInXS+kLrfYmto/ImSORibXwy8RGjNM8=
-github.com/open-cluster-management/hub-of-hubs-data-types v0.1.1-0.20210918105435-6b6919d6ef52 h1:CviaU5oOqjlx2zskRbifHxom2hMcuFN+2K4ZbBVAQBU=
-github.com/open-cluster-management/hub-of-hubs-data-types v0.1.1-0.20210918105435-6b6919d6ef52/go.mod h1:Th2t5lukBfvPb5tvNCMROedinKR4s64sK5hgMt8Er7w=
+github.com/open-cluster-management/hub-of-hubs-data-types v0.1.1-0.20211020120717-691e1f40c8eb h1:Wo86V65p8ay5Hs3/mw7GV7mFE8fVY2qjijpFO7UCMu0=
+github.com/open-cluster-management/hub-of-hubs-data-types v0.1.1-0.20211020120717-691e1f40c8eb/go.mod h1:6RqTGLKtraN0pSd3iYyc84G+5BzRVgdqNUUdV/y1XDE=
 github.com/open-cluster-management/hub-of-hubs-data-types/apis/config v0.1.0 h1:qgTStCi+y6/nkFRF+cXHGLK50mGxA7YXB2Ey8BTsmyc=
 github.com/open-cluster-management/hub-of-hubs-data-types/apis/config v0.1.0/go.mod h1:xpGxw+0si9vuDABvcJ9FxjznPw/uAbICzhaX+9JLLho=
 github.com/open-horizon/edge-sync-service-client v0.0.0-20190711093406-dc3a19905da2 h1:ZmX/tuCgFVbe07pqObNWf14cAYpHN8gVRSkWnbtSUW4=

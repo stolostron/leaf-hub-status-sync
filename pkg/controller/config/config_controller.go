@@ -8,7 +8,6 @@ import (
 	"github.com/go-logr/logr"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/generic"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,7 +57,7 @@ func (c *hubOfHubsConfigController) Reconcile(request ctrl.Request) (ctrl.Result
 		return ctrl.Result{}, nil
 	} else if err != nil {
 		reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
-		return ctrl.Result{Requeue: true, RequeueAfter: generic.RequeuePeriodSeconds * time.Second},
+		return ctrl.Result{Requeue: true, RequeueAfter: helpers.RequeuePeriodSeconds * time.Second},
 			fmt.Errorf("reconciliation failed: %w", err)
 	}
 

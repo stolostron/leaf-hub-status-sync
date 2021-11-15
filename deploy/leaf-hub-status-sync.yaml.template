@@ -69,6 +69,16 @@ metadata:
   namespace: open-cluster-management
 ---
 
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sync-intervals
+  namespace: hoh-system
+data:
+  managed_clusters: "5s"
+  policies: "5s"
+---
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -88,6 +98,8 @@ spec:
       containers:
         - name: leaf-hub-status-sync
           image: $IMAGE
+          args:
+            - '--zap-devel=true'
           imagePullPolicy: Always
           env:
             - name: WATCH_NAMESPACE
@@ -103,8 +115,6 @@ spec:
               value: "$SYNC_SERVICE_PORT"
             - name: LH_ID
               value: "$LH_ID"
-            - name: PERIODIC_SYNC_INTERVAL
-              value: 5s
             - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:
