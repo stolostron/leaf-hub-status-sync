@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	policiesStatusSyncLog  = "policies-status-sync"
+	policiesStatusSyncLog  = "local-policies-status-sync"
 	policyCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/policy-cleanup"
 )
 
