@@ -50,13 +50,15 @@ func (bundle *ClustersPerPolicyBundle) UpdateObject(object Object) {
 
 		return
 	}
-	// when we update object (if changed), no need to increase generation.
-	// for this use case where no policy was added/removed, we use the status compliance bundle to update hub of hubs
+	// when we update a policy, we need to increase bundle generation only if cluster list of the policy has changed.
+	// for the use case where no cluster was added/removed, we use the status compliance bundle to update hub of hubs
 	// and not the clusters per policy bundle which contains a lot more information (full state).
 	//
 	// that being said, we still want to update the internal data and keep it always up to date in case a policy will be
-	// inserted/removed and full state bundle will be triggered.
-	bundle.updateObjectIfChanged(index, policy)
+	// inserted/removed (or cluster added/removed) and full state bundle will be triggered.
+	if bundle.updateObjectIfChanged(index, policy) {
+		bundle.Generation++
+	}
 }
 
 // DeleteObject function to delete a single object inside a bundle.
@@ -97,31 +99,38 @@ func (bundle *ClustersPerPolicyBundle) getObjectIndexByUID(uid string) (int, err
 }
 
 // getClusterStatuses returns (list of compliant clusters, list of nonCompliant clusters, list of unknown clusters).
-func (bundle *ClustersPerPolicyBundle) getClusterStatuses(policy *policiesv1.Policy) ([]string, []string, []string) {
+func (bundle *ClustersPerPolicyBundle) getClusterStatuses(policy *policiesv1.Policy) ([]string, []string, []string,
+	[]string) {
 	compliantClusters := make([]string, 0)
 	nonCompliantClusters := make([]string, 0)
 	unknownComplianceClusters := make([]string, 0)
+	allClusters := make([]string, 0)
 
 	for _, clusterStatus := range policy.Status.Status {
 		if clusterStatus.ComplianceState == policiesv1.Compliant {
 			compliantClusters = append(compliantClusters, clusterStatus.ClusterName)
+			allClusters = append(allClusters, clusterStatus.ClusterName)
+
 			continue
 		} // else
 
 		if clusterStatus.ComplianceState == policiesv1.NonCompliant {
 			nonCompliantClusters = append(nonCompliantClusters, clusterStatus.ClusterName)
+			allClusters = append(allClusters, clusterStatus.ClusterName)
+
 			continue
 		} // else
 
 		unknownComplianceClusters = append(unknownComplianceClusters, clusterStatus.ClusterName)
+		allClusters = append(allClusters, clusterStatus.ClusterName)
 	}
 
-	return compliantClusters, nonCompliantClusters, unknownComplianceClusters
+	return compliantClusters, nonCompliantClusters, unknownComplianceClusters, allClusters
 }
 
 func (bundle *ClustersPerPolicyBundle) getClustersPerPolicy(originPolicyID string,
 	policy *policiesv1.Policy) *statusbundle.PolicyGenericComplianceStatus {
-	compliantClusters, nonCompliantClusters, unknownComplianceClusters := bundle.getClusterStatuses(policy)
+	compliantClusters, nonCompliantClusters, unknownComplianceClusters, _ := bundle.getClusterStatuses(policy)
 
 	return &statusbundle.PolicyGenericComplianceStatus{
 		PolicyID:                  originPolicyID,
@@ -131,17 +140,31 @@ func (bundle *ClustersPerPolicyBundle) getClustersPerPolicy(originPolicyID strin
 	}
 }
 
-func (bundle *ClustersPerPolicyBundle) updateObjectIfChanged(objectIndex int, policy *policiesv1.Policy) {
-	newCompliantClusters, newNonCompliantClusters, newUnknownComplianceClusters := bundle.getClusterStatuses(policy)
+// returns true if cluster list has changed, otherwise returns false (even if cluster statuses changed).
+func (bundle *ClustersPerPolicyBundle) updateObjectIfChanged(objectIndex int, policy *policiesv1.Policy) bool {
+	newCompliantClusters, newNonCompliantClusters, newUnknownClusters, newClusters := bundle.getClusterStatuses(policy)
 	oldPolicyStatus := bundle.Objects[objectIndex]
-
-	if !bundle.clusterListsEqual(oldPolicyStatus.CompliantClusters, newCompliantClusters) ||
+	clusterListChanged := false
+	// check if any cluster was added or removed
+	if len(oldPolicyStatus.NonCompliantClusters)+len(oldPolicyStatus.CompliantClusters)+
+		len(oldPolicyStatus.UnknownComplianceClusters) != len(newClusters) {
+		clusterListChanged = true // if the length is different, at least one cluster was added/removed
+	} else if !bundle.clusterListContains(oldPolicyStatus.NonCompliantClusters, newClusters) ||
+		!bundle.clusterListContains(oldPolicyStatus.CompliantClusters, newClusters) ||
+		!bundle.clusterListContains(oldPolicyStatus.UnknownComplianceClusters, newClusters) {
+		clusterListChanged = true // at least one cluster was added/removed
+	}
+	// in any case we want to update the internal bundle in case statuses changed
+	if clusterListChanged || // if cluster list changed, no need to check other conditions
+		!bundle.clusterListsEqual(oldPolicyStatus.CompliantClusters, newCompliantClusters) ||
 		!bundle.clusterListsEqual(oldPolicyStatus.NonCompliantClusters, newNonCompliantClusters) ||
-		!bundle.clusterListsEqual(oldPolicyStatus.UnknownComplianceClusters, newUnknownComplianceClusters) {
+		!bundle.clusterListsEqual(oldPolicyStatus.UnknownComplianceClusters, newUnknownClusters) {
 		oldPolicyStatus.CompliantClusters = newCompliantClusters
 		oldPolicyStatus.NonCompliantClusters = newNonCompliantClusters
-		oldPolicyStatus.UnknownComplianceClusters = newUnknownComplianceClusters
+		oldPolicyStatus.UnknownComplianceClusters = newUnknownClusters
 	}
+
+	return clusterListChanged
 }
 
 func (bundle *ClustersPerPolicyBundle) clusterListsEqual(oldClusters []string, newClusters []string) bool {
@@ -149,8 +172,12 @@ func (bundle *ClustersPerPolicyBundle) clusterListsEqual(oldClusters []string, n
 		return false
 	}
 
-	for _, newClusterName := range newClusters {
-		if !helpers.ContainsString(oldClusters, newClusterName) {
+	return bundle.clusterListContains(oldClusters, newClusters)
+}
+
+func (bundle *ClustersPerPolicyBundle) clusterListContains(subsetClusters []string, allClusters []string) bool {
+	for _, clusterName := range subsetClusters {
+		if !helpers.ContainsString(allClusters, clusterName) {
 			return false
 		}
 	}
