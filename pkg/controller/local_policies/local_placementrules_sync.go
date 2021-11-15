@@ -38,7 +38,7 @@ func AddLocalPlacementRuleController(mgr ctrl.Manager, transport transport.Trans
 		return !helpers.HasAnnotation(meta, datatypes.OriginOwnerReferenceAnnotation)
 	})
 
-	if err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, transport, policyCleanupFinalizer,
+	if err := generic.NewGenericStatusSyncController(mgr, localPoliciesStatusSyncLog, transport, localPolicyCleanupFinalizer,
 		bundleCollection, createObjFunc, localPlacementRulePredicate, syncIntervalsData.GetPolicies); err != nil {
 		return fmt.Errorf("failed to add local placement rules controller to the manager - %w", err)
 	}

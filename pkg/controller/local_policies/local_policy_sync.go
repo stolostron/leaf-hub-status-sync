@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	policiesStatusSyncLog  = "local-policies-status-sync"
-	policyCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/local-policy-cleanup"
+	localPoliciesStatusSyncLog  = "local-policies-status-sync"
+	localPolicyCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/local-policy-cleanup"
 	// may need to move.
 	rootReferenceLabel = "policy.open-cluster-management.io/root-policy"
 )
@@ -68,7 +68,7 @@ func AddLocalPoliciesController(mgr ctrl.Manager, transport transport.Transport,
 			!helpers.HasLabel(meta, rootReferenceLabel)
 	})
 
-	if err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, transport, policyCleanupFinalizer,
+	if err := generic.NewGenericStatusSyncController(mgr, localPoliciesStatusSyncLog, transport, localPolicyCleanupFinalizer,
 		bundleCollection, createObjFunc, localPolicyPredicate, syncIntervalsData.GetPolicies); err != nil {
 		return fmt.Errorf("failed to add local policies controller to the manager - %w", err)
 	}
