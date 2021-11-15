@@ -37,7 +37,6 @@ func (bundle *ComplianceStatusBundle) UpdateObject(object Object) {
 
 	// if cluster per policy is sent, no need to send complete compliance as well.
 	// therefore we check if base generation was changed and decide whether we need to increase generation or not.
-	previousBaseBundleGeneration := bundle.BaseBundleGeneration // used to check if clusters per policy (base) changed.
 	bundle.BaseBundleGeneration = bundle.baseBundle.GetBundleGeneration()
 
 	policy, ok := object.(*policyv1.Policy)
@@ -51,16 +50,13 @@ func (bundle *ComplianceStatusBundle) UpdateObject(object Object) {
 	}
 
 	index, err := bundle.getObjectIndexByUID(originPolicyID)
-	if err != nil { // object not found, need to add it to the bundle
+	if err != nil { // object not found, need to add it to the bundle (only in case it contains non-compliant/unknown)
 		policyComplianceObject := bundle.getPolicyComplianceStatus(originPolicyID, policy)
 		// don't send in the bundle a policy where all clusters are compliant
 		if bundle.containsNonCompliantOrUnknownClusters(policyComplianceObject) {
 			bundle.Objects = append(bundle.Objects, policyComplianceObject)
+			bundle.Generation++ // increase generation if objects array was changed
 		}
-
-		if previousBaseBundleGeneration == bundle.BaseBundleGeneration {
-			bundle.Generation++ // clusters per policy doesn't increase generation on update(only in add/remove policy)
-		} // increase generation only if base generation didn't increase during the update of this object
 
 		return
 	}
@@ -73,10 +69,9 @@ func (bundle *ComplianceStatusBundle) UpdateObject(object Object) {
 	if !bundle.containsNonCompliantOrUnknownClusters(bundle.Objects[index]) {
 		bundle.Objects = append(bundle.Objects[:index], bundle.Objects[index+1:]...) // remove from objects
 	}
-	// increase bundle generation in the case where cluster lists were changed and base generation didn't increase
-	if previousBaseBundleGeneration == bundle.BaseBundleGeneration {
-		bundle.Generation++ // clusters per policy doesn't increase generation on update (only in add/remove policy).
-	}
+
+	// increase bundle generation in the case where cluster lists were changed
+	bundle.Generation++
 }
 
 // DeleteObject function to delete a single object inside a bundle.

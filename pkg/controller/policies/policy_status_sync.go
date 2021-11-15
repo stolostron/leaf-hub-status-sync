@@ -50,10 +50,13 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 	fullStatusPredicate := func() bool { return hubOfHubsConfig.Spec.AggregationLevel == configv1.Full }
 	minimalStatusPredicate := func() bool { return hubOfHubsConfig.Spec.AggregationLevel == configv1.Minimal }
 
+	clustersPerPolicyEntry := generic.NewBundleCollectionEntry(clustersPerPolicyTransportKey, clustersPerPolicyBundle,
+		fullStatusPredicate)
+	// no need to send in the same cycle both clusters per policy and compliance. if CpP was sent, don't send compliance
 	bundleCollection := []*generic.BundleCollectionEntry{ // multiple bundles for policy status
-		generic.NewBundleCollectionEntry(clustersPerPolicyTransportKey, clustersPerPolicyBundle, fullStatusPredicate),
+		clustersPerPolicyEntry,
 		generic.NewBundleCollectionEntry(completeComplianceStatusTransportKey, completeComplianceStatusBundle,
-			fullStatusPredicate),
+			func() bool { return !clustersPerPolicyEntry.WasSentInLastCycle() && fullStatusPredicate() }),
 		generic.NewBundleCollectionEntry(minimalComplianceStatusTransportKey, minimalComplianceStatusBundle,
 			minimalStatusPredicate),
 	}
