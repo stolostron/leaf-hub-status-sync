@@ -20,7 +20,7 @@ const (
 	policiesStatusSyncLog  = "local-policies-status-sync"
 	policyCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/local-policy-cleanup"
 	// may need to move.
-	rootReferenceLabel = "policy.open-cluster-management.io/root-local-policy"
+	rootReferenceLabel = "policy.open-cluster-management.io/root-policy"
 )
 
 // AddLocalPoliciesController this function adds a new local policies sync controller.
@@ -38,15 +38,15 @@ func AddLocalPoliciesController(mgr ctrl.Manager, transport transport.Transport,
 
 	// compliance status bundle
 	localCompleteComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
-		datatypes.PolicyCompleteComplianceMsgKey)
+		datatypes.LocalPolicyCompleteComplianceMsgKey)
 	localCompleteComplianceStatusBundle := bundle.NewCompleteComplianceStatusBundle(leafHubName,
 		localClustersPerPolicyBundle, helpers.GetGenerationFromTransport(transport,
 			localCompleteComplianceStatusTransportKey, datatypes.StatusBundle), extractLocalPolicyIDFunc)
 
-	localSpecPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalPolicySpecMsgKey)
-	localPolicySpecBundle := generic.NewBundleCollectionEntry(localSpecPerPolicyTransportKey,
+	localPolicySpecTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalPolicySpecMsgKey)
+	localPolicySpecBundle := generic.NewBundleCollectionEntry(localPolicySpecTransportKey,
 		bundle.NewGenericStatusBundle(leafHubName,
-			helpers.GetGenerationFromTransport(transport, localSpecPerPolicyTransportKey, datatypes.StatusBundle),
+			helpers.GetGenerationFromTransport(transport, localPolicySpecTransportKey, datatypes.StatusBundle),
 			cleanPolicyFunc),
 		func() bool { return hubOfHubsConfig.Spec.EnableLocalPolicies })
 
