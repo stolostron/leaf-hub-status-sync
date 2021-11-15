@@ -2,6 +2,7 @@ package localpolicies
 
 import (
 	"fmt"
+
 	placementrulev1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/apps/v1"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
@@ -30,7 +31,8 @@ func AddLocalPlacementRuleController(mgr ctrl.Manager, transport transport.Trans
 				cleanPlacementRuleFunc),
 			func() bool { // bundle predicate
 				return hubOfHubsConfig.Spec.EnableLocalPolicies
-			})}
+			}),
+	}
 
 	localPlacementRulePredicate := predicate.NewPredicateFuncs(func(meta metav1.Object, object runtime.Object) bool {
 		return !helpers.HasAnnotation(meta, datatypes.OriginOwnerReferenceAnnotation)
@@ -49,5 +51,6 @@ func cleanPlacementRuleFunc(object bundle.Object) {
 	if !ok {
 		panic("Wrong instance passed to clean placement rule function, not appsv1.PlacementRule")
 	}
+
 	placement.Status = placementrulev1.PlacementRuleStatus{}
 }
