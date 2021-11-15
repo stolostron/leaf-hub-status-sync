@@ -5,7 +5,6 @@ package controller
 
 import (
 	"fmt"
-	"time"
 
 	clustersv1 "github.com/open-cluster-management/api/cluster/v1"
 	placementrulev1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/apps/v1"
@@ -15,6 +14,7 @@ import (
 	localpolicies "github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/local_policies"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/managedclusters"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/policies"
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/syncintervals"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -42,22 +42,27 @@ func AddToScheme(s *runtime.Scheme) error {
 }
 
 // AddControllers adds all the controllers to the Manager.
-func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, syncInterval time.Duration,
-	leafHubName string) error {
+func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, leafHubName string) error {
 	config := &configv1.Config{}
+	syncIntervalsData := syncintervals.NewSyncIntervals()
 
 	if err := configCtrl.AddConfigController(mgr, "hub-of-hubs-config", config); err != nil {
 		return fmt.Errorf("failed to add controller: %w", err)
 	}
 
-	addControllerFunctions := []func(ctrl.Manager, transport.Transport, time.Duration, string, *configv1.Config) error{
+	if err := syncintervals.AddSyncIntervalsController(mgr, "sync-intervals", syncIntervalsData); err != nil {
+		return fmt.Errorf("failed to add controller: %w", err)
+	}
+
+	addControllerFunctions := []func(ctrl.Manager, transport.Transport, string, *configv1.Config,
+		*syncintervals.SyncIntervals) error{
 		managedclusters.AddClustersStatusController, policies.AddPoliciesStatusController,
 		localpolicies.AddLocalPoliciesController, localpolicies.AddLocalPlacementRuleController,
 	}
 
-	for i, addControllerFunction := range addControllerFunctions {
-		if err := addControllerFunction(mgr, transportImpl, syncInterval, leafHubName, config); err != nil {
-			return fmt.Errorf("%d failed to add controller: %w", i, err)
+	for _, addControllerFunction := range addControllerFunctions {
+		if err := addControllerFunction(mgr, transportImpl, leafHubName, config, syncIntervalsData); err != nil {
+			return fmt.Errorf("failed to add controller: %w", err)
 		}
 	}
 

@@ -2,13 +2,12 @@ package localpolicies
 
 import (
 	"fmt"
-	"time"
-
 	placementrulev1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/apps/v1"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/generic"
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/syncintervals"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,8 +17,8 @@ import (
 )
 
 // AddLocalPlacementRuleController This function adds a new local placement rule controller.
-func AddLocalPlacementRuleController(mgr ctrl.Manager, transport transport.Transport, syncInterval time.Duration,
-	leafHubName string, hubOfHubsConfig *configv1.Config) error {
+func AddLocalPlacementRuleController(mgr ctrl.Manager, transport transport.Transport, leafHubName string,
+	hubOfHubsConfig *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals) error {
 	createObjFunc := func() bundle.Object { return &placementrulev1.PlacementRule{} }
 
 	localPlacementRuleTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalPlacementRulesMsgKey)
@@ -38,8 +37,7 @@ func AddLocalPlacementRuleController(mgr ctrl.Manager, transport transport.Trans
 	})
 
 	if err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, transport, policyCleanupFinalizer,
-		bundleCollection, createObjFunc, syncInterval,
-		localPlacementRulePredicate); err != nil {
+		bundleCollection, createObjFunc, localPlacementRulePredicate, syncIntervalsData.GetPolicies); err != nil {
 		return fmt.Errorf("failed to add local placement rules controller to the manager - %w", err)
 	}
 

@@ -2,13 +2,12 @@ package localpolicies
 
 import (
 	"fmt"
-	"time"
-
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/generic"
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/syncintervals"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,8 +24,8 @@ const (
 )
 
 // AddLocalPoliciesController this function adds a new local policies sync controller.
-func AddLocalPoliciesController(mgr ctrl.Manager, transport transport.Transport, syncInterval time.Duration,
-	leafHubName string, hubOfHubsConfig *configv1.Config) error {
+func AddLocalPoliciesController(mgr ctrl.Manager, transport transport.Transport, leafHubName string,
+	hubOfHubsConfig *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals) error {
 	createObjFunc := func() bundle.Object { return &policiesv1.Policy{} }
 
 	extractLocalPolicyIDFunc := func(obj bundle.Object) (string, bool) { return string(obj.GetUID()), true }
@@ -69,8 +68,7 @@ func AddLocalPoliciesController(mgr ctrl.Manager, transport transport.Transport,
 	})
 
 	if err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, transport, policyCleanupFinalizer,
-		bundleCollection, createObjFunc, syncInterval,
-		localPolicyPredicate); err != nil {
+		bundleCollection, createObjFunc, localPolicyPredicate, syncIntervalsData.GetPolicies); err != nil {
 		return fmt.Errorf("failed to add local policies controller to the manager - %w", err)
 	}
 
