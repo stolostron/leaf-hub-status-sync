@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// ExtractObjIDFunction a function type used to get the id of an object.
 type ExtractObjIDFunction func(obj Object) (string, bool)
 
 // NewClustersPerPolicyBundle creates a new instance of ClustersPerPolicyBundle.
