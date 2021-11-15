@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller"
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/controlinfo"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	lhSyncService "github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport/sync-service"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
@@ -74,6 +75,18 @@ func doMain() int {
 		return 1
 	}
 
+	// control info controller initialization
+	controlInfoController, err := controlinfo.NewLeafHubControlInfoController(syncService, leafHubName, ctrl.Log)
+	if err != nil {
+		log.Error(err, "Failed to initialize control info controller")
+		return 1
+	}
+
+	if err := mgr.Add(controlInfoController); err != nil {
+		log.Error(err, "Failed to add control info controller to the manager")
+		return 1
+	}
+
 	log.Info("Starting the Cmd.")
 
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
@@ -104,18 +117,6 @@ func createManager(leaderElectionNamespace, metricsHost string, metricsPort int3
 
 	if err := controller.AddControllers(mgr, transport, leafHubName); err != nil {
 		return nil, fmt.Errorf("failed to add controllers: %w", err)
-	}
-
-	// control info controller initialization
-	controlInfoController, err := controlinfo.NewLeafHubControlInfoController(syncService, leafHubName, ctrl.Log)
-	if err != nil {
-		log.Error(err, "failed to initialize control info controller")
-		return 1
-	}
-
-	if err := mgr.Add(controlInfoController); err != nil {
-		log.Error(err, "failed to add control info controller to the manager")
-		return 1
 	}
 
 	return mgr, nil

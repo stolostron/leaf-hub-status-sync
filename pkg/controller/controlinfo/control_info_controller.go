@@ -45,13 +45,11 @@ func (m *LeafHubControlInfoController) Start(stopChannel <-chan struct{}) error 
 
 	go m.periodicSend(ctx)
 
-	for {
-		<-stopChannel // blocking wait for stop event
-		m.log.Info("stopped control info manager")
-		cancelContext()
+	<-stopChannel // blocking wait for stop event
+	m.log.Info("stopped control info manager")
+	cancelContext()
 
-		return nil
-	}
+	return nil
 }
 
 func (m *LeafHubControlInfoController) periodicSend(ctx context.Context) {

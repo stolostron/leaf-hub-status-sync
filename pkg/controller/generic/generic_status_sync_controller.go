@@ -21,8 +21,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-const base10 = 10
-
 // CreateObjectFunction is a function for how to create an object that is stored inside the bundle.
 type CreateObjectFunction func() bundle.Object
 
@@ -207,7 +205,7 @@ func (c *genericStatusSyncController) syncBundles() {
 		// send to transport only if bundle has changed
 		if bundleGeneration > entry.lastSentBundleGeneration {
 			c.syncToTransport(entry.transportBundleKey, datatypes.StatusBundle,
-				strconv.FormatUint(bundleGeneration, base10), entry.bundle)
+				strconv.FormatUint(bundleGeneration, helpers.Base10), entry.bundle)
 
 			entry.lastSentBundleGeneration = bundleGeneration
 			entry.wasSentInLastCycle = true

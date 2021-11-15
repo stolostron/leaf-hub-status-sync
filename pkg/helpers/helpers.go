@@ -7,8 +7,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// RequeuePeriodSeconds is the time to wait until reconciliation retry in failure cases.
-const RequeuePeriodSeconds = 5
+const (
+	// RequeuePeriodSeconds is the time to wait until reconciliation retry in failure cases.
+	RequeuePeriodSeconds = 60
+	// Base10 is base used for strconv.FormatUint.
+	Base10 = 10
+)
 
 // ContainsString returns true if the string exists in the array and false otherwise.
 func ContainsString(slice []string, s string) bool {
