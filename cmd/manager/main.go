@@ -76,7 +76,7 @@ func doMain() int {
 	}
 
 	// control info controller initialization
-	controlInfoController, err := controlinfo.NewLeafHubControlInfoController(syncService, leafHubName, ctrl.Log)
+	controlInfoController, err := controlinfo.NewLeafHubControlInfoController(ctrl.Log, syncService, leafHubName)
 	if err != nil {
 		log.Error(err, "Failed to initialize control info controller")
 		return 1
