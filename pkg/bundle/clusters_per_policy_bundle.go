@@ -9,28 +9,25 @@ import (
 	"github.com/pkg/errors"
 )
 
-// ExtractObjIDFunction a function type used to get the id of an object.
-type ExtractObjIDFunction func(obj Object) (string, bool)
-
 // NewClustersPerPolicyBundle creates a new instance of ClustersPerPolicyBundle.
 func NewClustersPerPolicyBundle(leafHubName string, generation uint64,
-	extractIDFunc func(obj Object) (string, bool)) Bundle {
+	extractObjIDFunc ExtractObjIDFunc) Bundle {
 	return &ClustersPerPolicyBundle{
 		BaseClustersPerPolicyBundle: statusbundle.BaseClustersPerPolicyBundle{
 			Objects:     make([]*statusbundle.PolicyGenericComplianceStatus, 0),
 			LeafHubName: leafHubName,
 			Generation:  generation,
 		},
-		lock:          sync.Mutex{},
-		extractIDFunc: extractIDFunc,
+		lock:             sync.Mutex{},
+		extractObjIDFunc: extractObjIDFunc,
 	}
 }
 
 // ClustersPerPolicyBundle abstracts management of clusters per policy bundle.
 type ClustersPerPolicyBundle struct {
 	statusbundle.BaseClustersPerPolicyBundle
-	lock          sync.Mutex
-	extractIDFunc ExtractObjIDFunction
+	lock             sync.Mutex
+	extractObjIDFunc ExtractObjIDFunc
 }
 
 // UpdateObject function to update a single object inside a bundle.
@@ -43,7 +40,7 @@ func (bundle *ClustersPerPolicyBundle) UpdateObject(object Object) {
 		return // do not handle objects other than policy
 	}
 
-	originPolicyID, ok := bundle.extractIDFunc(object)
+	originPolicyID, ok := bundle.extractObjIDFunc(object)
 	if !ok {
 		return // cant update the object without finding its id.
 	}
@@ -76,7 +73,7 @@ func (bundle *ClustersPerPolicyBundle) DeleteObject(object Object) {
 		return // wont handle anything other than policies
 	}
 
-	originPolicyID, ok := bundle.extractIDFunc(object)
+	originPolicyID, ok := bundle.extractObjIDFunc(object)
 	if !ok {
 		return // cant update the object without finding its id.
 	}

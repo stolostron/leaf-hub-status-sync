@@ -22,8 +22,6 @@ import (
 )
 
 const (
-	// RequeuePeriodSeconds is the time to wait until reconciliation retry in failure cases.
-	RequeuePeriodSeconds = 5
 	// base the base in which to format.
 	base10 = 10
 )

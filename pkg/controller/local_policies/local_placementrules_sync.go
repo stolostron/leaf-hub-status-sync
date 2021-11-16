@@ -17,6 +17,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
+const (
+	localPlacementRuleStatusSyncLog    = "placement-rule-status-sync"
+	localPlacementRuleCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/local-placement-rule-cleanup"
+)
+
 // AddLocalPlacementRuleController This function adds a new local placement rule controller.
 func AddLocalPlacementRuleController(mgr ctrl.Manager, transport transport.Transport, leafHubName string,
 	hubOfHubsConfig *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals) error {
@@ -38,8 +43,9 @@ func AddLocalPlacementRuleController(mgr ctrl.Manager, transport transport.Trans
 		return !helpers.HasAnnotation(meta, datatypes.OriginOwnerReferenceAnnotation)
 	})
 
-	if err := generic.NewGenericStatusSyncController(mgr, localPoliciesStatusSyncLog, transport, localPolicyCleanupFinalizer,
-		bundleCollection, createObjFunc, localPlacementRulePredicate, syncIntervalsData.GetPolicies); err != nil {
+	if err := generic.NewGenericStatusSyncController(mgr, localPlacementRuleStatusSyncLog, transport,
+		localPlacementRuleCleanupFinalizer, bundleCollection, createObjFunc, localPlacementRulePredicate,
+		syncIntervalsData.GetPolicies); err != nil {
 		return fmt.Errorf("failed to add local placement rules controller to the manager - %w", err)
 	}
 

@@ -10,7 +10,7 @@ import (
 
 // NewCompleteComplianceStatusBundle creates a new instance of ComplianceStatusBundle.
 func NewCompleteComplianceStatusBundle(leafHubName string, baseBundle Bundle, generation uint64,
-	extractIDFunc func(obj Object) (string, bool)) Bundle {
+	extractObjIDFunc ExtractObjIDFunc) Bundle {
 	return &ComplianceStatusBundle{
 		BaseCompleteComplianceStatusBundle: statusbundle.BaseCompleteComplianceStatusBundle{
 			Objects:              make([]*statusbundle.PolicyCompleteComplianceStatus, 0),
@@ -18,18 +18,18 @@ func NewCompleteComplianceStatusBundle(leafHubName string, baseBundle Bundle, ge
 			BaseBundleGeneration: baseBundle.GetBundleGeneration(),
 			Generation:           generation,
 		},
-		baseBundle:    baseBundle,
-		lock:          sync.Mutex{},
-		extractIDFunc: extractIDFunc,
+		baseBundle:       baseBundle,
+		lock:             sync.Mutex{},
+		extractObjIDFunc: extractObjIDFunc,
 	}
 }
 
 // ComplianceStatusBundle abstracts management of compliance status bundle.
 type ComplianceStatusBundle struct {
 	statusbundle.BaseCompleteComplianceStatusBundle
-	baseBundle    Bundle
-	lock          sync.Mutex
-	extractIDFunc func(obj Object) (string, bool)
+	baseBundle       Bundle
+	lock             sync.Mutex
+	extractObjIDFunc ExtractObjIDFunc
 }
 
 // UpdateObject function to update a single object inside a bundle.
@@ -47,7 +47,7 @@ func (bundle *ComplianceStatusBundle) UpdateObject(object Object) {
 		return // do not handle objects other than policy
 	}
 
-	originPolicyID, ok := bundle.extractIDFunc(object)
+	originPolicyID, ok := bundle.extractObjIDFunc(object)
 	if !ok {
 		return // cant update the object without finding its id.
 	}
@@ -93,7 +93,7 @@ func (bundle *ComplianceStatusBundle) DeleteObject(object Object) {
 		return // do not handle objects other than policy
 	}
 
-	originPolicyID, ok := bundle.extractIDFunc(object)
+	originPolicyID, ok := bundle.extractObjIDFunc(object)
 	if !ok {
 		return // cant delete the object without its id.
 	}

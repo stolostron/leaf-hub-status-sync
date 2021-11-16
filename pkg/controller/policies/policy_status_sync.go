@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	policiesStatusSyncLog  = "local-policies-status-sync"
+	policiesStatusSyncLog  = "policies-status-sync"
 	policyCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/policy-cleanup"
 )
 
@@ -33,8 +33,7 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 	// clusters per policy (base bundle)
 	clustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.ClustersPerPolicyMsgKey)
 	clustersPerPolicyBundle := bundle.NewClustersPerPolicyBundle(leafHubName, helpers.GetGenerationFromTransport(
-		transport, clustersPerPolicyTransportKey, datatypes.StatusBundle),
-		extractPolicyID)
+		transport, clustersPerPolicyTransportKey, datatypes.StatusBundle), extractPolicyID)
 
 	// complete compliance status bundle
 	completeComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
