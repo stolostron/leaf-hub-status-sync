@@ -11,7 +11,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller"
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/controlinfo"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	lhSyncService "github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport/sync-service"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
@@ -72,18 +71,6 @@ func doMain() int {
 	mgr, err := createManager(leaderElectionNamespace, metricsHost, metricsPort, syncService, leafHubName)
 	if err != nil {
 		log.Error(err, "Failed to create manager")
-		return 1
-	}
-
-	// control info controller initialization
-	controlInfoController, err := controlinfo.NewLeafHubControlInfoController(ctrl.Log, syncService, leafHubName)
-	if err != nil {
-		log.Error(err, "Failed to initialize control info controller")
-		return 1
-	}
-
-	if err := mgr.Add(controlInfoController); err != nil {
-		log.Error(err, "Failed to add control info controller to the manager")
 		return 1
 	}
 

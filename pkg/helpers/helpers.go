@@ -1,16 +1,19 @@
 package helpers
 
 import (
+	"encoding/json"
+	"fmt"
 	"strconv"
 
+	"github.com/go-logr/logr"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
 	// RequeuePeriodSeconds is the time to wait until reconciliation retry in failure cases.
-	RequeuePeriodSeconds = 60
-	// Base10 is base used for strconv.FormatUint.
+	RequeuePeriodSeconds = 5
+	// Base10 is the base used to cast string to int.
 	Base10 = 10
 )
 
@@ -49,4 +52,17 @@ func HasAnnotation(obj metav1.Object, annotation string) bool {
 	_, found := obj.GetAnnotations()[annotation]
 
 	return found
+}
+
+// SyncToTransport syncs the provided bundle to transport.
+// The bundle is provided as maker interface to resolve "cycle dependency" build error.
+func SyncToTransport(log logr.Logger, transport transport.Transport, msgID string, msgType string, generation string,
+	payload interface{}) {
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		log.Info(fmt.Sprintf("failed to sync object from type %s with id %s- %s", msgType, msgID, err))
+		return
+	}
+
+	transport.SendAsync(msgID, msgType, generation, payloadBytes)
 }

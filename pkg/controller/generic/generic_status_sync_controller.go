@@ -2,7 +2,6 @@ package generic
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"sync"
@@ -204,24 +203,13 @@ func (c *genericStatusSyncController) syncBundles() {
 
 		// send to transport only if bundle has changed
 		if bundleGeneration > entry.lastSentBundleGeneration {
-			c.syncToTransport(entry.transportBundleKey, datatypes.StatusBundle,
+			helpers.SyncToTransport(c.log, c.transport, entry.transportBundleKey, datatypes.StatusBundle,
 				strconv.FormatUint(bundleGeneration, helpers.Base10), entry.bundle)
 
 			entry.lastSentBundleGeneration = bundleGeneration
 			entry.wasSentInLastCycle = true
 		}
 	}
-}
-
-func (c *genericStatusSyncController) syncToTransport(id string, objType string, generation string,
-	payload bundle.Bundle) {
-	payloadBytes, err := json.Marshal(payload)
-	if err != nil {
-		c.log.Info(fmt.Sprintf("failed to sync object from type %s with id %s- %s", objType, id, err))
-		return
-	}
-
-	c.transport.SendAsync(id, objType, generation, payloadBytes)
 }
 
 func cleanObject(object bundle.Object) {

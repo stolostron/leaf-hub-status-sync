@@ -2,7 +2,6 @@ package controlinfo
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -10,26 +9,32 @@ import (
 	"github.com/go-logr/logr"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/syncintervals"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 )
 
-const defaultPeriodSeconds = 60
-
 // LeafHubControlInfoController manages control info bundle traffic.
 type LeafHubControlInfoController struct {
-	log       logr.Logger
-	bundle    *bundle.ControlInfoBundle
-	transport transport.Transport
+	log                     logr.Logger
+	bundle                  *bundle.ControlInfoBundle
+	transportBundleKey      string
+	transport               transport.Transport
+	resolveSyncIntervalFunc syncintervals.ResolveSyncIntervalFunc
 }
 
 // NewLeafHubControlInfoController creates a new instance of LeafHubControlInfoController.
-func NewLeafHubControlInfoController(log logr.Logger, transport transport.Transport,
-	leafHubName string) (*LeafHubControlInfoController, error) {
+func NewLeafHubControlInfoController(log logr.Logger, transport transport.Transport, leafHubName string,
+	resolveSyncIntervalFunc syncintervals.ResolveSyncIntervalFunc) (*LeafHubControlInfoController, error) {
+	transportBundleKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.ControlInfoMsgKey)
+
 	return &LeafHubControlInfoController{
-		log:       log.WithName("controlinfo"),
-		bundle:    &bundle.ControlInfoBundle{LeafHubName: leafHubName, Generation: 0},
-		transport: transport,
+		log: log.WithName("controlinfo"),
+		bundle: bundle.NewControlInfoBundle(leafHubName, helpers.GetGenerationFromTransport(transport,
+			transportBundleKey, datatypes.StatusBundle)),
+		transportBundleKey:      transportBundleKey,
+		transport:               transport,
+		resolveSyncIntervalFunc: resolveSyncIntervalFunc,
 	}, nil
 }
 
@@ -50,8 +55,8 @@ func (c *LeafHubControlInfoController) Start(stopChannel <-chan struct{}) error 
 }
 
 func (c *LeafHubControlInfoController) periodicSend(ctx context.Context) {
-	ticker := time.NewTicker(defaultPeriodSeconds * time.Second)
-	id := fmt.Sprintf("%s.%s", c.bundle.LeafHubName, datatypes.ControlInfoMsgKey)
+	currentSyncInterval := c.resolveSyncIntervalFunc()
+	ticker := time.NewTicker(currentSyncInterval)
 
 	for {
 		select {
@@ -60,15 +65,19 @@ func (c *LeafHubControlInfoController) periodicSend(ctx context.Context) {
 			return
 
 		case <-ticker.C: // wait for next time interval
-			c.bundle.Generation++
-			version := strconv.FormatUint(c.bundle.Generation, helpers.Base10)
+			c.bundle.UpdateObject(nil)
+			version := strconv.FormatUint(c.bundle.GetBundleGeneration(), helpers.Base10)
 
-			payload, err := json.Marshal(c.bundle)
-			if err != nil {
-				c.log.Info(fmt.Sprintf("failed to sync object from type %s with id %s- %s", datatypes.StatusBundle, id, err))
+			helpers.SyncToTransport(c.log, c.transport, c.transportBundleKey, datatypes.StatusBundle, version, c.bundle)
+
+			resolvedInterval := c.resolveSyncIntervalFunc()
+
+			// reset ticker if sync interval has changed
+			if resolvedInterval != currentSyncInterval {
+				currentSyncInterval = resolvedInterval
+				ticker.Reset(currentSyncInterval)
+				c.log.Info(fmt.Sprintf("sync interval has been reset to %s", currentSyncInterval.String()))
 			}
-
-			c.transport.SendAsync(id, datatypes.StatusBundle, version, payload)
 		}
 	}
 }
