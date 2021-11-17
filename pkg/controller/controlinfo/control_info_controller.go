@@ -17,7 +17,7 @@ import (
 // LeafHubControlInfoController manages control info bundle traffic.
 type LeafHubControlInfoController struct {
 	log                     logr.Logger
-	bundle                  *bundle.ControlInfoBundle
+	bundle                  bundle.Bundle
 	transportBundleKey      string
 	transport               transport.Transport
 	resolveSyncIntervalFunc syncintervals.ResolveSyncIntervalFunc
