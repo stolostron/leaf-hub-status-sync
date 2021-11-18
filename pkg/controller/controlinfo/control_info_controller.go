@@ -27,11 +27,11 @@ type LeafHubControlInfoController struct {
 func NewLeafHubControlInfoController(log logr.Logger, transport transport.Transport, leafHubName string,
 	resolveSyncIntervalFunc syncintervals.ResolveSyncIntervalFunc) (*LeafHubControlInfoController, error) {
 	transportBundleKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.ControlInfoMsgKey)
+	initialGeneration := helpers.GetGenerationFromTransport(transport, transportBundleKey, datatypes.StatusBundle)
 
 	return &LeafHubControlInfoController{
-		log: log.WithName("controlinfo"),
-		bundle: bundle.NewControlInfoBundle(leafHubName, helpers.GetGenerationFromTransport(transport,
-			transportBundleKey, datatypes.StatusBundle)),
+		log:                     log.WithName("controlinfo"),
+		bundle:                  bundle.NewControlInfoBundle(leafHubName, initialGeneration),
 		transportBundleKey:      transportBundleKey,
 		transport:               transport,
 		resolveSyncIntervalFunc: resolveSyncIntervalFunc,
