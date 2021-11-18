@@ -68,7 +68,11 @@ func (c *LeafHubControlInfoController) periodicSend(ctx context.Context) {
 			c.bundle.UpdateObject(nil)
 			version := strconv.FormatUint(c.bundle.GetBundleGeneration(), helpers.Base10)
 
-			helpers.SyncToTransport(c.log, c.transport, c.transportBundleKey, datatypes.StatusBundle, version, c.bundle)
+			if err := helpers.SyncToTransport(c.transport, c.transportBundleKey, datatypes.StatusBundle, version,
+				c.bundle); err != nil {
+				c.log.Info(fmt.Sprintf("failed to sync object from type %s with id %s- %s", datatypes.StatusBundle,
+					c.transportBundleKey, err))
+			}
 
 			resolvedInterval := c.resolveSyncIntervalFunc()
 

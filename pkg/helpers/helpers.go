@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/go-logr/logr"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -56,13 +55,13 @@ func HasAnnotation(obj metav1.Object, annotation string) bool {
 
 // SyncToTransport syncs the provided bundle to transport.
 // The bundle is provided as marker interface to resolve "cycle dependency" build error.
-func SyncToTransport(log logr.Logger, transport transport.Transport, msgID string, msgType string, generation string,
-	payload interface{}) {
+func SyncToTransport(transport transport.Transport, msgID string, msgType string, generation string,
+	payload interface{}) error {
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		log.Info(fmt.Sprintf("failed to sync object from type %s with id %s- %s", msgType, msgID, err))
-		return
+		return fmt.Errorf("failed to sync to transport: %w", err)
 	}
 
 	transport.SendAsync(msgID, msgType, generation, payloadBytes)
+	return nil
 }

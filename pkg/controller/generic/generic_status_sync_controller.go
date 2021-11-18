@@ -203,8 +203,11 @@ func (c *genericStatusSyncController) syncBundles() {
 
 		// send to transport only if bundle has changed
 		if bundleGeneration > entry.lastSentBundleGeneration {
-			helpers.SyncToTransport(c.log, c.transport, entry.transportBundleKey, datatypes.StatusBundle,
-				strconv.FormatUint(bundleGeneration, helpers.Base10), entry.bundle)
+			if err := helpers.SyncToTransport(c.transport, entry.transportBundleKey, datatypes.StatusBundle,
+				strconv.FormatUint(bundleGeneration, helpers.Base10), entry.bundle); err != nil {
+				c.log.Info(fmt.Sprintf("failed to sync object from type %s with id %s- %s", datatypes.StatusBundle,
+					entry.transportBundleKey, err))
+			}
 
 			entry.lastSentBundleGeneration = bundleGeneration
 			entry.wasSentInLastCycle = true
