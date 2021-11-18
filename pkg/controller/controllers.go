@@ -43,22 +43,18 @@ func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, leafHub
 	config := &configv1.Config{}
 	syncIntervalsData := syncintervals.NewSyncIntervals()
 
-	if err := configCtrl.AddConfigController(mgr, "hub-of-hubs-config", config); err != nil {
+	if err := configCtrl.AddConfigController(mgr, config); err != nil {
 		return fmt.Errorf("failed to add controller: %w", err)
 	}
 
-	if err := syncintervals.AddSyncIntervalsController(mgr, "sync-intervals", syncIntervalsData); err != nil {
-		return fmt.Errorf("failed to add controller: %w", err)
-	}
-
-	if err := mgr.Add(controlinfo.NewControlInfoController(ctrl.Log, transportImpl, leafHubName,
-		syncIntervalsData.GetControlInfo)); err != nil {
+	if err := syncintervals.AddSyncIntervalsController(mgr, syncIntervalsData); err != nil {
 		return fmt.Errorf("failed to add controller: %w", err)
 	}
 
 	addControllerFunctions := []func(ctrl.Manager, transport.Transport, string, *configv1.Config,
 		*syncintervals.SyncIntervals) error{
 		managedclusters.AddClustersStatusController, policies.AddPoliciesStatusController,
+		controlinfo.AddControlInfoController,
 	}
 
 	for _, addControllerFunction := range addControllerFunctions {

@@ -6,7 +6,6 @@ import (
 	policyv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 )
 
 // NewCompleteComplianceStatusBundle creates a new instance of ComplianceStatusBundle.
@@ -166,7 +165,7 @@ func (bundle *ComplianceStatusBundle) clusterListsEqual(oldClusters []string, ne
 	}
 
 	for _, newClusterName := range newClusters {
-		if !helpers.ContainsString(oldClusters, newClusterName) {
+		if !ContainsString(oldClusters, newClusterName) {
 			return false
 		}
 	}

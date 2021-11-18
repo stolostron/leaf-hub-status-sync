@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -12,20 +13,9 @@ import (
 const (
 	// RequeuePeriodSeconds is the time to wait until reconciliation retry in failure cases.
 	RequeuePeriodSeconds = 5
-	// Base10 is the base used to cast string to int.
+	// base10 is the base used to cast string to int.
 	base10 = 10
 )
-
-// ContainsString returns true if the string exists in the array and false otherwise.
-func ContainsString(slice []string, s string) bool {
-	for _, item := range slice {
-		if item == s {
-			return true
-		}
-	}
-
-	return false
-}
 
 // GetGenerationFromTransport returns bundle generation from transport layer.
 func GetGenerationFromTransport(transport transport.Transport, msgID string, msgType string) uint64 {
@@ -54,9 +44,8 @@ func HasAnnotation(obj metav1.Object, annotation string) bool {
 }
 
 // SyncToTransport syncs the provided bundle to transport.
-// The bundle is provided as marker interface to resolve "cycle dependency" build error.
 func SyncToTransport(transport transport.Transport, msgID string, msgType string, generation uint64,
-	payload interface{}) error {
+	payload bundle.Bundle) error {
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("failed to sync object from type %s with id %s- %w", msgType, msgID, err)

@@ -18,14 +18,15 @@ import (
 )
 
 const (
-	configMapName = "sync-intervals"
+	configMapName        = "sync-intervals"
+	syncIntervalsLogName = "sync-intervals"
 )
 
 // AddSyncIntervalsController creates a new instance of config map controller and adds it to the manager.
-func AddSyncIntervalsController(mgr ctrl.Manager, logName string, syncIntervals *SyncIntervals) error {
+func AddSyncIntervalsController(mgr ctrl.Manager, syncIntervals *SyncIntervals) error {
 	syncIntervalsCtrl := &syncIntervalsController{
 		client:            mgr.GetClient(),
-		log:               ctrl.Log.WithName(logName),
+		log:               ctrl.Log.WithName(syncIntervalsLogName),
 		syncIntervalsData: syncIntervals,
 	}
 

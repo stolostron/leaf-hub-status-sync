@@ -27,8 +27,7 @@ func (bundle *ControlInfoBundle) UpdateObject(Object) {
 }
 
 // DeleteObject function to delete a single object inside a bundle.
-func (bundle *ControlInfoBundle) DeleteObject(Object) {
-}
+func (bundle *ControlInfoBundle) DeleteObject(Object) {}
 
 // GetBundleGeneration function to get bundle generation.
 func (bundle *ControlInfoBundle) GetBundleGeneration() uint64 {

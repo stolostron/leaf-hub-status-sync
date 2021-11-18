@@ -203,7 +203,9 @@ func (c *genericStatusSyncController) syncBundles() {
 		if bundleGeneration > entry.lastSentBundleGeneration {
 			if err := helpers.SyncToTransport(c.transport, entry.transportBundleKey, datatypes.StatusBundle,
 				bundleGeneration, entry.bundle); err != nil {
-				c.log.Info("failed to sync to transport: %w", err)
+				c.log.Error(err, "failed to sync to transport")
+
+				continue // do not update last sent generation in case of failure in sync bundle to transport
 			}
 
 			entry.lastSentBundleGeneration = bundleGeneration

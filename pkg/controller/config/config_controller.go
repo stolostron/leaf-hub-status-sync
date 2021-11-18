@@ -17,11 +17,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
+const (
+	configLogName = "hub-of-hubs-config"
+)
+
 // AddConfigController creates a new instance of config controller and adds it to the manager.
-func AddConfigController(mgr ctrl.Manager, logName string, configObject *configv1.Config) error {
+func AddConfigController(mgr ctrl.Manager, configObject *configv1.Config) error {
 	hubOfHubsConfigCtrl := &hubOfHubsConfigController{
 		client:       mgr.GetClient(),
-		log:          ctrl.Log.WithName(logName),
+		log:          ctrl.Log.WithName(configLogName),
 		configObject: configObject,
 	}
 
