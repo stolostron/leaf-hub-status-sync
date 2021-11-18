@@ -23,16 +23,6 @@ var (
 	errEnvVarWrongType = errors.New("wrong type of environment variable")
 )
 
-// SyncService abstracts Sync Service client.
-type SyncService struct {
-	client    *client.SyncServiceClient
-	msgChan   chan *syncServiceMessage
-	stopChan  chan struct{}
-	startOnce sync.Once
-	stopOnce  sync.Once
-	log       logr.Logger
-}
-
 // NewSyncService creates a new instance of SyncService.
 func NewSyncService(log logr.Logger) (*SyncService, error) {
 	serverProtocol, host, port, err := readEnvVars()
@@ -45,8 +35,8 @@ func NewSyncService(log logr.Logger) (*SyncService, error) {
 	syncServiceClient.SetAppKeyAndSecret("user@myorg", "")
 
 	return &SyncService{
-		client:   syncServiceClient,
 		log:      log,
+		client:   syncServiceClient,
 		msgChan:  make(chan *syncServiceMessage),
 		stopChan: make(chan struct{}, 1),
 	}, nil
@@ -76,6 +66,16 @@ func readEnvVars() (string, string, uint16, error) {
 	return protocol, host, uint16(port), nil
 }
 
+// SyncService abstracts Sync Service client.
+type SyncService struct {
+	log       logr.Logger
+	client    *client.SyncServiceClient
+	msgChan   chan *syncServiceMessage
+	stopChan  chan struct{}
+	startOnce sync.Once
+	stopOnce  sync.Once
+}
+
 // Start function starts sync service.
 func (s *SyncService) Start() {
 	s.startOnce.Do(func() {
@@ -86,6 +86,7 @@ func (s *SyncService) Start() {
 // Stop function stops sync service.
 func (s *SyncService) Stop() {
 	s.stopOnce.Do(func() {
+		s.stopChan <- struct{}{}
 		close(s.stopChan)
 	})
 }
