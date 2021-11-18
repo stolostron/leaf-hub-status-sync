@@ -63,5 +63,6 @@ func SyncToTransport(transport transport.Transport, msgID string, msgType string
 	}
 
 	transport.SendAsync(msgID, msgType, generation, payloadBytes)
+
 	return nil
 }
