@@ -3,7 +3,6 @@ package generic
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"sync"
 	"time"
 
@@ -203,7 +202,7 @@ func (c *genericStatusSyncController) syncBundles() {
 		// send to transport only if bundle has changed
 		if bundleGeneration > entry.lastSentBundleGeneration {
 			if err := helpers.SyncToTransport(c.transport, entry.transportBundleKey, datatypes.StatusBundle,
-				strconv.FormatUint(bundleGeneration, helpers.Base10), entry.bundle); err != nil {
+				bundleGeneration, entry.bundle); err != nil {
 				c.log.Info("failed to sync to transport: %w", err)
 			}
 

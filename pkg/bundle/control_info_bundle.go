@@ -28,10 +28,6 @@ func (bundle *ControlInfoBundle) UpdateObject(Object) {
 
 // DeleteObject function to delete a single object inside a bundle.
 func (bundle *ControlInfoBundle) DeleteObject(Object) {
-	bundle.lock.Lock()
-	defer bundle.lock.Unlock()
-
-	bundle.Generation++
 }
 
 // GetBundleGeneration function to get bundle generation.
