@@ -194,7 +194,6 @@ func (c *genericStatusSyncController) syncBundles() {
 	defer c.lock.Unlock()
 
 	for _, entry := range c.orderedBundleCollection {
-		entry.wasSentInLastCycle = false
 		if !entry.predicate() { // evaluate if bundle has to be sent only if predicate is true
 			continue
 		}
@@ -209,7 +208,6 @@ func (c *genericStatusSyncController) syncBundles() {
 			}
 
 			entry.lastSentBundleGeneration = bundleGeneration
-			entry.wasSentInLastCycle = true
 		}
 	}
 }
