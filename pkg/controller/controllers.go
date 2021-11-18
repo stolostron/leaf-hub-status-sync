@@ -51,7 +51,7 @@ func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, leafHub
 		return fmt.Errorf("failed to add controller: %w", err)
 	}
 
-	controlInfoController, err := controlinfo.NewLeafHubControlInfoController(ctrl.Log, transportImpl, leafHubName,
+	controlInfoController, err := controlinfo.NewControlInfoController(ctrl.Log, transportImpl, leafHubName,
 		syncIntervalsData.GetControlInfo)
 	if err != nil {
 		return fmt.Errorf("failed to create controller: %w", err)

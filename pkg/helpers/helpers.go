@@ -59,7 +59,7 @@ func SyncToTransport(transport transport.Transport, msgID string, msgType string
 	payload interface{}) error {
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		return fmt.Errorf("failed to sync to transport: %w", err)
+		return fmt.Errorf("failed to sync object from type %s with id %s- %s", msgType, msgID, err)
 	}
 
 	transport.SendAsync(msgID, msgType, generation, payloadBytes)
