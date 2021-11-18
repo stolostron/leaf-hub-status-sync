@@ -65,6 +65,7 @@ func (c *syncIntervalsController) Reconcile(request ctrl.Request) (ctrl.Result, 
 
 	c.setSyncInterval(reqLogger, configMap, "managed_clusters", &c.syncIntervalsData.managedClusters)
 	c.setSyncInterval(reqLogger, configMap, "policies", &c.syncIntervalsData.policies)
+	c.setSyncInterval(reqLogger, configMap, "control_info", &c.syncIntervalsData.controlInfo)
 
 	reqLogger.Info("Reconciliation complete.")
 

@@ -77,6 +77,7 @@ metadata:
 data:
   managed_clusters: "5s"
   policies: "5s"
+  control_info: "60s"
 ---
 
 apiVersion: apps/v1

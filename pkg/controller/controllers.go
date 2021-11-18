@@ -10,6 +10,7 @@ import (
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
 	configCtrl "github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/config"
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/controlinfo"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/managedclusters"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/policies"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/syncintervals"
@@ -47,6 +48,11 @@ func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, leafHub
 	}
 
 	if err := syncintervals.AddSyncIntervalsController(mgr, "sync-intervals", syncIntervalsData); err != nil {
+		return fmt.Errorf("failed to add controller: %w", err)
+	}
+
+	if err := mgr.Add(controlinfo.NewControlInfoController(ctrl.Log, transportImpl, leafHubName,
+		syncIntervalsData.GetControlInfo)); err != nil {
 		return fmt.Errorf("failed to add controller: %w", err)
 	}
 

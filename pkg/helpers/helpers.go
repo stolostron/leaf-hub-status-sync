@@ -1,14 +1,20 @@
 package helpers
 
 import (
+	"encoding/json"
+	"fmt"
 	"strconv"
 
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// RequeuePeriodSeconds is the time to wait until reconciliation retry in failure cases.
-const RequeuePeriodSeconds = 5
+const (
+	// RequeuePeriodSeconds is the time to wait until reconciliation retry in failure cases.
+	RequeuePeriodSeconds = 5
+	// Base10 is the base used to cast string to int.
+	base10 = 10
+)
 
 // ContainsString returns true if the string exists in the array and false otherwise.
 func ContainsString(slice []string, s string) bool {
@@ -45,4 +51,19 @@ func HasAnnotation(obj metav1.Object, annotation string) bool {
 	_, found := obj.GetAnnotations()[annotation]
 
 	return found
+}
+
+// SyncToTransport syncs the provided bundle to transport.
+// The bundle is provided as marker interface to resolve "cycle dependency" build error.
+func SyncToTransport(transport transport.Transport, msgID string, msgType string, generation uint64,
+	payload interface{}) error {
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to sync object from type %s with id %s- %w", msgType, msgID, err)
+	}
+
+	version := strconv.FormatUint(generation, base10)
+	transport.SendAsync(msgID, msgType, version, payloadBytes)
+
+	return nil
 }
