@@ -11,6 +11,7 @@ import (
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
 	configCtrl "github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/config"
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/controlinfo"
 	localpolicies "github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/local_policies"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/managedclusters"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/policies"
@@ -46,11 +47,11 @@ func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, leafHub
 	config := &configv1.Config{}
 	syncIntervalsData := syncintervals.NewSyncIntervals()
 
-	if err := configCtrl.AddConfigController(mgr, "hub-of-hubs-config", config); err != nil {
+	if err := configCtrl.AddConfigController(mgr, config); err != nil {
 		return fmt.Errorf("failed to add controller: %w", err)
 	}
 
-	if err := syncintervals.AddSyncIntervalsController(mgr, "sync-intervals", syncIntervalsData); err != nil {
+	if err := syncintervals.AddSyncIntervalsController(mgr, syncIntervalsData); err != nil {
 		return fmt.Errorf("failed to add controller: %w", err)
 	}
 
@@ -58,6 +59,7 @@ func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, leafHub
 		*syncintervals.SyncIntervals) error{
 		managedclusters.AddClustersStatusController, policies.AddPoliciesStatusController,
 		localpolicies.AddLocalPoliciesController, localpolicies.AddLocalPlacementRuleController,
+		controlinfo.AddControlInfoController,
 	}
 
 	for _, addControllerFunction := range addControllerFunctions {

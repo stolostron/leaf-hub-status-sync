@@ -2,9 +2,7 @@ package generic
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"strconv"
 	"sync"
 	"time"
 
@@ -19,11 +17,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-)
-
-const (
-	// base the base in which to format.
-	base10 = 10
 )
 
 // CreateObjectFunction is a function for how to create an object that is stored inside the bundle.
@@ -208,23 +201,16 @@ func (c *genericStatusSyncController) syncBundles() {
 
 		// send to transport only if bundle has changed.
 		if bundleGeneration > entry.lastSentBundleGeneration {
-			c.syncToTransport(entry.transportBundleKey, datatypes.StatusBundle,
-				strconv.FormatUint(bundleGeneration, base10), entry.bundle)
+			if err := helpers.SyncToTransport(c.transport, entry.transportBundleKey, datatypes.StatusBundle,
+				bundleGeneration, entry.bundle); err != nil {
+				c.log.Error(err, "failed to sync to transport")
+
+				continue // do not update last sent generation in case of failure in sync bundle to transport
+			}
 
 			entry.lastSentBundleGeneration = bundleGeneration
 		}
 	}
-}
-
-func (c *genericStatusSyncController) syncToTransport(id string, objType string, generation string,
-	payload bundle.Bundle) {
-	payloadBytes, err := json.Marshal(payload)
-	if err != nil {
-		c.log.Info(fmt.Sprintf("failed to sync object from type %s with id %s- %s", objType, id, err))
-		return
-	}
-
-	c.transport.SendAsync(id, objType, generation, payloadBytes)
 }
 
 func cleanObject(object bundle.Object) {

@@ -5,7 +5,6 @@ import (
 
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	"github.com/pkg/errors"
 )
 
@@ -174,7 +173,7 @@ func (bundle *ClustersPerPolicyBundle) updateObjectIfChanged(objectIndex int, po
 
 func (bundle *ClustersPerPolicyBundle) clusterListContains(subsetClusters []string, allClusters []string) bool {
 	for _, clusterName := range subsetClusters {
-		if !helpers.ContainsString(allClusters, clusterName) {
+		if !ContainsString(allClusters, clusterName) {
 			return false
 		}
 	}
