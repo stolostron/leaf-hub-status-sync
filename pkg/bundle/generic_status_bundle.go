@@ -17,8 +17,8 @@ func NewGenericStatusBundle(leafHubName string, generation uint64, cleanObjFunc 
 		Objects:      make([]Object, 0),
 		LeafHubName:  leafHubName,
 		Generation:   generation,
-		lock:         sync.Mutex{},
 		cleanObjFunc: cleanObjFunc,
+		lock:         sync.Mutex{},
 	}
 }
 
@@ -29,8 +29,8 @@ type GenericStatusBundle struct {
 	Objects      []Object `json:"objects"`
 	LeafHubName  string   `json:"leafHubName"`
 	Generation   uint64   `json:"generation"`
-	lock         sync.Mutex
 	cleanObjFunc func(obj Object)
+	lock         sync.Mutex
 }
 
 // UpdateObject function to update a single object inside a bundle.

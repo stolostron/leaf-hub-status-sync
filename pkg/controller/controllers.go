@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	clustersv1 "github.com/open-cluster-management/api/cluster/v1"
-	placementrulev1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/apps/v1"
+	placementrulesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/apps/v1"
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
 	configCtrl "github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/config"
@@ -30,7 +30,7 @@ func AddToScheme(s *runtime.Scheme) error {
 	}
 
 	schemeBuilders := []*scheme.Builder{
-		policiesv1.SchemeBuilder, configv1.SchemeBuilder, placementrulev1.SchemeBuilder,
+		policiesv1.SchemeBuilder, configv1.SchemeBuilder, placementrulesv1.SchemeBuilder,
 	} // add schemes
 
 	for _, schemeBuilder := range schemeBuilders {
@@ -58,7 +58,7 @@ func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, leafHub
 	addControllerFunctions := []func(ctrl.Manager, transport.Transport, string, *configv1.Config,
 		*syncintervals.SyncIntervals) error{
 		managedclusters.AddClustersStatusController, policies.AddPoliciesStatusController,
-		localpolicies.AddLocalPoliciesController, localpolicies.AddLocalPlacementRuleController,
+		localpolicies.AddLocalPoliciesController, localpolicies.AddLocalPlacementRulesController,
 		controlinfo.AddControlInfoController,
 	}
 

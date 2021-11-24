@@ -135,7 +135,8 @@ func (s *SyncService) sendMessages() {
 				continue
 			}
 
-			s.log.Info(fmt.Sprintf("Message '%s' from type '%s' with version '%s' sent", msg.id, msg.msgType, msg.version))
+			s.log.Info(fmt.Sprintf("Message '%s' from type '%s' with version '%s' sent", msg.id, msg.msgType,
+				msg.version))
 		}
 	}
 }

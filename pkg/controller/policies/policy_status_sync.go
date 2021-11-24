@@ -29,7 +29,27 @@ const (
 func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport, leafHubName string,
 	hubOfHubsConfig *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals) error {
 	createObjFunction := func() bundle.Object { return &policiesv1.Policy{} }
+	bundleCollection := createBundleCollection(transport, leafHubName, hubOfHubsConfig)
 
+	hohNamespacePredicate := predicate.NewPredicateFuncs(func(meta metav1.Object, object runtime.Object) bool {
+		return meta.GetNamespace() == datatypes.HohSystemNamespace
+	})
+	ownerRefAnnotationPredicate := predicate.NewPredicateFuncs(func(meta metav1.Object, object runtime.Object) bool {
+		return helpers.HasAnnotation(meta, datatypes.OriginOwnerReferenceAnnotation)
+	})
+
+	// initialize policy status controller (contains multiple bundles)
+	if err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, transport, policyCleanupFinalizer,
+		bundleCollection, createObjFunction, predicate.And(hohNamespacePredicate, ownerRefAnnotationPredicate),
+		syncIntervalsData.GetPolicies); err != nil {
+		return fmt.Errorf("failed to add policies controller to the manager - %w", err)
+	}
+
+	return nil
+}
+
+func createBundleCollection(transport transport.Transport, leafHubName string,
+	hubOfHubsConfig *configv1.Config) []*generic.BundleCollectionEntry {
 	// clusters per policy (base bundle)
 	clustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.ClustersPerPolicyMsgKey)
 	clustersPerPolicyBundle := bundle.NewClustersPerPolicyBundle(leafHubName, helpers.GetGenerationFromTransport(
@@ -50,32 +70,15 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 
 	fullStatusPredicate := func() bool { return hubOfHubsConfig.Spec.AggregationLevel == configv1.Full }
 	minimalStatusPredicate := func() bool { return hubOfHubsConfig.Spec.AggregationLevel == configv1.Minimal }
+
 	// no need to send in the same cycle both clusters per policy and compliance. if CpP was sent, don't send compliance
-	// this is done by marking compliance as sent (updating lastSentGeneration)
-	complianceBundleEntry := generic.NewBundleCollectionEntry(completeComplianceStatusTransportKey,
-		completeComplianceStatusBundle, fullStatusPredicate)
-	bundleCollection := []*generic.BundleCollectionEntry{ // multiple bundles for policy status
+	return []*generic.BundleCollectionEntry{ // multiple bundles for policy status
 		generic.NewBundleCollectionEntry(clustersPerPolicyTransportKey, clustersPerPolicyBundle, fullStatusPredicate),
-		complianceBundleEntry,
+		generic.NewBundleCollectionEntry(completeComplianceStatusTransportKey, completeComplianceStatusBundle,
+			fullStatusPredicate),
 		generic.NewBundleCollectionEntry(minimalComplianceStatusTransportKey, minimalComplianceStatusBundle,
 			minimalStatusPredicate),
 	}
-
-	hohNamespacePredicate := predicate.NewPredicateFuncs(func(meta metav1.Object, object runtime.Object) bool {
-		return meta.GetNamespace() == datatypes.HohSystemNamespace
-	})
-	ownerRefAnnotationPredicate := predicate.NewPredicateFuncs(func(meta metav1.Object, object runtime.Object) bool {
-		return helpers.HasAnnotation(meta, datatypes.OriginOwnerReferenceAnnotation)
-	})
-
-	// initialize policy status controller (contains multiple bundles)
-	if err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, transport, policyCleanupFinalizer,
-		bundleCollection, createObjFunction, predicate.And(hohNamespacePredicate, ownerRefAnnotationPredicate),
-		syncIntervalsData.GetPolicies); err != nil {
-		return fmt.Errorf("failed to add controller to the manager - %w", err)
-	}
-
-	return nil
 }
 
 func extractPolicyID(obj bundle.Object) (string, bool) {

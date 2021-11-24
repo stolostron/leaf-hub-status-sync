@@ -20,18 +20,36 @@ import (
 const (
 	localPoliciesStatusSyncLog  = "local-policies-status-sync"
 	localPolicyCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/local-policy-cleanup"
-	rootReferenceLabel          = "policy.open-cluster-management.io/root-policy"
+	rootPolicyLabel             = "policy.open-cluster-management.io/root-policy"
 )
 
 // AddLocalPoliciesController this function adds a new local policies sync controller.
 func AddLocalPoliciesController(mgr ctrl.Manager, transport transport.Transport, leafHubName string,
 	hubOfHubsConfig *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals) error {
 	createObjFunc := func() bundle.Object { return &policiesv1.Policy{} }
+	bundleCollection := createBundleCollection(transport, leafHubName, hubOfHubsConfig)
 
+	localPolicyPredicate := predicate.NewPredicateFuncs(func(meta metav1.Object, object runtime.Object) bool {
+		return !helpers.HasAnnotation(meta, datatypes.OriginOwnerReferenceAnnotation) &&
+			!helpers.HasLabel(meta, rootPolicyLabel)
+	})
+
+	if err := generic.NewGenericStatusSyncController(mgr, localPoliciesStatusSyncLog, transport,
+		localPolicyCleanupFinalizer, bundleCollection, createObjFunc, localPolicyPredicate,
+		syncIntervalsData.GetPolicies); err != nil {
+		return fmt.Errorf("failed to add local policies controller to the manager - %w", err)
+	}
+
+	return nil
+}
+
+func createBundleCollection(transport transport.Transport, leafHubName string,
+	hubOfHubsConfig *configv1.Config) []*generic.BundleCollectionEntry {
 	extractLocalPolicyIDFunc := func(obj bundle.Object) (string, bool) { return string(obj.GetUID()), true }
 
 	// clusters per policy (base bundle)
-	localClustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalClustersPerPolicyMsgKey)
+	localClustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName,
+		datatypes.LocalClustersPerPolicyMsgKey)
 	localClustersPerPolicyBundle := bundle.NewClustersPerPolicyBundle(leafHubName,
 		helpers.GetGenerationFromTransport(transport, localClustersPerPolicyTransportKey, datatypes.StatusBundle),
 		extractLocalPolicyIDFunc)
@@ -44,36 +62,22 @@ func AddLocalPoliciesController(mgr ctrl.Manager, transport transport.Transport,
 			localCompleteComplianceStatusTransportKey, datatypes.StatusBundle), extractLocalPolicyIDFunc)
 
 	localPolicySpecTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalPolicySpecMsgKey)
+	localPolicySpecBundle := bundle.NewGenericStatusBundle(leafHubName, helpers.GetGenerationFromTransport(transport,
+		localPolicySpecTransportKey, datatypes.StatusBundle), cleanPolicyFunc)
 
 	// check for full information
 	localPolicyStatusPredicate := func() bool {
 		return hubOfHubsConfig.Spec.AggregationLevel == configv1.Full && hubOfHubsConfig.Spec.EnableLocalPolicies
 	}
-
-	bundleCollection := []*generic.BundleCollectionEntry{ // multiple bundles for policy status
+	// multiple bundles for local policies
+	return []*generic.BundleCollectionEntry{
 		generic.NewBundleCollectionEntry(localClustersPerPolicyTransportKey,
 			localClustersPerPolicyBundle, localPolicyStatusPredicate),
 		generic.NewBundleCollectionEntry(localCompleteComplianceStatusTransportKey,
 			localCompleteComplianceStatusBundle, localPolicyStatusPredicate),
-		generic.NewBundleCollectionEntry(localPolicySpecTransportKey,
-			bundle.NewGenericStatusBundle(leafHubName,
-				helpers.GetGenerationFromTransport(transport, localPolicySpecTransportKey, datatypes.StatusBundle),
-				cleanPolicyFunc),
+		generic.NewBundleCollectionEntry(localPolicySpecTransportKey, localPolicySpecBundle,
 			func() bool { return hubOfHubsConfig.Spec.EnableLocalPolicies }),
 	}
-
-	localPolicyPredicate := predicate.NewPredicateFuncs(func(meta metav1.Object, object runtime.Object) bool {
-		return !helpers.HasAnnotation(meta, datatypes.OriginOwnerReferenceAnnotation) &&
-			!helpers.HasLabel(meta, rootReferenceLabel)
-	})
-
-	if err := generic.NewGenericStatusSyncController(mgr, localPoliciesStatusSyncLog, transport,
-		localPolicyCleanupFinalizer, bundleCollection, createObjFunc, localPolicyPredicate,
-		syncIntervalsData.GetPolicies); err != nil {
-		return fmt.Errorf("failed to add local policies controller to the manager - %w", err)
-	}
-
-	return nil
 }
 
 func cleanPolicyFunc(object bundle.Object) {

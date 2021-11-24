@@ -18,8 +18,8 @@ func NewCompleteComplianceStatusBundle(leafHubName string, baseBundle Bundle, ge
 			Generation:           generation,
 		},
 		baseBundle:       baseBundle,
-		lock:             sync.Mutex{},
 		extractObjIDFunc: extractObjIDFunc,
+		lock:             sync.Mutex{},
 	}
 }
 
@@ -27,8 +27,8 @@ func NewCompleteComplianceStatusBundle(leafHubName string, baseBundle Bundle, ge
 type ComplianceStatusBundle struct {
 	statusbundle.BaseCompleteComplianceStatusBundle
 	baseBundle       Bundle
-	lock             sync.Mutex
 	extractObjIDFunc ExtractObjIDFunc
+	lock             sync.Mutex
 }
 
 // UpdateObject function to update a single object inside a bundle.

@@ -9,24 +9,23 @@ import (
 )
 
 // NewClustersPerPolicyBundle creates a new instance of ClustersPerPolicyBundle.
-func NewClustersPerPolicyBundle(leafHubName string, generation uint64,
-	extractObjIDFunc ExtractObjIDFunc) Bundle {
+func NewClustersPerPolicyBundle(leafHubName string, generation uint64, extractObjIDFunc ExtractObjIDFunc) Bundle {
 	return &ClustersPerPolicyBundle{
 		BaseClustersPerPolicyBundle: statusbundle.BaseClustersPerPolicyBundle{
 			Objects:     make([]*statusbundle.PolicyGenericComplianceStatus, 0),
 			LeafHubName: leafHubName,
 			Generation:  generation,
 		},
-		lock:             sync.Mutex{},
 		extractObjIDFunc: extractObjIDFunc,
+		lock:             sync.Mutex{},
 	}
 }
 
 // ClustersPerPolicyBundle abstracts management of clusters per policy bundle.
 type ClustersPerPolicyBundle struct {
 	statusbundle.BaseClustersPerPolicyBundle
-	lock             sync.Mutex
 	extractObjIDFunc ExtractObjIDFunc
+	lock             sync.Mutex
 }
 
 // UpdateObject function to update a single object inside a bundle.
