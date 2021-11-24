@@ -22,7 +22,7 @@ import (
 // CreateObjectFunction is a function for how to create an object that is stored inside the bundle.
 type CreateObjectFunction func() bundle.Object
 
-// NewGenericStatusSyncController creates a new instnace of genericStatusSyncController and adds it to the manager.
+// NewGenericStatusSyncController creates a new instance of genericStatusSyncController and adds it to the manager.
 func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport transport.Transport,
 	finalizerName string, orderedBundleCollection []*BundleCollectionEntry, createObjFunc CreateObjectFunction,
 	predicate predicate.Predicate, resolveSyncIntervalFunc syncintervals.ResolveSyncIntervalFunc) error {
@@ -119,7 +119,7 @@ func (c *genericStatusSyncController) updateObjectAndFinalizer(ctx context.Conte
 	defer c.lock.Unlock()
 
 	for _, entry := range c.orderedBundleCollection {
-		entry.bundle.UpdateObject(object) // update in each bundle from the collection according to their order
+		entry.bundle.UpdateObject(object) // update in each bundle from the collection according to their order.
 	}
 
 	return nil
@@ -145,7 +145,7 @@ func (c *genericStatusSyncController) deleteObjectAndFinalizer(ctx context.Conte
 	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
 
 	for _, entry := range c.orderedBundleCollection {
-		entry.bundle.DeleteObject(object) // delete from all bundles
+		entry.bundle.DeleteObject(object) // delete from all bundles.
 	}
 
 	c.lock.Unlock() // not using defer since remove finalizer may get delayed. release lock as soon as possible.
@@ -156,7 +156,7 @@ func (c *genericStatusSyncController) deleteObjectAndFinalizer(ctx context.Conte
 func (c *genericStatusSyncController) removeFinalizer(ctx context.Context, object bundle.Object,
 	log logr.Logger) error {
 	if !controllerutil.ContainsFinalizer(object, c.finalizerName) {
-		return nil // if finalizer is not there, do nothing
+		return nil // if finalizer is not there, do nothing.
 	}
 
 	log.Info("removing finalizer")
@@ -193,13 +193,13 @@ func (c *genericStatusSyncController) syncBundles() {
 	defer c.lock.Unlock()
 
 	for _, entry := range c.orderedBundleCollection {
-		if !entry.predicate() { // evaluate if bundle has to be sent only if predicate is true
+		if !entry.predicate() { // evaluate if bundle has to be sent only if predicate is true.
 			continue
 		}
 
 		bundleGeneration := entry.bundle.GetBundleGeneration()
 
-		// send to transport only if bundle has changed
+		// send to transport only if bundle has changed.
 		if bundleGeneration > entry.lastSentBundleGeneration {
 			if err := helpers.SyncToTransport(c.transport, entry.transportBundleKey, datatypes.StatusBundle,
 				bundleGeneration, entry.bundle); err != nil {

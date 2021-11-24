@@ -7,10 +7,12 @@ import (
 	"fmt"
 
 	clustersv1 "github.com/open-cluster-management/api/cluster/v1"
+	placementrulev1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/apps/v1"
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
 	configCtrl "github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/config"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/controlinfo"
+	localpolicies "github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/local_policies"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/managedclusters"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/policies"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/syncintervals"
@@ -27,7 +29,9 @@ func AddToScheme(s *runtime.Scheme) error {
 		return fmt.Errorf("failed to add scheme: %w", err)
 	}
 
-	schemeBuilders := []*scheme.Builder{policiesv1.SchemeBuilder, configv1.SchemeBuilder} // add schemes
+	schemeBuilders := []*scheme.Builder{
+		policiesv1.SchemeBuilder, configv1.SchemeBuilder, placementrulev1.SchemeBuilder,
+	} // add schemes
 
 	for _, schemeBuilder := range schemeBuilders {
 		if err := schemeBuilder.AddToScheme(s); err != nil {
@@ -54,6 +58,7 @@ func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, leafHub
 	addControllerFunctions := []func(ctrl.Manager, transport.Transport, string, *configv1.Config,
 		*syncintervals.SyncIntervals) error{
 		managedclusters.AddClustersStatusController, policies.AddPoliciesStatusController,
+		localpolicies.AddLocalPoliciesController, localpolicies.AddLocalPlacementRuleController,
 		controlinfo.AddControlInfoController,
 	}
 

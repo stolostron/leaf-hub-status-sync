@@ -30,7 +30,7 @@ func AddClustersStatusController(mgr ctrl.Manager, transport transport.Transport
 
 	bundleCollection := []*generic.BundleCollectionEntry{ // single bundle for managed clusters
 		generic.NewBundleCollectionEntry(transportBundleKey, bundle.NewGenericStatusBundle(leafHubName,
-			helpers.GetGenerationFromTransport(transport, transportBundleKey, datatypes.StatusBundle)),
+			helpers.GetGenerationFromTransport(transport, transportBundleKey, datatypes.StatusBundle), nil),
 			func() bool { // bundle predicate
 				return hubOfHubsConfig.Spec.AggregationLevel == configv1.Full ||
 					hubOfHubsConfig.Spec.AggregationLevel == configv1.Minimal

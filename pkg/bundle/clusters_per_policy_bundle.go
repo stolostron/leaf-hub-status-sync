@@ -4,27 +4,29 @@ import (
 	"sync"
 
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
-	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/pkg/errors"
 )
 
 // NewClustersPerPolicyBundle creates a new instance of ClustersPerPolicyBundle.
-func NewClustersPerPolicyBundle(leafHubName string, generation uint64) Bundle {
+func NewClustersPerPolicyBundle(leafHubName string, generation uint64,
+	extractObjIDFunc ExtractObjIDFunc) Bundle {
 	return &ClustersPerPolicyBundle{
 		BaseClustersPerPolicyBundle: statusbundle.BaseClustersPerPolicyBundle{
 			Objects:     make([]*statusbundle.PolicyGenericComplianceStatus, 0),
 			LeafHubName: leafHubName,
 			Generation:  generation,
 		},
-		lock: sync.Mutex{},
+		lock:             sync.Mutex{},
+		extractObjIDFunc: extractObjIDFunc,
 	}
 }
 
 // ClustersPerPolicyBundle abstracts management of clusters per policy bundle.
 type ClustersPerPolicyBundle struct {
 	statusbundle.BaseClustersPerPolicyBundle
-	lock sync.Mutex
+	lock             sync.Mutex
+	extractObjIDFunc ExtractObjIDFunc
 }
 
 // UpdateObject function to update a single object inside a bundle.
@@ -37,9 +39,9 @@ func (bundle *ClustersPerPolicyBundle) UpdateObject(object Object) {
 		return // do not handle objects other than policy
 	}
 
-	originPolicyID, found := object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
-	if !found {
-		return // origin owner reference annotation not found, not handling this policy (wasn't sent from hub of hubs)
+	originPolicyID, ok := bundle.extractObjIDFunc(object)
+	if !ok {
+		return // cant update the object without finding its id.
 	}
 
 	index, err := bundle.getObjectIndexByUID(originPolicyID)
@@ -65,9 +67,14 @@ func (bundle *ClustersPerPolicyBundle) DeleteObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	originPolicyID, found := object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
-	if !found {
-		return // origin owner reference annotation not found, cannot handle this policy
+	_, ok := object.(*policiesv1.Policy)
+	if !ok {
+		return // wont handle anything other than policies
+	}
+
+	originPolicyID, ok := bundle.extractObjIDFunc(object)
+	if !ok {
+		return // cant update the object without finding its id.
 	}
 
 	index, err := bundle.getObjectIndexByUID(originPolicyID)
