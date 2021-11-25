@@ -36,8 +36,6 @@ func (bundle *ComplianceStatusBundle) UpdateObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	// if cluster per policy is sent, no need to send complete compliance as well.
-	// therefore we check if base generation was changed and decide whether we need to increase generation or not.
 	bundle.BaseBundleGeneration = bundle.baseBundle.GetBundleGeneration()
 
 	policy, ok := object.(*policyv1.Policy)

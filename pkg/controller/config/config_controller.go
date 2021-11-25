@@ -3,7 +3,6 @@ package config
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/go-logr/logr"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
@@ -40,7 +39,7 @@ func AddConfigController(mgr ctrl.Manager, configObject *configv1.Config) error 
 		For(&configv1.Config{}).
 		WithEventFilter(predicate.And(hohNamespacePredicate, ownerRefAnnotationPredicate)).
 		Complete(hubOfHubsConfigCtrl); err != nil {
-		return fmt.Errorf("failed to add controller to the manager - %w", err)
+		return fmt.Errorf("failed to add hub of hubs config controller to the manager - %w", err)
 	}
 
 	return nil
@@ -61,7 +60,7 @@ func (c *hubOfHubsConfigController) Reconcile(request ctrl.Request) (ctrl.Result
 		return ctrl.Result{}, nil
 	} else if err != nil {
 		reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
-		return ctrl.Result{Requeue: true, RequeueAfter: helpers.RequeuePeriodSeconds * time.Second},
+		return ctrl.Result{Requeue: true, RequeueAfter: helpers.RequeuePeriod},
 			fmt.Errorf("reconciliation failed: %w", err)
 	}
 

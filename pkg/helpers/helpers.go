@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
@@ -11,8 +12,8 @@ import (
 )
 
 const (
-	// RequeuePeriodSeconds is the time to wait until reconciliation retry in failure cases.
-	RequeuePeriodSeconds = 5
+	// RequeuePeriod is the time to wait until reconciliation retry in failure cases.
+	RequeuePeriod = 5 * time.Second
 	// base10 is the base used to cast string to int.
 	base10 = 10
 )
@@ -59,7 +60,7 @@ func SyncToTransport(transport transport.Transport, msgID string, msgType string
 	payload bundle.Bundle) error {
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		return fmt.Errorf("failed to sync object from type %s with id %s- %w", msgType, msgID, err)
+		return fmt.Errorf("failed to sync object from type %s with id %s - %w", msgType, msgID, err)
 	}
 
 	version := strconv.FormatUint(generation, base10)

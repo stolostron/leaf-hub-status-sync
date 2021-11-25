@@ -5,7 +5,6 @@ import (
 
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
-	"github.com/pkg/errors"
 )
 
 // NewClustersPerPolicyBundle creates a new instance of ClustersPerPolicyBundle.
@@ -100,7 +99,7 @@ func (bundle *ClustersPerPolicyBundle) getObjectIndexByUID(uid string) (int, err
 		}
 	}
 
-	return -1, errors.New("object not found")
+	return -1, errObjectNotFound
 }
 
 // getClusterStatuses returns (list of compliant clusters, list of nonCompliant clusters, list of unknown clusters,
@@ -154,10 +153,9 @@ func (bundle *ClustersPerPolicyBundle) updateObjectIfChanged(objectIndex int, po
 
 	// check if any cluster was added or removed
 	if len(oldPolicyStatus.CompliantClusters)+len(oldPolicyStatus.NonCompliantClusters)+
-		len(oldPolicyStatus.UnknownComplianceClusters) != len(newClusters) {
-		clusterListChanged = true // if the length is different, at least one cluster was added/removed
-	} else if !bundle.clusterListContains(oldPolicyStatus.NonCompliantClusters, newClusters) ||
+		len(oldPolicyStatus.UnknownComplianceClusters) != len(newClusters) ||
 		!bundle.clusterListContains(oldPolicyStatus.CompliantClusters, newClusters) ||
+		!bundle.clusterListContains(oldPolicyStatus.NonCompliantClusters, newClusters) ||
 		!bundle.clusterListContains(oldPolicyStatus.UnknownComplianceClusters, newClusters) {
 		clusterListChanged = true // at least one cluster was added/removed
 	}

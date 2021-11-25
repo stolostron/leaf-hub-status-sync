@@ -3,7 +3,6 @@ package bundle
 import (
 	"sync"
 
-	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -48,7 +47,7 @@ func (bundle *GenericStatusBundle) UpdateObject(object Object) {
 		return
 	}
 
-	// if we reached here, object already exists in the bundle.. check if we need to update the object
+	// if we reached here, object already exists in the bundle. check if we need to update the object
 	if object.GetResourceVersion() == bundle.Objects[index].GetResourceVersion() {
 		return // update in bundle only if object changed. check for changes using resourceVersion field
 	}
@@ -87,5 +86,5 @@ func (bundle *GenericStatusBundle) getObjectIndexByUID(uid types.UID) (int, erro
 		}
 	}
 
-	return -1, errors.New("object not found")
+	return -1, errObjectNotFound
 }

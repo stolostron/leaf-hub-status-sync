@@ -82,19 +82,19 @@ func (c *genericStatusSyncController) Reconcile(request ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, nil
 	} else if err != nil {
 		reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
-		return ctrl.Result{Requeue: true, RequeueAfter: helpers.RequeuePeriodSeconds * time.Second},
+		return ctrl.Result{Requeue: true, RequeueAfter: helpers.RequeuePeriod},
 			fmt.Errorf("reconciliation failed: %w", err)
 	}
 
 	if c.isObjectBeingDeleted(object) {
 		if err := c.deleteObjectAndFinalizer(ctx, object, reqLogger); err != nil {
 			reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
-			return ctrl.Result{Requeue: true, RequeueAfter: helpers.RequeuePeriodSeconds * time.Second}, err
+			return ctrl.Result{Requeue: true, RequeueAfter: helpers.RequeuePeriod}, err
 		}
 	} else { // otherwise, the object was not deleted and no error occurred
 		if err := c.updateObjectAndFinalizer(ctx, object, reqLogger); err != nil {
 			reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
-			return ctrl.Result{Requeue: true, RequeueAfter: helpers.RequeuePeriodSeconds * time.Second}, err
+			return ctrl.Result{Requeue: true, RequeueAfter: helpers.RequeuePeriod}, err
 		}
 	}
 

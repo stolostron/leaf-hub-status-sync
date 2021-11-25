@@ -38,7 +38,7 @@ func AddSyncIntervalsController(mgr ctrl.Manager, syncIntervals *SyncIntervals) 
 		For(&v1.ConfigMap{}).
 		WithEventFilter(syncIntervalsPredicate).
 		Complete(syncIntervalsCtrl); err != nil {
-		return fmt.Errorf("failed to add controller to the manager - %w", err)
+		return fmt.Errorf("failed to add sync intervals controller to the manager - %w", err)
 	}
 
 	return nil
@@ -60,30 +60,29 @@ func (c *syncIntervalsController) Reconcile(request ctrl.Request) (ctrl.Result, 
 		return ctrl.Result{}, nil
 	} else if err != nil {
 		reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
-		return ctrl.Result{Requeue: true, RequeueAfter: helpers.RequeuePeriodSeconds * time.Second},
+		return ctrl.Result{Requeue: true, RequeueAfter: helpers.RequeuePeriod},
 			fmt.Errorf("reconciliation failed: %w", err)
 	}
 
-	c.setSyncInterval(reqLogger, configMap, "managed_clusters", &c.syncIntervalsData.managedClusters)
-	c.setSyncInterval(reqLogger, configMap, "policies", &c.syncIntervalsData.policies)
-	c.setSyncInterval(reqLogger, configMap, "control_info", &c.syncIntervalsData.controlInfo)
+	c.setSyncInterval(configMap, "managed_clusters", &c.syncIntervalsData.managedClusters)
+	c.setSyncInterval(configMap, "policies", &c.syncIntervalsData.policies)
+	c.setSyncInterval(configMap, "control_info", &c.syncIntervalsData.controlInfo)
 
 	reqLogger.Info("Reconciliation complete.")
 
 	return ctrl.Result{}, nil
 }
 
-func (c *syncIntervalsController) setSyncInterval(log logr.Logger, configMap *v1.ConfigMap, key string,
-	syncInterval *time.Duration) {
+func (c *syncIntervalsController) setSyncInterval(configMap *v1.ConfigMap, key string, syncInterval *time.Duration) {
 	intervalStr, found := configMap.Data[key]
 	if !found {
-		log.Info(fmt.Sprintf("%s sync interval not defined, using %s", key, syncInterval.String()))
+		c.log.Info(fmt.Sprintf("%s sync interval not defined, using %s", key, syncInterval.String()))
 		return
 	}
 
 	interval, err := time.ParseDuration(intervalStr)
 	if err != nil {
-		log.Info(fmt.Sprintf("%s sync interval has invalid format, using %s", key, syncInterval.String()))
+		c.log.Info(fmt.Sprintf("%s sync interval has invalid format, using %s", key, syncInterval.String()))
 		return
 	}
 
