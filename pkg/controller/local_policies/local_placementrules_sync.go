@@ -24,15 +24,14 @@ const (
 
 // AddLocalPlacementRulesController adds a new local placement rules controller.
 func AddLocalPlacementRulesController(mgr ctrl.Manager, transport transport.Transport, leafHubName string,
-	hubOfHubsConfig *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals) error {
+	incarnation uint64, hubOfHubsConfig *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals) error {
 	createObjFunc := func() bundle.Object { return &placementrulesv1.PlacementRule{} }
 
 	localPlacementRuleTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalPlacementRulesMsgKey)
 
 	bundleCollection := []*generic.BundleCollectionEntry{
 		generic.NewBundleCollectionEntry(localPlacementRuleTransportKey,
-			bundle.NewGenericStatusBundle(leafHubName, helpers.GetGenerationFromTransport(transport,
-				localPlacementRuleTransportKey, datatypes.StatusBundle), cleanPlacementRuleFunc),
+			bundle.NewGenericStatusBundle(leafHubName, incarnation, cleanPlacementRuleFunc),
 			func() bool { // bundle predicate
 				return hubOfHubsConfig.Spec.EnableLocalPolicies
 			}),

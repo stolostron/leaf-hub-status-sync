@@ -3,6 +3,7 @@ package bundle
 import (
 	"errors"
 
+	"github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -24,6 +25,6 @@ type Bundle interface {
 	UpdateObject(object Object)
 	// DeleteObject function to delete a single object inside a bundle.
 	DeleteObject(object Object)
-	// GetBundleGeneration function to get bundle generation.
-	GetBundleGeneration() uint64
+	// GetBundleVersion function to get bundle generation.
+	GetBundleVersion() *status.BundleVersion
 }

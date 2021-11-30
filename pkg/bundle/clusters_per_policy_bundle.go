@@ -8,12 +8,13 @@ import (
 )
 
 // NewClustersPerPolicyBundle creates a new instance of ClustersPerPolicyBundle.
-func NewClustersPerPolicyBundle(leafHubName string, generation uint64, extractObjIDFunc ExtractObjIDFunc) Bundle {
+func NewClustersPerPolicyBundle(leafHubName string, incarnation uint64,
+	extractObjIDFunc ExtractObjIDFunc) Bundle {
 	return &ClustersPerPolicyBundle{
 		BaseClustersPerPolicyBundle: statusbundle.BaseClustersPerPolicyBundle{
-			Objects:     make([]*statusbundle.PolicyGenericComplianceStatus, 0),
-			LeafHubName: leafHubName,
-			Generation:  generation,
+			Objects:       make([]*statusbundle.PolicyGenericComplianceStatus, 0),
+			LeafHubName:   leafHubName,
+			BundleVersion: statusbundle.NewBundleVersion(incarnation, 0),
 		},
 		extractObjIDFunc: extractObjIDFunc,
 		lock:             sync.Mutex{},
@@ -45,7 +46,7 @@ func (bundle *ClustersPerPolicyBundle) UpdateObject(object Object) {
 	index, err := bundle.getObjectIndexByUID(originPolicyID)
 	if err != nil { // object not found, need to add it to the bundle
 		bundle.Objects = append(bundle.Objects, bundle.getClustersPerPolicy(originPolicyID, policy))
-		bundle.Generation++
+		bundle.BundleVersion.Generation++
 
 		return
 	}
@@ -56,7 +57,7 @@ func (bundle *ClustersPerPolicyBundle) UpdateObject(object Object) {
 	// that being said, we still want to update the internal data and keep it always up to date in case a policy will be
 	// inserted/removed (or cluster added/removed) and full state bundle will be triggered.
 	if bundle.updateObjectIfChanged(index, policy) { // returns true if cluster list has changed, otherwise false
-		bundle.Generation++
+		bundle.BundleVersion.Generation++
 	}
 }
 
@@ -81,15 +82,15 @@ func (bundle *ClustersPerPolicyBundle) DeleteObject(object Object) {
 	}
 
 	bundle.Objects = append(bundle.Objects[:index], bundle.Objects[index+1:]...) // remove from objects
-	bundle.Generation++
+	bundle.BundleVersion.Generation++
 }
 
-// GetBundleGeneration function to get bundle generation.
-func (bundle *ClustersPerPolicyBundle) GetBundleGeneration() uint64 {
+// GetBundleVersion function to get bundle version.
+func (bundle *ClustersPerPolicyBundle) GetBundleVersion() *statusbundle.BundleVersion {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	return bundle.Generation
+	return bundle.BundleVersion
 }
 
 func (bundle *ClustersPerPolicyBundle) getObjectIndexByUID(uid string) (int, error) {

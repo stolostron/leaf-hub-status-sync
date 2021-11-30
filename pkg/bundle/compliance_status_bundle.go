@@ -8,14 +8,14 @@ import (
 )
 
 // NewCompleteComplianceStatusBundle creates a new instance of ComplianceStatusBundle.
-func NewCompleteComplianceStatusBundle(leafHubName string, baseBundle Bundle, generation uint64,
+func NewCompleteComplianceStatusBundle(leafHubName string, baseBundle Bundle, incarnation uint64,
 	extractObjIDFunc ExtractObjIDFunc) Bundle {
 	return &ComplianceStatusBundle{
 		BaseCompleteComplianceStatusBundle: statusbundle.BaseCompleteComplianceStatusBundle{
-			Objects:              make([]*statusbundle.PolicyCompleteComplianceStatus, 0),
-			LeafHubName:          leafHubName,
-			BaseBundleGeneration: baseBundle.GetBundleGeneration(),
-			Generation:           generation,
+			Objects:           make([]*statusbundle.PolicyCompleteComplianceStatus, 0),
+			LeafHubName:       leafHubName,
+			BaseBundleVersion: baseBundle.GetBundleVersion(),
+			BundleVersion:     statusbundle.NewBundleVersion(incarnation, 0),
 		},
 		baseBundle:       baseBundle,
 		extractObjIDFunc: extractObjIDFunc,
@@ -36,7 +36,7 @@ func (bundle *ComplianceStatusBundle) UpdateObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	bundle.BaseBundleGeneration = bundle.baseBundle.GetBundleGeneration()
+	bundle.BaseBundleVersion = bundle.baseBundle.GetBundleVersion()
 
 	policy, ok := object.(*policyv1.Policy)
 	if !ok {
@@ -54,7 +54,7 @@ func (bundle *ComplianceStatusBundle) UpdateObject(object Object) {
 		// don't send in the bundle a policy where all clusters are compliant
 		if bundle.containsNonCompliantOrUnknownClusters(policyComplianceObject) {
 			bundle.Objects = append(bundle.Objects, policyComplianceObject)
-			bundle.Generation++ // increase generation if objects array was changed
+			bundle.BundleVersion.Generation++ // increase generation if objects array was changed
 		}
 
 		return
@@ -70,7 +70,7 @@ func (bundle *ComplianceStatusBundle) UpdateObject(object Object) {
 	}
 
 	// increase bundle generation in the case where cluster lists were changed
-	bundle.Generation++
+	bundle.BundleVersion.Generation++
 }
 
 // DeleteObject function to delete a single object inside a bundle.
@@ -78,7 +78,7 @@ func (bundle *ComplianceStatusBundle) DeleteObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	bundle.BaseBundleGeneration = bundle.baseBundle.GetBundleGeneration()
+	bundle.BaseBundleVersion = bundle.baseBundle.GetBundleVersion()
 
 	_, ok := object.(*policyv1.Policy)
 	if !ok {
@@ -99,12 +99,12 @@ func (bundle *ComplianceStatusBundle) DeleteObject(object Object) {
 	bundle.Objects = append(bundle.Objects[:index], bundle.Objects[index+1:]...) // remove from objects
 }
 
-// GetBundleGeneration function to get bundle generation.
-func (bundle *ComplianceStatusBundle) GetBundleGeneration() uint64 {
+// GetBundleVersion function to get bundle version.
+func (bundle *ComplianceStatusBundle) GetBundleVersion() *statusbundle.BundleVersion {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	return bundle.Generation
+	return bundle.BundleVersion
 }
 
 func (bundle *ComplianceStatusBundle) getObjectIndexByUID(uid string) (int, error) {

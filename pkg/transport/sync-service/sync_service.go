@@ -102,16 +102,6 @@ func (s *SyncService) SendAsync(message *transport.Message) {
 	s.msgChan <- message
 }
 
-// GetVersion if the object doesn't exist or an error occurred returns an empty string, otherwise returns the version.
-func (s *SyncService) GetVersion(id string, msgType string) string {
-	objectMetadata, err := s.client.GetObjectMetadata(msgType, id)
-	if err != nil {
-		return ""
-	}
-
-	return objectMetadata.Version
-}
-
 func (s *SyncService) sendMessages() {
 	for {
 		select {

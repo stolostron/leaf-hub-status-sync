@@ -686,6 +686,14 @@ github.com/open-cluster-management/governance-policy-propagator v0.0.0-202105202
 github.com/open-cluster-management/governance-policy-propagator v0.0.0-20210520203318-a78632de1e26/go.mod h1:7gzDyC7PddcuInXS+kLrfYmto/ImSORibXwy8RGjNM8=
 github.com/open-cluster-management/hub-of-hubs-data-types v0.1.1-0.20211109085626-1e7c76f8e58e h1:bbRh3FelnS1Vng6uWRnsssnKPWDYlo4dbv6zik2uSo4=
 github.com/open-cluster-management/hub-of-hubs-data-types v0.1.1-0.20211109085626-1e7c76f8e58e/go.mod h1:rLtZFQ8YdGQ2XHHKJFBOtQwnP63UDxaalhlQG8anP90=
+github.com/open-cluster-management/hub-of-hubs-data-types v0.2.3-0.20211128092329-91307fe61170 h1:KEZTiAOAzjCAhhnaOkH5L4XZmb6Ndd3p4YfZjPMrGQs=
+github.com/open-cluster-management/hub-of-hubs-data-types v0.2.3-0.20211128092329-91307fe61170/go.mod h1:rLtZFQ8YdGQ2XHHKJFBOtQwnP63UDxaalhlQG8anP90=
+github.com/open-cluster-management/hub-of-hubs-data-types v0.2.3-0.20211130115620-33ddd2b4dcb0 h1:1l1cjKFB49jUrnBw0GA8bhqZu9VrgJD2fjNLe3itkfE=
+github.com/open-cluster-management/hub-of-hubs-data-types v0.2.3-0.20211130115620-33ddd2b4dcb0/go.mod h1:rLtZFQ8YdGQ2XHHKJFBOtQwnP63UDxaalhlQG8anP90=
+github.com/open-cluster-management/hub-of-hubs-data-types v0.2.3-0.20211130120047-bc615d0b4e76 h1:HSWKPjAIunWmuTWRwVXGvvLTuv3VIbgJtHUekMYHEK4=
+github.com/open-cluster-management/hub-of-hubs-data-types v0.2.3-0.20211130120047-bc615d0b4e76/go.mod h1:rLtZFQ8YdGQ2XHHKJFBOtQwnP63UDxaalhlQG8anP90=
+github.com/open-cluster-management/hub-of-hubs-data-types v0.2.3-0.20211130123010-5b9fdb74b38e h1:z9I/8XUElURgKCJ6vtpXq4FTm4B+dSto+G0saRze6I4=
+github.com/open-cluster-management/hub-of-hubs-data-types v0.2.3-0.20211130123010-5b9fdb74b38e/go.mod h1:rLtZFQ8YdGQ2XHHKJFBOtQwnP63UDxaalhlQG8anP90=
 github.com/open-cluster-management/hub-of-hubs-data-types/apis/config v0.1.1-0.20211025080255-3b72d5df4ae0 h1:rGtBeYzFL95fQ2P4Na98sP7PbnXvGzFC9KygHoONRCc=
 github.com/open-cluster-management/hub-of-hubs-data-types/apis/config v0.1.1-0.20211025080255-3b72d5df4ae0/go.mod h1:xpGxw+0si9vuDABvcJ9FxjznPw/uAbICzhaX+9JLLho=
 github.com/open-cluster-management/hub-of-hubs-message-compression v0.0.0-20211122122545-c99e2d497b43 h1:/cHgEhBhyZk8unQ5KE7Njune1nqfTSfFblR0334KB2M=
