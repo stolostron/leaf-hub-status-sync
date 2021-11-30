@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,7 +39,7 @@ func HasLabel(obj metav1.Object, label string) bool {
 }
 
 // SyncToTransport syncs the provided bundle to transport.
-func SyncToTransport(transportObj transport.Transport, msgID string, msgType string, version fmt.Stringer,
+func SyncToTransport(transportObj transport.Transport, msgID string, msgType string, version *status.BundleVersion,
 	payload bundle.Bundle) error {
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
@@ -48,9 +49,26 @@ func SyncToTransport(transportObj transport.Transport, msgID string, msgType str
 	transportObj.SendAsync(&transport.Message{
 		ID:      msgID,
 		MsgType: msgType,
-		Version: version.String(),
+		Version: version,
 		Payload: payloadBytes,
 	})
 
 	return nil
+}
+
+// AddConditionToDeliveryRegistrations adds given condition to list of delivery registrations.
+func AddConditionToDeliveryRegistrations(deliveryRegistrations []*transport.BundleDeliveryRegistration,
+	eventType transport.DeliveryEvent, argType transport.DeliveryArgType, condition func(interface{}) bool) {
+	for _, deliveryRegistration := range deliveryRegistrations {
+		deliveryRegistration.AddCondition(eventType, argType, condition)
+	}
+}
+
+// Min returns min(a, b).
+func Min(a, b int) int {
+	if a > b {
+		return b
+	}
+
+	return a
 }

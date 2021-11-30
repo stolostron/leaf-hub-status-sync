@@ -38,11 +38,12 @@ func NewSyncService(compressor compressors.Compressor, log logr.Logger) (*SyncSe
 	syncServiceClient.SetAppKeyAndSecret("user@myorg", "")
 
 	return &SyncService{
-		log:        log,
-		client:     syncServiceClient,
-		compressor: compressor,
-		msgChan:    make(chan *transport.Message),
-		stopChan:   make(chan struct{}, 1),
+		log:                     log,
+		client:                  syncServiceClient,
+		compressor:              compressor,
+		deliveryRegistrationMap: make(map[string]*transport.BundleDeliveryRegistration),
+		msgChan:                 make(chan *transport.Message),
+		stopChan:                make(chan struct{}, 1),
 	}, nil
 }
 
@@ -72,13 +73,14 @@ func readEnvVars() (string, string, uint16, error) {
 
 // SyncService abstracts Sync Service client.
 type SyncService struct {
-	log        logr.Logger
-	client     *client.SyncServiceClient
-	compressor compressors.Compressor
-	msgChan    chan *transport.Message
-	stopChan   chan struct{}
-	startOnce  sync.Once
-	stopOnce   sync.Once
+	log                     logr.Logger
+	client                  *client.SyncServiceClient
+	compressor              compressors.Compressor
+	deliveryRegistrationMap map[string]*transport.BundleDeliveryRegistration
+	msgChan                 chan *transport.Message
+	stopChan                chan struct{}
+	startOnce               sync.Once
+	stopOnce                sync.Once
 }
 
 // Start function starts sync service.
@@ -102,6 +104,11 @@ func (s *SyncService) SendAsync(message *transport.Message) {
 	s.msgChan <- message
 }
 
+// Register maps type to bundle delivery registration info.
+func (s *SyncService) Register(msgType string, deliveryRegistration *transport.BundleDeliveryRegistration) {
+	s.deliveryRegistrationMap[msgType] = deliveryRegistration
+}
+
 func (s *SyncService) sendMessages() {
 	for {
 		select {
@@ -111,7 +118,7 @@ func (s *SyncService) sendMessages() {
 			objectMetaData := client.ObjectMetaData{
 				ObjectID:    msg.ID,
 				ObjectType:  msg.MsgType,
-				Version:     msg.Version,
+				Version:     msg.Version.String(),
 				Description: fmt.Sprintf("%s:%s", compressionHeader, s.compressor.GetType()),
 			}
 
@@ -132,11 +139,34 @@ func (s *SyncService) sendMessages() {
 			reader := bytes.NewReader(compressedBytes)
 			if err := s.client.UpdateObjectData(&objectMetaData, reader); err != nil {
 				s.log.Error(err, "Failed to update the object data in the Edge Sync Service")
+				s.handleFailure(msg, &err)
+
 				continue
+			}
+
+			// invoke success event for registered handler if found
+			if deliveryRegistration, found := s.deliveryRegistrationMap[msg.ID]; found {
+				deliveryRegistration.InvokeEventActions(transport.DeliverySuccess, transport.ArgTypeNone, nil, false)
 			}
 
 			s.log.Info("Message sent successfully", "MessageId", msg.ID, "MessageType", msg.MsgType,
 				"Version", msg.Version)
 		}
 	}
+}
+
+// handleFailure forwards failure to BundleDeliveryRegistration handlers, per relevant type.
+func (s *SyncService) handleFailure(transportMessage *transport.Message, err *error) {
+	// alert registered channels
+	if deliveryRegistration, found := s.deliveryRegistrationMap[transportMessage.ID]; found {
+		go func() { // TODO: check if blocking execution is problematic
+			// let relevant handlers know of this failure
+			deliveryRegistration.PropagateFailure(err)
+			// let relevant handlers schedule retry (if enabled)
+			deliveryRegistration.PropagateRetry(transportMessage)
+		}()
+	}
+
+	s.log.Error(*err, "failed to deliver message", "MessageId", transportMessage.ID, "MessageType",
+		transportMessage.MsgType, "Version", transportMessage.Version)
 }
