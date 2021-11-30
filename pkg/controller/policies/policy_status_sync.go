@@ -57,8 +57,8 @@ func createBundleCollection(leafHubName string, incarnation uint64,
 	// complete compliance status bundle
 	completeComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
 		datatypes.PolicyCompleteComplianceMsgKey)
-	completeComplianceStatusBundle := bundle.NewCompleteComplianceStatusBundle(leafHubName,
-		clustersPerPolicyBundle, incarnation, extractPolicyID)
+	completeComplianceStatusBundle := bundle.NewCompleteComplianceStatusBundle(leafHubName, clustersPerPolicyBundle,
+		incarnation, extractPolicyID)
 
 	// minimal compliance status bundle
 	minimalComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
