@@ -62,7 +62,8 @@ func getTransport(transportType string, transportMsgCompressorType string) (tran
 
 		return syncService, nil
 	default:
-		return nil, fmt.Errorf("%w: %s", errEnvVarIllegalValue, transportType)
+		return nil, fmt.Errorf("%w: %s - %s is not a valid option", errEnvVarIllegalValue, envVarTransportType,
+			transportType)
 	}
 }
 
