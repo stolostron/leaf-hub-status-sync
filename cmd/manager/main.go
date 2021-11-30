@@ -36,7 +36,7 @@ const (
 )
 
 var (
-	errEnvVarNotFound     = errors.New("not found environment variable")
+	errEnvVarNotFound     = errors.New("environment variable not found")
 	errEnvVarIllegalValue = errors.New("environment variable illegal value")
 )
 
