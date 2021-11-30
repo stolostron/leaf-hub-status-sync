@@ -49,7 +49,6 @@ var (
 	errEnvVarNotFound       = errors.New("environment variable not found")
 	errEnvVarIllegalValue   = errors.New("environment variable illegal value")
 	errMapDoesNotContainKey = errors.New("map does not contain key")
-
 )
 
 func printVersion(log logr.Logger) {
@@ -176,9 +175,9 @@ func createManager(leaderElectionNamespace string, transport transport.Transport
 	return mgr, incarnation, nil
 }
 
-// Incarnation is a part of the generation of all the messages this process will transport.
+// Incarnation is a part of the version of all the messages this process will transport.
 // The motivation behind this logic is allowing the message receivers/consumers to infer that messages transmitted
-// from this run are more recent than all other existing ones, regardless of their instance-specific generations.
+// from this instance are more recent than all other existing ones, regardless of their instance-specific generations.
 func getIncarnation(mgr ctrl.Manager) (uint64, error) {
 	client, err := ctrlClient.New(mgr.GetConfig(), ctrlClient.Options{Scheme: mgr.GetScheme()})
 	if err != nil {
