@@ -22,7 +22,7 @@ const (
 )
 
 var (
-	errEnvVarNotFound    = errors.New(" environment variable not found")
+	errEnvVarNotFound    = errors.New("environment variable not found")
 	errEnvVarInvalidType = errors.New("environment variable invalid type")
 )
 
