@@ -4,12 +4,14 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"runtime"
 
 	"github.com/go-logr/logr"
+	compressor "github.com/open-cluster-management/hub-of-hubs-message-compression"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	syncservice "github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport/sync-service"
@@ -23,17 +25,70 @@ import (
 )
 
 const (
-	metricsHost                     = "0.0.0.0"
-	metricsPort               int32 = 8527
-	envVarLeafHubName               = "LH_ID"
-	envVarControllerNamespace       = "POD_NAMESPACE"
-	leaderElectionLockName          = "leaf-hub-status-sync-lock"
+	metricsHost                             = "0.0.0.0"
+	metricsPort                       int32 = 8527
+	envVarLeafHubName                       = "LH_ID"
+	envVarControllerNamespace               = "POD_NAMESPACE"
+	envVarTransportMsgCompressionType       = "TRANSPORT_MESSAGE_COMPRESSION_TYPE"
+	envVarTransportType                     = "TRANSPORT_TYPE"
+	syncServiceTransportTypeName            = "sync-service"
+	leaderElectionLockName                  = "leaf-hub-status-sync-lock"
+)
+
+var (
+	errEnvVarNotFound     = errors.New("environment variable not found")
+	errEnvVarIllegalValue = errors.New("environment variable illegal value")
 )
 
 func printVersion(log logr.Logger) {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
 	log.Info(fmt.Sprintf("Version of operator-sdk: %s", sdkVersion.Version))
+}
+
+// function to choose transport type based on env var.
+func getTransport(transportType string, transportMsgCompressorType string) (transport.Transport, error) {
+	msgCompressor, err := compressor.NewCompressor(compressor.CompressionType(transportMsgCompressorType))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create message-compressor: %w", err)
+	}
+
+	switch transportType {
+	case syncServiceTransportTypeName:
+		syncService, err := syncservice.NewSyncService(msgCompressor, ctrl.Log.WithName("sync-service"))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create sync-service: %w", err)
+		}
+
+		return syncService, nil
+	default:
+		return nil, fmt.Errorf("%w: %s - %s is not a valid option", errEnvVarIllegalValue, envVarTransportType,
+			transportType)
+	}
+}
+
+func readEnvVars() (string, string, string, string, error) {
+	leaderElectionNamespace, found := os.LookupEnv(envVarControllerNamespace)
+	if !found {
+		return "", "", "", "", fmt.Errorf("%w: %s", errEnvVarNotFound, envVarControllerNamespace)
+	}
+
+	leafHubName, found := os.LookupEnv(envVarLeafHubName)
+	if !found {
+		return "", "", "", "", fmt.Errorf("%w: %s", errEnvVarNotFound, envVarLeafHubName)
+	}
+
+	transportType, found := os.LookupEnv(envVarTransportType)
+	if !found {
+		return "", "", "", "", fmt.Errorf("%w: %s", errEnvVarNotFound, envVarTransportType)
+	}
+
+	transportMsgCompressionType, found := os.LookupEnv(envVarTransportMsgCompressionType)
+	if !found {
+		return "", "", "", "", fmt.Errorf("%w: %s", errEnvVarNotFound, envVarTransportMsgCompressionType)
+	}
+
+	return leaderElectionNamespace, leafHubName, transportType, transportMsgCompressionType, nil
 }
 
 func doMain() int {
@@ -46,29 +101,23 @@ func doMain() int {
 
 	printVersion(log)
 
-	leaderElectionNamespace, found := os.LookupEnv(envVarControllerNamespace)
-	if !found {
-		log.Error(nil, "Not found:", "environment variable", envVarControllerNamespace)
-		return 1
-	}
-
-	leafHubName, found := os.LookupEnv(envVarLeafHubName)
-	if !found {
-		log.Error(nil, "Not found:", "environment variable", envVarLeafHubName)
+	leaderElectionNamespace, leafHubName, transportType, transportMsgCompressionType, err := readEnvVars()
+	if err != nil {
+		log.Error(err, "initialization error")
 		return 1
 	}
 
 	// transport layer initialization
-	syncService, err := syncservice.NewSyncService(ctrl.Log.WithName("sync-service"))
+	transportObj, err := getTransport(transportType, transportMsgCompressionType)
 	if err != nil {
-		log.Error(err, "failed to initialize")
+		log.Error(err, "transport initialization error")
 		return 1
 	}
 
-	syncService.Start()
-	defer syncService.Stop()
+	transportObj.Start()
+	defer transportObj.Stop()
 
-	mgr, err := createManager(leaderElectionNamespace, syncService, leafHubName)
+	mgr, err := createManager(leaderElectionNamespace, transportObj, leafHubName)
 	if err != nil {
 		log.Error(err, "Failed to create manager")
 		return 1
