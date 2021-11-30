@@ -49,6 +49,7 @@ var (
 	errEnvVarNotFound       = errors.New("environment variable not found")
 	errEnvVarIllegalValue   = errors.New("environment variable illegal value")
 	errMapDoesNotContainKey = errors.New("map does not contain key")
+
 )
 
 func printVersion(log logr.Logger) {
