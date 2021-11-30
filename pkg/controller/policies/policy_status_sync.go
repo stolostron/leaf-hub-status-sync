@@ -25,11 +25,20 @@ const (
 	policyCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/policy-cleanup"
 )
 
+type bundleInfo struct {
+	transportKey         string
+	bundle               bundle.Bundle
+	deliveryRegistration *transport.BundleDeliveryRegistration
+}
+
 // AddPoliciesStatusController adds policies status controller to the manager.
-func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport, leafHubName string,
-	hubOfHubsConfig *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals) error {
+func AddPoliciesStatusController(mgr ctrl.Manager, transportObj transport.Transport, leafHubName string,
+	incarnation uint64, hubOfHubsConfig *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals) error {
 	createObjFunction := func() bundle.Object { return &policiesv1.Policy{} }
-	bundleCollection := createBundleCollection(transport, leafHubName, hubOfHubsConfig)
+	transportRetryChan := make(chan *transport.Message)
+
+	bundleCollection := createBundleCollection(transportObj, leafHubName, incarnation, transportRetryChan,
+		hubOfHubsConfig)
 
 	hohNamespacePredicate := predicate.NewPredicateFuncs(func(meta metav1.Object, object runtime.Object) bool {
 		return meta.GetNamespace() == datatypes.HohSystemNamespace
@@ -39,45 +48,104 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 	})
 
 	// initialize policy status controller (contains multiple bundles)
-	if err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, transport, policyCleanupFinalizer,
+	if err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, transportObj, policyCleanupFinalizer,
 		bundleCollection, createObjFunction, predicate.And(hohNamespacePredicate, ownerRefAnnotationPredicate),
-		syncIntervalsData.GetPolicies); err != nil {
+		transportRetryChan, syncIntervalsData.GetPolicies); err != nil {
 		return fmt.Errorf("failed to add policies controller to the manager - %w", err)
 	}
 
 	return nil
 }
 
-func createBundleCollection(transport transport.Transport, leafHubName string,
+func createBundleCollection(transportObj transport.Transport, leafHubName string, incarnation uint64,
+	transportRetryChan chan *transport.Message,
 	hubOfHubsConfig *configv1.Config) []*generic.BundleCollectionEntry {
-	// clusters per policy (base bundle)
-	clustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.ClustersPerPolicyMsgKey)
-	clustersPerPolicyBundle := bundle.NewClustersPerPolicyBundle(leafHubName, helpers.GetGenerationFromTransport(
-		transport, clustersPerPolicyTransportKey, datatypes.StatusBundle), extractPolicyID)
+	// clusters per policy (base bundle for non-minimal compliance status)
+	clustersPerPolicyBundleInfo := getClustersPerPolicyBundleInfo(leafHubName, incarnation,
+		transportRetryChan)
 
-	// complete compliance status bundle
+	// minimal compliance status bundle & delivery condition
+	minComplianceStatusBundleInfo := getMinComplianceStatusBundleInfo(leafHubName, incarnation,
+		transportRetryChan)
+
+	// application of hybrid sync mode on compliance status
+	completeComplianceStatusBundleInfo := getCompleteComplianceStatusBundleInfo(clustersPerPolicyBundleInfo.bundle,
+		leafHubName, incarnation, transportRetryChan)
+
+	// register conditions
+	addConditionsToBundles(clustersPerPolicyBundleInfo.deliveryRegistration,
+		completeComplianceStatusBundleInfo.deliveryRegistration, minComplianceStatusBundleInfo.deliveryRegistration,
+		hubOfHubsConfig)
+
+	// create bundle collection entries and register in transport
+	bundleCollection := make([]*generic.BundleCollectionEntry, 0)
+	for _, bundleInfo := range []*bundleInfo{
+		clustersPerPolicyBundleInfo, minComplianceStatusBundleInfo,
+		completeComplianceStatusBundleInfo,
+	} {
+		bundleCollection = append(bundleCollection, generic.NewBundleCollectionEntry(bundleInfo.transportKey,
+			bundleInfo.bundle, bundleInfo.deliveryRegistration))
+
+		transportObj.Register(bundleInfo.transportKey, bundleInfo.deliveryRegistration)
+	}
+
+	return bundleCollection
+}
+
+func addConditionsToBundles(clustersPerPolicyRegistration, completeComplianceRegistration,
+	minComplianceRegistration *transport.BundleDeliveryRegistration, hubOfHubsConfig *configv1.Config) {
+	// --- config before delivery conditions ---
+	fullStatusPredicate := func(interface{}) bool { return hubOfHubsConfig.Spec.AggregationLevel == configv1.Full }
+	minStatusPredicate := func(interface{}) bool { return hubOfHubsConfig.Spec.AggregationLevel == configv1.Minimal }
+
+	// minimal
+	minComplianceRegistration.AddCondition(transport.BeforeDeliveryAttempt, transport.ArgTypeNone, minStatusPredicate)
+	// full
+	helpers.AddConditionToDeliveryRegistrations([]*transport.BundleDeliveryRegistration{
+		clustersPerPolicyRegistration,
+		completeComplianceRegistration,
+	},
+		transport.BeforeDeliveryAttempt, transport.ArgTypeNone, fullStatusPredicate)
+}
+
+func getClustersPerPolicyBundleInfo(leafHubName string, incarnation uint64,
+	retryChan chan *transport.Message) *bundleInfo {
+	clustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.ClustersPerPolicyMsgKey)
+	clustersPerPolicyBundle := bundle.NewClustersPerPolicyBundle(leafHubName, incarnation, 0, extractPolicyID)
+	clustersPerPolicyDeliveryRegistration := transport.NewBundleDeliveryRegistration(0, retryChan, nil)
+
+	return &bundleInfo{
+		transportKey:         clustersPerPolicyTransportKey,
+		bundle:               clustersPerPolicyBundle,
+		deliveryRegistration: clustersPerPolicyDeliveryRegistration,
+	}
+}
+
+func getMinComplianceStatusBundleInfo(leafHubName string, incarnation uint64,
+	retryChan chan *transport.Message) *bundleInfo {
+	minComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.MinimalPolicyComplianceMsgKey)
+	minComplianceStatusBundle := bundle.NewMinimalComplianceStatusBundle(leafHubName, incarnation, 0)
+	minComplianceStatusDeliveryRegistration := transport.NewBundleDeliveryRegistration(0, retryChan, nil)
+
+	return &bundleInfo{
+		transportKey:         minComplianceStatusTransportKey,
+		bundle:               minComplianceStatusBundle,
+		deliveryRegistration: minComplianceStatusDeliveryRegistration,
+	}
+}
+
+func getCompleteComplianceStatusBundleInfo(clustersPerPolicyBundle bundle.Bundle,
+	leafHubName string, incarnation uint64, retryChan chan *transport.Message) *bundleInfo {
 	completeComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
 		datatypes.PolicyCompleteComplianceMsgKey)
-	completeComplianceStatusBundle := bundle.NewCompleteComplianceStatusBundle(leafHubName, clustersPerPolicyBundle,
-		helpers.GetGenerationFromTransport(transport, completeComplianceStatusTransportKey, datatypes.StatusBundle),
-		extractPolicyID)
+	completeComplianceStatusBundle := bundle.NewCompleteComplianceStatusBundle(leafHubName, incarnation, 0,
+		clustersPerPolicyBundle, extractPolicyID)
+	completeComplianceStatusDeliveryRegistration := transport.NewBundleDeliveryRegistration(0, retryChan, nil)
 
-	// minimal compliance status bundle
-	minimalComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
-		datatypes.MinimalPolicyComplianceMsgKey)
-	minimalComplianceStatusBundle := bundle.NewMinimalComplianceStatusBundle(leafHubName,
-		helpers.GetGenerationFromTransport(transport, minimalComplianceStatusTransportKey, datatypes.StatusBundle))
-
-	fullStatusPredicate := func() bool { return hubOfHubsConfig.Spec.AggregationLevel == configv1.Full }
-	minimalStatusPredicate := func() bool { return hubOfHubsConfig.Spec.AggregationLevel == configv1.Minimal }
-
-	// no need to send in the same cycle both clusters per policy and compliance. if CpP was sent, don't send compliance
-	return []*generic.BundleCollectionEntry{ // multiple bundles for policy status
-		generic.NewBundleCollectionEntry(clustersPerPolicyTransportKey, clustersPerPolicyBundle, fullStatusPredicate),
-		generic.NewBundleCollectionEntry(completeComplianceStatusTransportKey, completeComplianceStatusBundle,
-			fullStatusPredicate),
-		generic.NewBundleCollectionEntry(minimalComplianceStatusTransportKey, minimalComplianceStatusBundle,
-			minimalStatusPredicate),
+	return &bundleInfo{
+		transportKey:         completeComplianceStatusTransportKey,
+		bundle:               completeComplianceStatusBundle,
+		deliveryRegistration: completeComplianceStatusDeliveryRegistration,
 	}
 }
 

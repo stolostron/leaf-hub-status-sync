@@ -3,9 +3,9 @@ package helpers
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"time"
 
+	"github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,24 +14,7 @@ import (
 const (
 	// RequeuePeriod is the time to wait until reconciliation retry in failure cases.
 	RequeuePeriod = 5 * time.Second
-	// base10 is the base used to cast string to int.
-	base10 = 10
 )
-
-// GetGenerationFromTransport returns bundle generation from transport layer.
-func GetGenerationFromTransport(transport transport.Transport, msgID string, msgType string) uint64 {
-	version := transport.GetVersion(msgID, msgType)
-	if version == "" {
-		return 0
-	}
-
-	generation, err := strconv.Atoi(version)
-	if err != nil {
-		return 0
-	}
-
-	return uint64(generation)
-}
 
 // HasAnnotation returns a bool if the given annotation exists in annotations.
 func HasAnnotation(obj metav1.Object, annotation string) bool {
@@ -56,15 +39,36 @@ func HasLabel(obj metav1.Object, label string) bool {
 }
 
 // SyncToTransport syncs the provided bundle to transport.
-func SyncToTransport(transport transport.Transport, msgID string, msgType string, generation uint64,
+func SyncToTransport(transportObj transport.Transport, msgID string, msgType string, version *status.BundleVersion,
 	payload bundle.Bundle) error {
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("failed to sync object from type %s with id %s - %w", msgType, msgID, err)
 	}
 
-	version := strconv.FormatUint(generation, base10)
-	transport.SendAsync(msgID, msgType, version, payloadBytes)
+	transportObj.SendAsync(&transport.Message{
+		ID:      msgID,
+		MsgType: msgType,
+		Version: fmt.Sprintf("%d.%d", version.Incarnation, version.Generation),
+		Payload: payloadBytes,
+	})
 
 	return nil
+}
+
+// AddConditionToDeliveryRegistrations adds given condition to list of delivery registrations.
+func AddConditionToDeliveryRegistrations(deliveryRegistrations []*transport.BundleDeliveryRegistration,
+	eventType transport.DeliveryEvent, argType transport.DeliveryArgType, condition func(interface{}) bool) {
+	for _, deliveryRegistration := range deliveryRegistrations {
+		deliveryRegistration.AddCondition(eventType, argType, condition)
+	}
+}
+
+// Min returns min(a, b).
+func Min(a, b int) int {
+	if a > b {
+		return b
+	}
+
+	return a
 }

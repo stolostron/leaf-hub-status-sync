@@ -43,15 +43,20 @@ Go to the [Contributing guide](CONTRIBUTING.md) to learn how to get involved.
     $ export IMAGE=$REGISTRY/$(basename $(pwd)):latest
     ```
 
-1.  Set the `SYNC_SERVICE_PORT` environment variable to hold the ESS port as was setup in the leaf hub.
-    ```
-    $ export SYNC_SERVICE_PORT=...
-    ```
-    
 1.  Set the `LH_ID` environment variable to hold the leaf hub unique id.
     ```
     $ export LH_ID=...
     ```
+       
+1. Set the `TRANSPORT_TYPE` environment variable to "kafka" or "sync-service" to set which transport to use.
+    ```
+    $ export TRANSPORT_TYPE=...
+    ```
+1. If you set sync-service as transport, set the following:
+    1.  Set the `SYNC_SERVICE_PORT` environment variable to hold the ESS port as was setup in the leaf hub.
+        ```
+        $ export SYNC_SERVICE_PORT=...
+        ```
     
 1.  Run the following command to deploy the `leaf-hub-status-sync` to your leaf hub cluster:  
     ```

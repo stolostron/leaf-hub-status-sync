@@ -12,7 +12,6 @@ import (
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/generic"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/syncintervals"
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -23,22 +22,27 @@ const (
 )
 
 // AddClustersStatusController adds managed clusters status controller to the manager.
-func AddClustersStatusController(mgr ctrl.Manager, transport transport.Transport, leafHubName string,
-	hubOfHubsConfig *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals) error {
+func AddClustersStatusController(mgr ctrl.Manager, transportObj transport.Transport, leafHubName string,
+	incarnation uint64, _ *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals) error {
 	createObjFunction := func() bundle.Object { return &clusterv1.ManagedCluster{} }
 	transportBundleKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.ManagedClustersMsgKey)
 
+	transportRetryChan := make(chan *transport.Message)
+
+	// create bundle delivery registration
+	clustersStatusDeliveryRegistration := transport.NewBundleDeliveryRegistration(0, transportRetryChan, nil)
+
 	bundleCollection := []*generic.BundleCollectionEntry{ // single bundle for managed clusters
 		generic.NewBundleCollectionEntry(transportBundleKey, bundle.NewGenericStatusBundle(leafHubName,
-			helpers.GetGenerationFromTransport(transport, transportBundleKey, datatypes.StatusBundle), nil),
-			func() bool { // bundle predicate
-				return hubOfHubsConfig.Spec.AggregationLevel == configv1.Full ||
-					hubOfHubsConfig.Spec.AggregationLevel == configv1.Minimal
-			}), // at this point send all managed clusters even if aggregation level is minimal
+			incarnation, 0, nil),
+			clustersStatusDeliveryRegistration), // at this point send all managed clusters even if aggregation-
+		// level is minimal
 	}
+	// register in transport
+	transportObj.Register(transportBundleKey, clustersStatusDeliveryRegistration)
 
-	if err := generic.NewGenericStatusSyncController(mgr, clusterStatusSyncLogName, transport,
-		managedClusterCleanupFinalizer, bundleCollection, createObjFunction, nil,
+	if err := generic.NewGenericStatusSyncController(mgr, clusterStatusSyncLogName, transportObj,
+		managedClusterCleanupFinalizer, bundleCollection, createObjFunction, nil, transportRetryChan,
 		syncIntervalsData.GetManagerClusters); err != nil {
 		return fmt.Errorf("failed to add managed clusters controller to the manager - %w", err)
 	}

@@ -9,12 +9,12 @@ import (
 )
 
 // NewMinimalComplianceStatusBundle creates a new instance of MinimalComplianceStatusBundle.
-func NewMinimalComplianceStatusBundle(leafHubName string, generation uint64) Bundle {
+func NewMinimalComplianceStatusBundle(leafHubName string, incarnation uint64, generation uint64) Bundle {
 	return &MinimalComplianceStatusBundle{
 		BaseMinimalComplianceStatusBundle: statusbundle.BaseMinimalComplianceStatusBundle{
-			Objects:     make([]*statusbundle.MinimalPolicyComplianceStatus, 0),
-			LeafHubName: leafHubName,
-			Generation:  generation,
+			Objects:       make([]*statusbundle.MinimalPolicyComplianceStatus, 0),
+			LeafHubName:   leafHubName,
+			BundleVersion: *statusbundle.NewBundleVersion(incarnation, generation),
 		},
 		lock: sync.Mutex{},
 	}
@@ -44,7 +44,7 @@ func (bundle *MinimalComplianceStatusBundle) UpdateObject(object Object) {
 	index, err := bundle.getObjectIndexByUID(originPolicyID)
 	if err != nil { // object not found, need to add it to the bundle
 		bundle.Objects = append(bundle.Objects, bundle.getMinimalPolicyComplianceStatus(originPolicyID, policy))
-		bundle.Generation++
+		bundle.BundleVersion.Generation++
 
 		return
 	}
@@ -55,7 +55,7 @@ func (bundle *MinimalComplianceStatusBundle) UpdateObject(object Object) {
 	}
 
 	// if cluster list has changed - update resource version of the object and bundle generation
-	bundle.Generation++
+	bundle.BundleVersion.Generation++
 }
 
 // DeleteObject function to delete a single object inside a bundle.
@@ -74,15 +74,15 @@ func (bundle *MinimalComplianceStatusBundle) DeleteObject(object Object) {
 	}
 
 	bundle.Objects = append(bundle.Objects[:index], bundle.Objects[index+1:]...) // remove from objects
-	bundle.Generation++
+	bundle.BundleVersion.Generation++
 }
 
-// GetBundleGeneration function to get bundle generation.
-func (bundle *MinimalComplianceStatusBundle) GetBundleGeneration() uint64 {
+// GetBundleVersion function to get bundle version.
+func (bundle *MinimalComplianceStatusBundle) GetBundleVersion() *statusbundle.BundleVersion {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	return bundle.Generation
+	return &bundle.BundleVersion
 }
 
 func (bundle *MinimalComplianceStatusBundle) getObjectIndexByUID(uid string) (int, error) {

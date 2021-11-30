@@ -43,7 +43,7 @@ func AddToScheme(s *runtime.Scheme) error {
 }
 
 // AddControllers adds all the controllers to the Manager.
-func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, leafHubName string) error {
+func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, leafHubName string, incarnation uint64) error {
 	config := &configv1.Config{}
 	syncIntervalsData := syncintervals.NewSyncIntervals()
 
@@ -55,7 +55,7 @@ func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, leafHub
 		return fmt.Errorf("failed to add controller: %w", err)
 	}
 
-	addControllerFunctions := []func(ctrl.Manager, transport.Transport, string, *configv1.Config,
+	addControllerFunctions := []func(ctrl.Manager, transport.Transport, string, uint64, *configv1.Config,
 		*syncintervals.SyncIntervals) error{
 		managedclusters.AddClustersStatusController, policies.AddPoliciesStatusController,
 		localpolicies.AddLocalPoliciesController, localpolicies.AddLocalPlacementRulesController,
@@ -63,7 +63,8 @@ func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, leafHub
 	}
 
 	for _, addControllerFunction := range addControllerFunctions {
-		if err := addControllerFunction(mgr, transportImpl, leafHubName, config, syncIntervalsData); err != nil {
+		if err := addControllerFunction(mgr, transportImpl, leafHubName, incarnation, config,
+			syncIntervalsData); err != nil {
 			return fmt.Errorf("failed to add controller: %w", err)
 		}
 	}

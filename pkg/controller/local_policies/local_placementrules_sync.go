@@ -23,28 +23,38 @@ const (
 )
 
 // AddLocalPlacementRulesController adds a new local placement rules controller.
-func AddLocalPlacementRulesController(mgr ctrl.Manager, transport transport.Transport, leafHubName string,
-	hubOfHubsConfig *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals) error {
+func AddLocalPlacementRulesController(mgr ctrl.Manager, transportObj transport.Transport, leafHubName string,
+	incarnation uint64, hubOfHubsConfig *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals) error {
 	createObjFunc := func() bundle.Object { return &placementrulesv1.PlacementRule{} }
+	transportRetryChan := make(chan *transport.Message)
 
 	localPlacementRuleTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalPlacementRulesMsgKey)
 
+	// create bundle delivery registration
+	localPlacementRuleDeliveryRegistration := transport.NewBundleDeliveryRegistration(0, transportRetryChan, nil)
+
+	// add BeforeDeliveryAttempt condition
+	localPlacementRuleDeliveryRegistration.AddCondition(transport.BeforeDeliveryAttempt, transport.ArgTypeNone,
+		func(interface{}) bool {
+			return hubOfHubsConfig.Spec.EnableLocalPolicies
+		})
+
 	bundleCollection := []*generic.BundleCollectionEntry{
 		generic.NewBundleCollectionEntry(localPlacementRuleTransportKey,
-			bundle.NewGenericStatusBundle(leafHubName, helpers.GetGenerationFromTransport(transport,
-				localPlacementRuleTransportKey, datatypes.StatusBundle), cleanPlacementRuleFunc),
-			func() bool { // bundle predicate
-				return hubOfHubsConfig.Spec.EnableLocalPolicies
-			}),
+			bundle.NewGenericStatusBundle(leafHubName, incarnation, 0, cleanPlacementRuleFunc),
+			localPlacementRuleDeliveryRegistration),
 	}
+	// register in transport
+	transportObj.Register(localPlacementRuleTransportKey, localPlacementRuleDeliveryRegistration)
+
 	// controller predicate
 	localPlacementRulePredicate := predicate.NewPredicateFuncs(func(meta metav1.Object, object runtime.Object) bool {
 		return !helpers.HasAnnotation(meta, datatypes.OriginOwnerReferenceAnnotation)
 	})
 
-	if err := generic.NewGenericStatusSyncController(mgr, localPlacementRuleStatusSyncLog, transport,
+	if err := generic.NewGenericStatusSyncController(mgr, localPlacementRuleStatusSyncLog, transportObj,
 		localPlacementRuleCleanupFinalizer, bundleCollection, createObjFunc, localPlacementRulePredicate,
-		syncIntervalsData.GetPolicies); err != nil {
+		transportRetryChan, syncIntervalsData.GetPolicies); err != nil {
 		return fmt.Errorf("failed to add local placement rules controller to the manager - %w", err)
 	}
 
