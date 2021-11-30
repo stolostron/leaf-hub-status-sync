@@ -18,13 +18,13 @@ Go to the [Contributing guide](CONTRIBUTING.md) to learn how to get involved.
     ```
     $ export REGISTRY=...
     ```
-    
+
 1.  Set the `IMAGE_TAG` environment variable to hold the required version of the image.  
     default value is `latest`, so in that case no need to specify this variable:
     ```
     $ export IMAGE_TAG=latest
     ```
-    
+
 1.  Run make to build and push the image:
     ```
     $ make push-images
@@ -36,31 +36,36 @@ Go to the [Contributing guide](CONTRIBUTING.md) to learn how to get involved.
     ```
     $ export REGISTRY=...
     ```
-    
+
 1.  Set the `IMAGE` environment variable to hold the name of the image.
 
     ```
     $ export IMAGE=$REGISTRY/$(basename $(pwd)):latest
     ```
 
-1.  Set the `SYNC_SERVICE_PORT` environment variable to hold the ESS port as was setup in the leaf hub.
-    ```
-    $ export SYNC_SERVICE_PORT=...
-    ```
-    
 1.  Set the `LH_ID` environment variable to hold the leaf hub unique id.
     ```
     $ export LH_ID=...
     ```
-    
-1.  Run the following command to deploy the `leaf-hub-status-sync` to your leaf hub cluster:  
+
+1. Set the `TRANSPORT_TYPE` environment variable to "kafka" or "sync-service" to set which transport to use.
+    ```
+    $ export TRANSPORT_TYPE=...
+    ```
+1. If you set sync-service as transport, set the following:
+    1.  Set the `SYNC_SERVICE_PORT` environment variable to hold the ESS port as was setup in the leaf hub.
+        ```
+        $ export SYNC_SERVICE_PORT=...
+        ```
+
+1.  Run the following command to deploy the `leaf-hub-status-sync` to your leaf hub cluster:
     ```
     envsubst < deploy/leaf-hub-status-sync.yaml.template | kubectl apply -f -
     ```
-    
+
 ## Cleanup from a leaf hub
-    
-1.  Run the following command to clean `leaf-hub-status-sync` from your leaf hub cluster:  
+
+1.  Run the following command to clean `leaf-hub-status-sync` from your leaf hub cluster:
     ```
     envsubst < deploy/leaf-hub-status-sync.yaml.template | kubectl delete -f -
     ```
