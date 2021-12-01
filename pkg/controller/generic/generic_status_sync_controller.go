@@ -3,13 +3,13 @@ package generic
 import (
 	"context"
 	"fmt"
-	"math"
 	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
+	retryhandler "github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/generic/sync-retry-handler"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/syncintervals"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
@@ -18,12 +18,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-)
-
-const (
-	exponentialBackOffBase        = 2
-	exponentialBackOffAttemptsCap = 9
-	exponentialBackOffTimeUnitMS  = 200 * 1000
 )
 
 // CreateObjectFunction is a function for how to create an object that is stored inside the bundle.
@@ -81,48 +75,34 @@ func (c *genericStatusSyncController) init() {
 
 func (c *genericStatusSyncController) handleRetries() {
 	// retry attempts counter map for exponential backoff
-	retryCounterMap := make(map[string]*int)
-	// add reset actions on delivery success for all bundles
+	retryHandlersMap := make(map[string]*retryhandler.SyncRetryHandler)
+	// create a handler for each bundle with the retryOperation set as bundle syncing and start the handler
 	for _, entry := range c.orderedBundleCollection {
-		retryCounter := 0
-		retryCounterMap[entry.transportBundleKey] = &retryCounter
+		entry := entry // to use in func
+		retryHandlersMap[entry.transportBundleKey] = retryhandler.NewSyncRetryHandler(func(transportMsg interface{}) {
+			// check if it meets retry pre-attempt conditions
+			if !entry.deliveryRegistration.CheckEventCondition(transport.BeforeDeliveryRetry, transport.ArgTypeNone,
+				nil) {
+				return
+			}
 
-		entry.deliveryRegistration.AddAction(transport.DeliverySuccess, transport.ArgTypeNone,
-			func(interface{}) {
-				retryCounter = 0
-			})
+			transportMessage, _ := transportMsg.(*transport.Message)
+
+			// check if it meets version conditions
+			if entry.deliveryRegistration.CheckEventCondition(transport.BeforeDeliveryRetry,
+				transport.ArgTypeBundleVersion, transportMessage.Version) {
+				// message should be retried, it is the most recent of this type
+				c.log.Info("retrying bundle delivery", "MessageId", transportMessage.ID,
+					"MessageType", transportMessage.MsgType, "Version")
+				// retry
+				c.transport.SendAsync(transportMessage)
+			}
+		}).Start(context.Background(), entry.deliveryRegistration)
 	}
 
 	for {
 		transportMessage := <-c.transportRetryChan
-		// find the entry that is responsible for the bundle to be retried
-		for _, entry := range c.orderedBundleCollection {
-			if entry.transportBundleKey == transportMessage.ID {
-				// check if it meets retry pre-attempt conditions
-				if !entry.deliveryRegistration.CheckEventCondition(transport.BeforeDeliveryRetry, transport.ArgTypeNone,
-					nil) {
-					break
-				}
-
-				// exponential backoff
-				go func() {
-					backOffScale := helpers.Min(*retryCounterMap[transportMessage.ID], exponentialBackOffAttemptsCap)
-					backOffDuration := time.Duration(math.Pow(exponentialBackOffBase,
-						float64(backOffScale)) * exponentialBackOffTimeUnitMS)
-					time.Sleep(backOffDuration)
-
-					if entry.deliveryRegistration.CheckEventCondition(transport.BeforeDeliveryRetry,
-						transport.ArgTypeBundleVersion, transportMessage.Version) {
-						// message should be retried, it is the most recent of this type
-						c.log.Info("retrying bundle delivery", "MessageId", transportMessage.ID,
-							"MessageType", transportMessage.MsgType, "Version", transportMessage.Version,
-							"attempt", *retryCounterMap[transportMessage.ID])
-						// retry
-						c.transport.SendAsync(transportMessage)
-					}
-				}()
-			}
-		}
+		retryHandlersMap[transportMessage.ID].HandleFailure(transportMessage)
 	}
 }
 
@@ -267,6 +247,7 @@ func (c *genericStatusSyncController) syncBundles() {
 				c.log.Error(err, "failed to sync to transport")
 
 				continue // do not update last sent generation in case of failure in sync bundle to transport
+				// the transport component is responsible for triggering another retry
 			}
 
 			// update last-sent-version and invoke delegate actions for delivery attempt event

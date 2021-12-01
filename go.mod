@@ -3,6 +3,8 @@ module github.com/open-cluster-management/leaf-hub-status-sync
 go 1.16
 
 require (
+	github.com/cenkalti/backoff v0.0.0-20181003080854-62661b46c409 // indirect
+	github.com/cenkalti/backoff/v4 v4.1.2
 	github.com/go-logr/logr v0.2.1
 	github.com/go-logr/zapr v0.2.0 // indirect
 	github.com/open-cluster-management/api v0.0.0-20210527013639-a6845f2ebcb1
