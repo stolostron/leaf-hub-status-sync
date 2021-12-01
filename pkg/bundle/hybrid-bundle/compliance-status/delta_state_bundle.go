@@ -122,14 +122,6 @@ func (bundle *DeltaComplianceStatusBundle) GetBundleVersion() *statusbundle.Bund
 	return bundle.BundleVersion
 }
 
-// GetObjects function to return the hybrid bundle's objects.
-func (bundle *DeltaComplianceStatusBundle) GetObjects() interface{} {
-	bundle.lock.Lock()
-	defer bundle.lock.Unlock()
-
-	return bundle.Objects
-}
-
 // GetBundleType returns a pointer to the bundle key (changes based on mode).
 func (bundle *DeltaComplianceStatusBundle) GetBundleType() string {
 	bundle.lock.Lock()

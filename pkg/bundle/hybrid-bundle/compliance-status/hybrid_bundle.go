@@ -86,18 +86,6 @@ func (bundle *HybridComplianceStatusBundle) GetBundleVersion() *statusbundle.Bun
 	return bundle.completeStateBundle.GetBundleVersion()
 }
 
-// GetObjects returns the bundle's objects.
-func (bundle *HybridComplianceStatusBundle) GetObjects() interface{} {
-	bundle.lock.Lock()
-	defer bundle.lock.Unlock()
-
-	if bundle.syncMode == deltaStateMode {
-		return bundle.deltaStateBundle.GetBundleVersion()
-	}
-
-	return bundle.completeStateBundle.GetBundleVersion()
-}
-
 // GetBundleType returns a pointer to the bundle key (changes based on mode).
 func (bundle *HybridComplianceStatusBundle) GetBundleType() string {
 	bundle.lock.Lock()
