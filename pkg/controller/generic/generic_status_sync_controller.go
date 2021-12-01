@@ -200,15 +200,15 @@ func (c *genericStatusSyncController) syncBundles() {
 		bundleVersion := entry.bundle.GetBundleVersion()
 
 		// send to transport only if bundle has changed.
-		if bundleVersion.NewerThan(entry.lastSentBundleVersion) {
-			if err := helpers.SyncToTransport(c.transport, entry.transportBundleKey, datatypes.StatusBundle,
-				bundleVersion, entry.bundle); err != nil {
+		if bundleVersion.NewerThan(entry.transportRegistration.GetLastSentBundleVersion()) {
+			if err := helpers.SyncToTransport(c.transport, entry.transportRegistration.GetBundleTransportKey(),
+				datatypes.StatusBundle, bundleVersion, entry.bundle); err != nil {
 				c.log.Error(err, "failed to sync to transport")
 
-				continue // do not update last sent generation in case of failure in sync bundle to transport
+				return // do not update last sent generation in case of failure in sync bundle to transport
 			}
 
-			entry.lastSentBundleVersion = bundleVersion
+			entry.transportRegistration.SetLastSentBundleVersion(bundleVersion)
 		}
 	}
 }

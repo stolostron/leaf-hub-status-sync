@@ -1,16 +1,22 @@
-package bundle
+package compliancestatus
 
 import (
+	"errors"
 	"sync"
 
 	policyv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
+	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
+	bundlepkg "github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
+	hybridbundle "github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle/hybrid-bundle"
 )
 
-// NewCompleteComplianceStatusBundle creates a new instance of ComplianceStatusBundle.
-func NewCompleteComplianceStatusBundle(leafHubName string, baseBundle Bundle, incarnation uint64,
-	extractObjIDFunc ExtractObjIDFunc) Bundle {
-	return &ComplianceStatusBundle{
+var errObjectNotFound = errors.New("object not found")
+
+// NewCompleteComplianceStatusBundle creates a new instance of CompleteCompleteComplianceStatusBundle.
+func NewCompleteComplianceStatusBundle(leafHubName string, baseBundle bundlepkg.Bundle,
+	incarnation uint64, extractObjIDFunc bundlepkg.ExtractObjIDFunc) hybridbundle.CompleteStateBundle {
+	return &CompleteComplianceStatusBundle{
 		BaseCompleteComplianceStatusBundle: statusbundle.BaseCompleteComplianceStatusBundle{
 			Objects:           make([]*statusbundle.PolicyCompleteComplianceStatus, 0),
 			LeafHubName:       leafHubName,
@@ -23,16 +29,16 @@ func NewCompleteComplianceStatusBundle(leafHubName string, baseBundle Bundle, in
 	}
 }
 
-// ComplianceStatusBundle abstracts management of compliance status bundle.
-type ComplianceStatusBundle struct {
+// CompleteComplianceStatusBundle abstracts management of compliance status bundle.
+type CompleteComplianceStatusBundle struct {
 	statusbundle.BaseCompleteComplianceStatusBundle
-	baseBundle       Bundle
-	extractObjIDFunc ExtractObjIDFunc
+	baseBundle       bundlepkg.Bundle
+	extractObjIDFunc bundlepkg.ExtractObjIDFunc
 	lock             sync.Mutex
 }
 
 // UpdateObject function to update a single object inside a bundle.
-func (bundle *ComplianceStatusBundle) UpdateObject(object Object) {
+func (bundle *CompleteComplianceStatusBundle) UpdateObject(object bundlepkg.Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
@@ -74,7 +80,7 @@ func (bundle *ComplianceStatusBundle) UpdateObject(object Object) {
 }
 
 // DeleteObject function to delete a single object inside a bundle.
-func (bundle *ComplianceStatusBundle) DeleteObject(object Object) {
+func (bundle *CompleteComplianceStatusBundle) DeleteObject(object bundlepkg.Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
@@ -100,14 +106,30 @@ func (bundle *ComplianceStatusBundle) DeleteObject(object Object) {
 }
 
 // GetBundleVersion function to get bundle version.
-func (bundle *ComplianceStatusBundle) GetBundleVersion() *statusbundle.BundleVersion {
+func (bundle *CompleteComplianceStatusBundle) GetBundleVersion() *statusbundle.BundleVersion {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
 	return bundle.BundleVersion
 }
 
-func (bundle *ComplianceStatusBundle) getObjectIndexByUID(uid string) (int, error) {
+// GetObjects function to return the hybrid bundle's objects.
+func (bundle *CompleteComplianceStatusBundle) GetObjects() interface{} {
+	bundle.lock.Lock()
+	defer bundle.lock.Unlock()
+
+	return bundle.Objects
+}
+
+// GetBundleType returns a pointer to the bundle key (changes based on mode).
+func (bundle *CompleteComplianceStatusBundle) GetBundleType() string {
+	bundle.lock.Lock()
+	defer bundle.lock.Unlock()
+
+	return datatypes.PolicyCompleteComplianceMsgKey
+}
+
+func (bundle *CompleteComplianceStatusBundle) getObjectIndexByUID(uid string) (int, error) {
 	for i, object := range bundle.Objects {
 		if object.PolicyID == uid {
 			return i, nil
@@ -117,7 +139,7 @@ func (bundle *ComplianceStatusBundle) getObjectIndexByUID(uid string) (int, erro
 	return -1, errObjectNotFound
 }
 
-func (bundle *ComplianceStatusBundle) getPolicyComplianceStatus(originPolicyID string,
+func (bundle *CompleteComplianceStatusBundle) getPolicyComplianceStatus(originPolicyID string,
 	policy *policyv1.Policy) *statusbundle.PolicyCompleteComplianceStatus {
 	nonCompliantClusters, unknownComplianceClusters := bundle.getNonCompliantAndUnknownClusters(policy)
 
@@ -129,7 +151,8 @@ func (bundle *ComplianceStatusBundle) getPolicyComplianceStatus(originPolicyID s
 }
 
 // returns a list of non compliant clusters and a list of unknown compliance clusters.
-func (bundle *ComplianceStatusBundle) getNonCompliantAndUnknownClusters(policy *policyv1.Policy) ([]string, []string) {
+func (bundle *CompleteComplianceStatusBundle) getNonCompliantAndUnknownClusters(policy *policyv1.Policy) ([]string,
+	[]string) {
 	nonCompliantClusters := make([]string, 0)
 	unknownComplianceClusters := make([]string, 0)
 
@@ -149,7 +172,8 @@ func (bundle *ComplianceStatusBundle) getNonCompliantAndUnknownClusters(policy *
 }
 
 // if a cluster was removed, object is not considered as changed.
-func (bundle *ComplianceStatusBundle) updateBundleIfObjectChanged(objectIndex int, policy *policyv1.Policy) bool {
+func (bundle *CompleteComplianceStatusBundle) updateBundleIfObjectChanged(objectIndex int,
+	policy *policyv1.Policy) bool {
 	oldPolicyComplianceStatus := bundle.Objects[objectIndex]
 	newNonCompliantClusters, newUnknownComplianceClusters := bundle.getNonCompliantAndUnknownClusters(policy)
 
@@ -164,13 +188,13 @@ func (bundle *ComplianceStatusBundle) updateBundleIfObjectChanged(objectIndex in
 	return false
 }
 
-func (bundle *ComplianceStatusBundle) clusterListsEqual(oldClusters []string, newClusters []string) bool {
+func (bundle *CompleteComplianceStatusBundle) clusterListsEqual(oldClusters []string, newClusters []string) bool {
 	if len(oldClusters) != len(newClusters) {
 		return false
 	}
 
 	for _, newClusterName := range newClusters {
-		if !ContainsString(oldClusters, newClusterName) {
+		if !bundlepkg.ContainsString(oldClusters, newClusterName) {
 			return false
 		}
 	}
@@ -178,7 +202,7 @@ func (bundle *ComplianceStatusBundle) clusterListsEqual(oldClusters []string, ne
 	return true
 }
 
-func (bundle *ComplianceStatusBundle) containsNonCompliantOrUnknownClusters(
+func (bundle *CompleteComplianceStatusBundle) containsNonCompliantOrUnknownClusters(
 	policyComplianceStatus *statusbundle.PolicyCompleteComplianceStatus) bool {
 	if len(policyComplianceStatus.UnknownComplianceClusters) == 0 &&
 		len(policyComplianceStatus.NonCompliantClusters) == 0 {

@@ -10,10 +10,12 @@ import (
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
+	compliancestatus "github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle/hybrid-bundle/compliance-status"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/generic"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/syncintervals"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
+	bundleregistration "github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport/bundle-registration"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -57,8 +59,8 @@ func createBundleCollection(leafHubName string, incarnation uint64,
 	// complete compliance status bundle
 	completeComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
 		datatypes.PolicyCompleteComplianceMsgKey)
-	completeComplianceStatusBundle := bundle.NewCompleteComplianceStatusBundle(leafHubName, clustersPerPolicyBundle,
-		incarnation, extractPolicyID)
+	completeComplianceStatusBundle := compliancestatus.NewCompleteComplianceStatusBundle(leafHubName,
+		clustersPerPolicyBundle, incarnation, extractPolicyID)
 
 	// minimal compliance status bundle
 	minimalComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
@@ -70,11 +72,12 @@ func createBundleCollection(leafHubName string, incarnation uint64,
 
 	// no need to send in the same cycle both clusters per policy and compliance. if CpP was sent, don't send compliance
 	return []*generic.BundleCollectionEntry{ // multiple bundles for policy status
-		generic.NewBundleCollectionEntry(clustersPerPolicyTransportKey, clustersPerPolicyBundle, fullStatusPredicate),
-		generic.NewBundleCollectionEntry(completeComplianceStatusTransportKey, completeComplianceStatusBundle,
-			fullStatusPredicate),
-		generic.NewBundleCollectionEntry(minimalComplianceStatusTransportKey, minimalComplianceStatusBundle,
-			minimalStatusPredicate),
+		generic.NewBundleCollectionEntry(clustersPerPolicyBundle, fullStatusPredicate,
+			bundleregistration.NewFullStateBundleRegistration(clustersPerPolicyTransportKey)),
+		generic.NewBundleCollectionEntry(completeComplianceStatusBundle, fullStatusPredicate,
+			bundleregistration.NewFullStateBundleRegistration(completeComplianceStatusTransportKey)),
+		generic.NewBundleCollectionEntry(minimalComplianceStatusBundle, minimalStatusPredicate,
+			bundleregistration.NewFullStateBundleRegistration(minimalComplianceStatusTransportKey)),
 	}
 }
 

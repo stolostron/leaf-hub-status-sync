@@ -1,25 +1,23 @@
 package generic
 
 import (
-	"github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
+	bundleregistration "github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport/bundle-registration"
 )
 
 // NewBundleCollectionEntry creates a new instance of BundleCollectionEntry.
-func NewBundleCollectionEntry(transportBundleKey string, bundle bundle.Bundle,
-	predicate func() bool) *BundleCollectionEntry {
+func NewBundleCollectionEntry(bundle bundle.Bundle, predicate func() bool,
+	transportRegistration bundleregistration.BundleRegistration) *BundleCollectionEntry {
 	return &BundleCollectionEntry{
-		transportBundleKey:    transportBundleKey,
 		bundle:                bundle,
 		predicate:             predicate,
-		lastSentBundleVersion: bundle.GetBundleVersion(),
+		transportRegistration: transportRegistration,
 	}
 }
 
 // BundleCollectionEntry holds information about a specific bundle.
 type BundleCollectionEntry struct {
-	transportBundleKey    string
 	bundle                bundle.Bundle
 	predicate             func() bool
-	lastSentBundleVersion *status.BundleVersion
+	transportRegistration bundleregistration.BundleRegistration
 }

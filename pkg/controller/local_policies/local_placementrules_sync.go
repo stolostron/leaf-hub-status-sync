@@ -11,6 +11,7 @@ import (
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/syncintervals"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
+	bundleregistration "github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport/bundle-registration"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -30,11 +31,12 @@ func AddLocalPlacementRulesController(mgr ctrl.Manager, transport transport.Tran
 	localPlacementRuleTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalPlacementRulesMsgKey)
 
 	bundleCollection := []*generic.BundleCollectionEntry{
-		generic.NewBundleCollectionEntry(localPlacementRuleTransportKey,
-			bundle.NewGenericStatusBundle(leafHubName, incarnation, cleanPlacementRuleFunc),
+		generic.NewBundleCollectionEntry(bundle.NewGenericStatusBundle(leafHubName, incarnation,
+			cleanPlacementRuleFunc),
 			func() bool { // bundle predicate
 				return hubOfHubsConfig.Spec.EnableLocalPolicies
-			}),
+			},
+			bundleregistration.NewFullStateBundleRegistration(localPlacementRuleTransportKey)),
 	}
 	// controller predicate
 	localPlacementRulePredicate := predicate.NewPredicateFuncs(func(meta metav1.Object, object runtime.Object) bool {

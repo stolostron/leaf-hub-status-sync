@@ -7,10 +7,12 @@ import (
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
+	compliancestatus "github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle/hybrid-bundle/compliance-status"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/generic"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/syncintervals"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
+	bundleregistration "github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport/bundle-registration"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -56,7 +58,7 @@ func createBundleCollection(leafHubName string, incarnation uint64,
 	// compliance status bundle
 	localCompleteComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
 		datatypes.LocalPolicyCompleteComplianceMsgKey)
-	localCompleteComplianceStatusBundle := bundle.NewCompleteComplianceStatusBundle(leafHubName,
+	localCompleteComplianceStatusBundle := compliancestatus.NewCompleteComplianceStatusBundle(leafHubName,
 		localClustersPerPolicyBundle, incarnation, extractLocalPolicyIDFunc)
 
 	localPolicySpecTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalPolicySpecMsgKey)
@@ -68,12 +70,13 @@ func createBundleCollection(leafHubName string, incarnation uint64,
 	}
 	// multiple bundles for local policies
 	return []*generic.BundleCollectionEntry{
-		generic.NewBundleCollectionEntry(localClustersPerPolicyTransportKey,
-			localClustersPerPolicyBundle, localPolicyStatusPredicate),
-		generic.NewBundleCollectionEntry(localCompleteComplianceStatusTransportKey,
-			localCompleteComplianceStatusBundle, localPolicyStatusPredicate),
-		generic.NewBundleCollectionEntry(localPolicySpecTransportKey, localPolicySpecBundle,
-			func() bool { return hubOfHubsConfig.Spec.EnableLocalPolicies }),
+		generic.NewBundleCollectionEntry(localClustersPerPolicyBundle, localPolicyStatusPredicate,
+			bundleregistration.NewFullStateBundleRegistration(localClustersPerPolicyTransportKey)),
+		generic.NewBundleCollectionEntry(localCompleteComplianceStatusBundle, localPolicyStatusPredicate,
+			bundleregistration.NewFullStateBundleRegistration(localCompleteComplianceStatusTransportKey)),
+		generic.NewBundleCollectionEntry(localPolicySpecBundle,
+			func() bool { return hubOfHubsConfig.Spec.EnableLocalPolicies },
+			bundleregistration.NewFullStateBundleRegistration(localPolicySpecTransportKey)),
 	}
 }
 

@@ -13,6 +13,7 @@ import (
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/generic"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/syncintervals"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
+	bundleregistration "github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport/bundle-registration"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -28,12 +29,12 @@ func AddClustersStatusController(mgr ctrl.Manager, transport transport.Transport
 	transportBundleKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.ManagedClustersMsgKey)
 
 	bundleCollection := []*generic.BundleCollectionEntry{ // single bundle for managed clusters
-		generic.NewBundleCollectionEntry(transportBundleKey, bundle.NewGenericStatusBundle(leafHubName, incarnation,
-			nil),
+		generic.NewBundleCollectionEntry(bundle.NewGenericStatusBundle(leafHubName, incarnation, nil),
 			func() bool { // bundle predicate
 				return hubOfHubsConfig.Spec.AggregationLevel == configv1.Full ||
 					hubOfHubsConfig.Spec.AggregationLevel == configv1.Minimal
-			}), // at this point send all managed clusters even if aggregation level is minimal
+			}, // at this point send all managed clusters even if aggregation level is minimal
+			bundleregistration.NewFullStateBundleRegistration(transportBundleKey)),
 	}
 
 	if err := generic.NewGenericStatusSyncController(mgr, clusterStatusSyncLogName, transport,
