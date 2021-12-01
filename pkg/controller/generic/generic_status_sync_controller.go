@@ -74,7 +74,6 @@ func (c *genericStatusSyncController) init() {
 }
 
 func (c *genericStatusSyncController) handleRetries() {
-	// retry attempts counter map for exponential backoff
 	retryHandlersMap := make(map[string]*retryhandler.SyncRetryHandler)
 	// create a handler for each bundle with the retryOperation set as bundle syncing and start the handler
 	for _, entry := range c.orderedBundleCollection {
