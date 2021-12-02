@@ -129,14 +129,18 @@ func (manager *hybridSyncManager) handleTransportationFailure() {
 		return
 	}
 
+	manager.log.Info("transportation failure callback invoked")
 	manager.switchToCompleteStateMode()
 }
 
 func (manager *hybridSyncManager) switchToCompleteStateMode() {
+	manager.log.Info("switched to complete-state mode")
 	manager.syncMode = completeStateMode
 }
 
 func (manager *hybridSyncManager) switchToDeltaStateMode() {
+	manager.log.Info("switched to delta-state mode")
+
 	manager.syncMode = deltaStateMode
 	manager.sentDeltaCount = 0
 
