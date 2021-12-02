@@ -132,12 +132,12 @@ func (bundle *DeltaComplianceStatusBundle) SyncState() {
 	bundle.updatePolicyRecordsFromBase()
 }
 
-// FlushObjects flushes the objects in the bundle (after delivery).
-func (bundle *DeltaComplianceStatusBundle) FlushObjects() {
+// Reset flushes the objects in the bundle (after delivery).
+func (bundle *DeltaComplianceStatusBundle) Reset() {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	bundle.Objects = nil
+	bundle.Objects = nil // safe since go1.0
 }
 
 func (bundle *DeltaComplianceStatusBundle) updateSpecificPolicyRecordsFromBase(policyID string) {

@@ -34,6 +34,6 @@ type DeltaStateBundle interface {
 	Bundle
 	// SyncState syncs the state of the delta-bundle with the full-state.
 	SyncState()
-	// FlushObjects flushes the delta-state bundle's objects.
-	FlushObjects()
+	// Reset flushes the delta-state bundle's objects.
+	Reset()
 }
