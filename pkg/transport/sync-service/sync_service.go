@@ -122,6 +122,8 @@ func (s *SyncService) sendMessages() {
 				Description: fmt.Sprintf("%s:%s", compressionHeader, s.compressor.GetType()),
 			}
 
+			transport.InvokeCallback(s.eventSubscriptionMap, msg.ID, transport.DeliveryAttempt)
+
 			if err := s.client.UpdateObject(&objectMetaData); err != nil {
 				s.reportError(err, "Failed to update the object in the Edge Sync Service", msg)
 				continue

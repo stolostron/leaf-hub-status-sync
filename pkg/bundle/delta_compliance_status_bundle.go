@@ -2,6 +2,7 @@ package bundle
 
 import (
 	"errors"
+	set "github.com/deckarep/golang-set"
 	"sync"
 
 	v1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
@@ -46,9 +47,9 @@ type DeltaComplianceStatusBundle struct {
 }
 
 type policyComplianceStatus struct {
-	compliantClustersMap    map[string]struct{}
-	nonCompliantClustersMap map[string]struct{}
-	unknownClustersMap      map[string]struct{}
+	compliantClustersSet    set.Set
+	nonCompliantClustersSet set.Set
+	unknownClustersSet      set.Set
 }
 
 // UpdateObject function to update a single object inside a bundle.
@@ -138,6 +139,7 @@ func (bundle *DeltaComplianceStatusBundle) Reset() {
 	defer bundle.lock.Unlock()
 
 	bundle.Objects = nil // safe since go1.0
+	bundle.policyComplianceRecords = make(map[string]*policyComplianceStatus)
 }
 
 func (bundle *DeltaComplianceStatusBundle) updateSpecificPolicyRecordsFromBase(policyID string) {
@@ -150,9 +152,9 @@ func (bundle *DeltaComplianceStatusBundle) updateSpecificPolicyRecordsFromBase(p
 
 		// create new records for policy
 		bundle.policyComplianceRecords[policyID] = &policyComplianceStatus{
-			compliantClustersMap:    make(map[string]struct{}),
-			nonCompliantClustersMap: make(map[string]struct{}),
-			unknownClustersMap:      make(map[string]struct{}),
+			compliantClustersSet:    set.NewSet(),
+			nonCompliantClustersSet: set.NewSet(),
+			unknownClustersSet:      set.NewSet(),
 		}
 
 		// fill it up from base
@@ -167,9 +169,9 @@ func (bundle *DeltaComplianceStatusBundle) updatePolicyRecordsFromBase() {
 	for _, genericComplianceStatus := range policiesGenericComplianceStatuses {
 		// create new records for policy
 		bundle.policyComplianceRecords[genericComplianceStatus.PolicyID] = &policyComplianceStatus{
-			compliantClustersMap:    make(map[string]struct{}),
-			nonCompliantClustersMap: make(map[string]struct{}),
-			unknownClustersMap:      make(map[string]struct{}),
+			compliantClustersSet:    set.NewSet(),
+			nonCompliantClustersSet: set.NewSet(),
+			unknownClustersSet:      set.NewSet(),
 		}
 
 		// fill it up from base
@@ -241,18 +243,15 @@ func (bundle *DeltaComplianceStatusBundle) getRecordedClusterComplianceStatus(or
 	clusterName string) v1.ComplianceState {
 	policyRecords := bundle.policyComplianceRecords[originPolicyID]
 
-	if _, clusterExistsInCompliantMap :=
-		policyRecords.compliantClustersMap[clusterName]; clusterExistsInCompliantMap {
+	if policyRecords.compliantClustersSet.Contains(clusterName) {
 		return v1.Compliant
 	}
 
-	if _, clusterExistsInNonCompliantMap :=
-		policyRecords.nonCompliantClustersMap[clusterName]; clusterExistsInNonCompliantMap {
+	if policyRecords.nonCompliantClustersSet.Contains(clusterName) {
 		return v1.NonCompliant
 	}
 
-	if _, clusterExistsInUnknownMap :=
-		policyRecords.unknownClustersMap[clusterName]; clusterExistsInUnknownMap {
+	if policyRecords.unknownClustersSet.Contains(clusterName) {
 		return unknownComplianceStatus
 	}
 
@@ -265,21 +264,21 @@ func (bundle *DeltaComplianceStatusBundle) updateRecordedClusterComplianceStatus
 	policyRecords := bundle.policyComplianceRecords[*originPolicyID]
 
 	for _, compliantCluster := range compliantClusters {
-		policyRecords.compliantClustersMap[compliantCluster] = struct{}{}
-		delete(policyRecords.nonCompliantClustersMap, compliantCluster)
-		delete(policyRecords.unknownClustersMap, compliantCluster)
+		policyRecords.compliantClustersSet.Add(compliantCluster)
+		policyRecords.nonCompliantClustersSet.Remove(compliantCluster)
+		policyRecords.unknownClustersSet.Remove(compliantCluster)
 	}
 
 	for _, nonCompliantCluster := range nonCompliantClusters {
-		policyRecords.nonCompliantClustersMap[nonCompliantCluster] = struct{}{}
-		delete(policyRecords.compliantClustersMap, nonCompliantCluster)
-		delete(policyRecords.unknownClustersMap, nonCompliantCluster)
+		policyRecords.nonCompliantClustersSet.Add(nonCompliantCluster)
+		policyRecords.compliantClustersSet.Remove(nonCompliantCluster)
+		policyRecords.unknownClustersSet.Remove(nonCompliantCluster)
 	}
 
 	for _, unknownCluster := range unknownClusters {
-		policyRecords.unknownClustersMap[unknownCluster] = struct{}{}
-		delete(policyRecords.compliantClustersMap, unknownCluster)
-		delete(policyRecords.nonCompliantClustersMap, unknownCluster)
+		policyRecords.unknownClustersSet.Add(unknownCluster)
+		policyRecords.compliantClustersSet.Remove(unknownCluster)
+		policyRecords.nonCompliantClustersSet.Remove(unknownCluster)
 	}
 }
 
@@ -345,14 +344,14 @@ func (bundle *DeltaComplianceStatusBundle) getExistingPolicyState(policyIndex in
 
 func (bundle *DeltaComplianceStatusBundle) syncGenericStatus(status *statusbundle.PolicyGenericComplianceStatus) {
 	for _, compliantCluster := range status.CompliantClusters {
-		bundle.policyComplianceRecords[status.PolicyID].compliantClustersMap[compliantCluster] = struct{}{}
+		bundle.policyComplianceRecords[status.PolicyID].compliantClustersSet.Add(compliantCluster)
 	}
 
 	for _, nonCompliantCluster := range status.NonCompliantClusters {
-		bundle.policyComplianceRecords[status.PolicyID].nonCompliantClustersMap[nonCompliantCluster] = struct{}{}
+		bundle.policyComplianceRecords[status.PolicyID].nonCompliantClustersSet.Add(nonCompliantCluster)
 	}
 
 	for _, unknownCluster := range status.CompliantClusters {
-		bundle.policyComplianceRecords[status.PolicyID].unknownClustersMap[unknownCluster] = struct{}{}
+		bundle.policyComplianceRecords[status.PolicyID].unknownClustersSet.Add(unknownCluster)
 	}
 }

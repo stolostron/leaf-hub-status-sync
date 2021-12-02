@@ -18,17 +18,17 @@ const (
 
 var errExpectingDeltaStateBundle = errors.New("expecting a BundleCollectionEntry that wraps a DeltaStateBundle bundle")
 
-// NewGenericHybridSyncManager returns a new instance of HybridSyncManager.
+// NewGenericHybridSyncManager returns a new instance of hybridSyncManager.
 func NewGenericHybridSyncManager(log logr.Logger, transportObj transport.Transport,
 	completeStateBundleCollectionEntry *BundleCollectionEntry, deltaStateBundleCollectionEntry *BundleCollectionEntry,
-	sentDeltaCountSwitchFactor int) (*HybridSyncManager, error) {
+	sentDeltaCountSwitchFactor int) error {
 	// check that the delta state collection does indeed wrap a delta bundle
 	deltaStateBundle, ok := deltaStateBundleCollectionEntry.bundle.(bundle.DeltaStateBundle)
 	if !ok {
-		return nil, errExpectingDeltaStateBundle
+		return errExpectingDeltaStateBundle
 	}
 
-	genericHybridSyncManager := &HybridSyncManager{
+	genericHybridSyncManager := &hybridSyncManager{
 		log:      log,
 		syncMode: completeStateMode,
 		bundleCollectionEntryMap: map[syncMode]*BundleCollectionEntry{
@@ -44,11 +44,12 @@ func NewGenericHybridSyncManager(log logr.Logger, transportObj transport.Transpo
 	genericHybridSyncManager.appendPredicates()
 	genericHybridSyncManager.setCallbacks(transportObj)
 
-	return genericHybridSyncManager, nil
+	return nil
 }
 
-// HybridSyncManager manages two BundleCollectionEntry instances in application of hybrid-sync mode.
-type HybridSyncManager struct {
+// hybridSyncManager manages two BundleCollectionEntry instances in application of hybrid-sync mode.
+// won't get GC'd since callbacks are used.
+type hybridSyncManager struct {
 	log                        logr.Logger
 	syncMode                   syncMode
 	bundleCollectionEntryMap   map[syncMode]*BundleCollectionEntry
@@ -58,7 +59,7 @@ type HybridSyncManager struct {
 	lock                       sync.Mutex
 }
 
-func (manager *HybridSyncManager) appendPredicates() {
+func (manager *hybridSyncManager) appendPredicates() {
 	// append predicates for mode-management
 	for syncMode, bundleCollectionEntry := range manager.bundleCollectionEntryMap {
 		entry := bundleCollectionEntry       // to use in func
@@ -73,17 +74,18 @@ func (manager *HybridSyncManager) appendPredicates() {
 	}
 }
 
-func (manager *HybridSyncManager) setCallbacks(transportObj transport.Transport) {
+func (manager *hybridSyncManager) setCallbacks(transportObj transport.Transport) {
 	for _, bundleCollectionEntry := range manager.bundleCollectionEntryMap {
 		transportObj.Subscribe(bundleCollectionEntry.transportBundleKey,
 			map[transport.EventType]transport.EventCallback{
+				transport.DeliveryAttempt: manager.handleTransportationAttempt,
 				transport.DeliverySuccess: manager.handleTransportationSuccess,
 				transport.DeliveryFailure: manager.handleTransportationFailure,
 			})
 	}
 }
 
-func (manager *HybridSyncManager) handleTransportationSuccess() {
+func (manager *hybridSyncManager) handleTransportationAttempt() {
 	manager.lock.Lock()
 	defer manager.lock.Unlock()
 
@@ -108,7 +110,18 @@ func (manager *HybridSyncManager) handleTransportationSuccess() {
 	manager.deltaStateBundle.Reset()
 }
 
-func (manager *HybridSyncManager) handleTransportationFailure() {
+func (manager *hybridSyncManager) handleTransportationSuccess() {
+	manager.lock.Lock()
+	defer manager.lock.Unlock()
+
+	if manager.syncMode == deltaStateMode {
+		return
+	}
+
+	manager.switchToDeltaStateMode()
+}
+
+func (manager *hybridSyncManager) handleTransportationFailure() {
 	manager.lock.Lock()
 	defer manager.lock.Unlock()
 
@@ -119,13 +132,14 @@ func (manager *HybridSyncManager) handleTransportationFailure() {
 	manager.switchToCompleteStateMode()
 }
 
-func (manager *HybridSyncManager) switchToCompleteStateMode() {
+func (manager *hybridSyncManager) switchToCompleteStateMode() {
 	manager.syncMode = completeStateMode
 }
 
-func (manager *HybridSyncManager) switchToDeltaStateMode() {
+func (manager *hybridSyncManager) switchToDeltaStateMode() {
 	manager.syncMode = deltaStateMode
 	manager.sentDeltaCount = 0
 
+	manager.deltaStateBundle.Reset()
 	manager.deltaStateBundle.SyncState()
 }

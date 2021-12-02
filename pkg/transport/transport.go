@@ -7,6 +7,8 @@ type EventType string
 type EventCallback func()
 
 const (
+	// DeliveryAttempt event occurs when an attempted transport-delivery operation is attempted (sent to servers).
+	DeliveryAttempt EventType = "attempt"
 	// DeliverySuccess event occurs when an attempted transport-delivery operation is successful (ack from servers).
 	DeliverySuccess EventType = "success"
 	// DeliveryFailure event occurs when an attempted transport-delivery operation fails.
