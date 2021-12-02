@@ -100,8 +100,8 @@ func (s *SyncService) Stop() {
 }
 
 // Subscribe adds a callback to be delegated when a given event occurs for a message with the given ID.
-func (s *SyncService) Subscribe(messageID string, eventsMap map[transport.EventType]transport.EventCallback) {
-	s.eventSubscriptionMap[messageID] = eventsMap
+func (s *SyncService) Subscribe(messageID string, callbacks map[transport.EventType]transport.EventCallback) {
+	s.eventSubscriptionMap[messageID] = callbacks
 }
 
 // SendAsync function sends a message to the sync service asynchronously.
@@ -139,7 +139,7 @@ func (s *SyncService) sendMessages() {
 				continue
 			}
 
-			s.invokeCallback(msg.ID, transport.DeliverySuccess)
+			transport.InvokeCallback(s.eventSubscriptionMap, msg.ID, transport.DeliverySuccess)
 
 			s.log.Info("Message sent successfully", "MessageId", msg.ID, "MessageType", msg.MsgType,
 				"Version", msg.Version)
@@ -147,19 +147,8 @@ func (s *SyncService) sendMessages() {
 	}
 }
 
-func (s *SyncService) invokeCallback(messageID string, eventType transport.EventType) {
-	eventsMap, found := s.eventSubscriptionMap[messageID]
-	if !found {
-		return
-	}
-
-	if callback, found := eventsMap[eventType]; found {
-		callback()
-	}
-}
-
 func (s *SyncService) reportError(err error, errorMsg string, msg *transport.Message) {
-	s.invokeCallback(msg.ID, transport.DeliveryFailure)
+	transport.InvokeCallback(s.eventSubscriptionMap, msg.ID, transport.DeliveryFailure)
 
 	s.log.Error(err, errorMsg, "CompressorType", s.compressor.GetType(), "MessageId", msg.ID,
 		"MessageType", msg.MsgType, "Version", msg.Version)
