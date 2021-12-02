@@ -93,7 +93,6 @@ func (manager *HybridSyncManager) handleTransportationSuccess() {
 
 	if manager.syncMode == completeStateMode {
 		manager.switchToDeltaStateMode()
-
 		return
 	}
 
