@@ -61,13 +61,14 @@ type HybridSyncManager struct {
 func (manager *HybridSyncManager) appendPredicates() {
 	// append predicates for mode-management
 	for syncMode, bundleCollectionEntry := range manager.bundleCollectionEntryMap {
-		entry := bundleCollectionEntry // to use in func
-		syncMode := syncMode           // to use in func
+		entry := bundleCollectionEntry       // to use in func
+		syncMode := syncMode                 // to use in func
+		originalPredicate := entry.predicate // avoid recursion
 		entry.predicate = func() bool {
 			manager.lock.Lock()
 			defer manager.lock.Unlock()
 
-			return entry.predicate() && manager.syncMode == syncMode
+			return originalPredicate() && manager.syncMode == syncMode
 		}
 	}
 }
