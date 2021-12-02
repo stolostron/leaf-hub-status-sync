@@ -2,9 +2,9 @@ package bundle
 
 import (
 	"errors"
-	set "github.com/deckarep/golang-set"
 	"sync"
 
+	set "github.com/deckarep/golang-set"
 	v1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
@@ -25,7 +25,7 @@ func NewDeltaComplianceStatusBundle(leafHubName string, baseBundle Bundle,
 		BaseDeltaComplianceStatusBundle: statusbundle.BaseDeltaComplianceStatusBundle{
 			Objects:           make([]*statusbundle.PolicyGenericComplianceStatus, 0),
 			LeafHubName:       leafHubName,
-			BaseBundleVersion: baseBundle.GetBundleVersion(),
+			BaseBundleVersion: statusbundle.NewBundleVersion(incarnation, baseBundle.GetBundleVersion().Generation),
 			BundleVersion:     statusbundle.NewBundleVersion(incarnation, 0),
 		},
 		baseBundle:                  baseBundle,
@@ -127,7 +127,7 @@ func (bundle *DeltaComplianceStatusBundle) SyncState() {
 	defer bundle.lock.Unlock()
 
 	// update version
-	bundle.BaseBundleVersion = bundle.baseBundle.GetBundleVersion()
+	bundle.BaseBundleVersion.Generation = bundle.baseBundle.GetBundleVersion().Generation
 
 	// update policy records from the ClustersPerPolicy bundle's (full-state) status
 	bundle.updatePolicyRecordsFromBase()
