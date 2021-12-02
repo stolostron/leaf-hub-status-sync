@@ -150,10 +150,10 @@ func (s *SyncService) sendMessages() {
 
 			if registration, found := s.messageRegistrationMap[msg.ID]; found {
 				registration.HandleSuccess()
-
-				s.log.Info("Message sent successfully", "MessageId", msg.ID, "MessageType", msg.MsgType,
-					"Version", msg.Version)
 			}
+
+			s.log.Info("Message sent successfully", "MessageId", msg.ID, "MessageType", msg.MsgType,
+				"Version", msg.Version)
 		}
 	}
 }
