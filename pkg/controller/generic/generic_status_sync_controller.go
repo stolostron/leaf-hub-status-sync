@@ -205,10 +205,11 @@ func (c *genericStatusSyncController) syncBundles() {
 				bundleVersion, entry.bundle); err != nil {
 				c.log.Error(err, "failed to sync to transport")
 
-				continue // do not update last sent generation in case of failure in sync bundle to transport
+				return // do not update last sent generation in case of failure in sync bundle to transport
 			}
 
-			entry.lastSentBundleVersion = bundleVersion
+			// update generation value (incarnation is static) only and not whole pointer
+			entry.lastSentBundleVersion.Generation = bundleVersion.Generation
 		}
 	}
 }

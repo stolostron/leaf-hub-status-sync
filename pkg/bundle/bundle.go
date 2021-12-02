@@ -28,3 +28,12 @@ type Bundle interface {
 	// GetBundleVersion function to get bundle generation.
 	GetBundleVersion() *status.BundleVersion
 }
+
+// DeltaStateBundle abstracts the logic needed from the delta-state bundle.
+type DeltaStateBundle interface {
+	Bundle
+	// SyncState syncs the state of the delta-bundle with the full-state.
+	SyncState()
+	// FlushObjects flushes the delta-state bundle's objects.
+	FlushObjects()
+}
