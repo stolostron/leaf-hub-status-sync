@@ -16,7 +16,7 @@ const (
 	deltaStateMode    syncMode = iota
 )
 
-var errExpectingDeltaStateBundleCollection = errors.New("expecting a BundleCollectionEntry with a DeltaStateBundle")
+var errExpectingDeltaStateBundle = errors.New("expecting a BundleCollectionEntry that wraps a DeltaStateBundle bundle")
 
 // NewGenericHybridSyncManager returns a new instance of HybridSyncManager.
 func NewGenericHybridSyncManager(log logr.Logger, transportObj transport.Transport,
@@ -25,7 +25,7 @@ func NewGenericHybridSyncManager(log logr.Logger, transportObj transport.Transpo
 	// check that the delta state collection does indeed wrap a delta bundle
 	deltaStateBundle, ok := deltaStateBundleCollectionEntry.bundle.(bundle.DeltaStateBundle)
 	if !ok {
-		return nil, errExpectingDeltaStateBundleCollection
+		return nil, errExpectingDeltaStateBundle
 	}
 
 	genericHybridSyncManager := &HybridSyncManager{
@@ -104,8 +104,8 @@ func (manager *HybridSyncManager) handleTransportationSuccess() {
 		return
 	}
 
-	// flush content
-	manager.deltaStateBundle.FlushObjects()
+	// reset delta bundle objects
+	manager.deltaStateBundle.Reset()
 }
 
 func (manager *HybridSyncManager) handleTransportationFailure() {
