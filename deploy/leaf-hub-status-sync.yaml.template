@@ -117,14 +117,18 @@ spec:
                 fieldRef:
                  apiVersion: v1
                  fieldPath: metadata.namespace
+            - name: LH_ID
+              value: "$LH_ID"
+            - name: TRANSPORT_TYPE
+              value: "$TRANSPORT_TYPE"
+            - name: TRANSPORT_MESSAGE_COMPRESSION_TYPE
+              value: "gzip"
             - name: SYNC_SERVICE_PROTOCOL
               value: "http"
             - name: SYNC_SERVICE_HOST
               value: sync-service-ess.sync-service.svc.cluster.local
             - name: SYNC_SERVICE_PORT
               value: "$SYNC_SERVICE_PORT"
-            - name: LH_ID
-              value: "$LH_ID"
             - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:
