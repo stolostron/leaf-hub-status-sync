@@ -23,9 +23,6 @@ var errExpectingDeltaStateBundle = errors.New("expecting a BundleCollectionEntry
 func NewGenericHybridSyncManager(log logr.Logger, transportObj transport.Transport,
 	completeStateBundleCollectionEntry *BundleCollectionEntry, deltaStateBundleCollectionEntry *BundleCollectionEntry,
 	sentDeltaCountSwitchFactor int) error {
-	if sentDeltaCountSwitchFactor <= 0 {
-		return nil // hybrid mode is not active, don't do anything.
-	}
 	// check that the delta state collection does indeed wrap a delta bundle
 	deltaStateBundle, ok := deltaStateBundleCollectionEntry.bundle.(bundle.DeltaStateBundle)
 	if !ok {
@@ -52,7 +49,7 @@ func NewGenericHybridSyncManager(log logr.Logger, transportObj transport.Transpo
 }
 
 // hybridSyncManager manages two BundleCollectionEntry instances in application of hybrid-sync mode.
-// won't get GC'd since callbacks are used.
+// won't get collected by the GC since callbacks are used.
 type hybridSyncManager struct {
 	log                        logr.Logger
 	syncMode                   syncMode
@@ -73,12 +70,16 @@ func (manager *hybridSyncManager) appendPredicates() {
 			manager.lock.Lock()
 			defer manager.lock.Unlock()
 
-			return originalPredicate() && manager.syncMode == syncMode
+			return manager.syncMode == syncMode && originalPredicate()
 		}
 	}
 }
 
 func (manager *hybridSyncManager) setCallbacks(transportObj transport.Transport) {
+	if manager.sentDeltaCountSwitchFactor == 0 {
+		return // this will prevent switching to delta-state mode
+	}
+
 	for _, bundleCollectionEntry := range manager.bundleCollectionEntryMap {
 		transportObj.Subscribe(bundleCollectionEntry.transportBundleKey,
 			map[transport.EventType]transport.EventCallback{
