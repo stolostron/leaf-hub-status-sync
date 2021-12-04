@@ -351,7 +351,7 @@ func (bundle *DeltaComplianceStatusBundle) syncGenericStatus(status *statusbundl
 		bundle.policyComplianceRecords[status.PolicyID].nonCompliantClustersSet.Add(nonCompliantCluster)
 	}
 
-	for _, unknownCluster := range status.CompliantClusters {
+	for _, unknownCluster := range status.UnknownComplianceClusters {
 		bundle.policyComplianceRecords[status.PolicyID].unknownClustersSet.Add(unknownCluster)
 	}
 }
