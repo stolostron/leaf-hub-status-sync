@@ -79,7 +79,7 @@ func (manager *hybridSyncManager) appendPredicates() {
 }
 
 func (manager *hybridSyncManager) isEnabled(transportObj transport.Transport) bool {
-	if manager.sentDeltaCountSwitchFactor <= 0  || !transportObj.SupportsDeltaBundles() {
+	if manager.sentDeltaCountSwitchFactor <= 0 || !transportObj.SupportsDeltaBundles() {
 		return false
 	}
 
