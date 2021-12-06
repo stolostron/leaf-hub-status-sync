@@ -159,6 +159,8 @@ func (bundle *DeltaComplianceStatusBundle) updateSpecificPolicyRecordsFromBase(p
 
 		// fill it up from base
 		bundle.syncGenericStatus(genericComplianceStatus)
+
+		break // found the policy, no need to continue
 	}
 }
 
@@ -195,7 +197,7 @@ func (bundle *DeltaComplianceStatusBundle) getPolicyComplianceStatus(originPolic
 	compliantClusters, nonCompliantClusters, unknownComplianceClusters := bundle.getChangedClusters(policy)
 
 	if len(compliantClusters)+len(nonCompliantClusters)+len(unknownComplianceClusters) == 0 {
-		return nil, errPolicyStatusUnchanged
+		return nil, errPolicyStatusUnchanged // status flicker / CpP already covered it
 	}
 
 	return &statusbundle.PolicyGenericComplianceStatus{
