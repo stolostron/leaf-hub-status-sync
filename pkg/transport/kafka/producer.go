@@ -84,8 +84,13 @@ func readEnvVars() (*kafka.ConfigMap, string, int, error) {
 	}
 
 	messageSizeLimit, err := strconv.Atoi(messageSizeLimitString)
-	if err != nil || messageSizeLimit <= 0 || messageSizeLimit > maxMessageSizeLimit {
+	if err != nil || messageSizeLimit <= 0 {
 		return nil, "", 0, fmt.Errorf("%w: %s", errEnvVarIllegalValue, envVarMessageSizeLimit)
+	}
+
+	if messageSizeLimit > maxMessageSizeLimit {
+		return nil, "", 0, fmt.Errorf("%w - size must not exceed %d : %s", errEnvVarIllegalValue,
+			maxMessageSizeLimit, envVarMessageSizeLimit)
 	}
 
 	kafkaConfigMap := &kafka.ConfigMap{
@@ -96,7 +101,7 @@ func readEnvVars() (*kafka.ConfigMap, string, int, error) {
 	}
 
 	if err := readSSLEnvVar(kafkaConfigMap); err != nil {
-		return nil, "", 0, fmt.Errorf("%w", err)
+		return nil, "", 0, fmt.Errorf("%w - failed to read SSL env var", err)
 	}
 
 	return kafkaConfigMap, topic, messageSizeLimit, nil
@@ -144,6 +149,8 @@ func (p *Producer) Start() {
 // Stop stops the producer.
 func (p *Producer) Stop() {
 	p.stopOnce.Do(func() {
+		p.stopChan <- struct{}{}
+
 		close(p.deliveryChan)
 		close(p.stopChan)
 		p.kafkaProducer.Close()
