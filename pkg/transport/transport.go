@@ -25,4 +25,6 @@ type Transport interface {
 	Start()
 	// Stop stops the transport.
 	Stop()
+	// SupportsDeltaBundles returns true if the transport layer supports delta bundles, otherwise false.
+	SupportsDeltaBundles() bool
 }

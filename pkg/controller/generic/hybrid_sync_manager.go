@@ -20,7 +20,7 @@ var errExpectingDeltaStateBundle = errors.New("expecting a BundleCollectionEntry
 
 // NewGenericHybridSyncManager creates a manager that manages two BundleCollectionEntry instances that wrap a
 // complete-state bundle and a delta-state bundle.
-func NewGenericHybridSyncManager(log logr.Logger, transportObj transport.Transport,
+func NewHybridSyncManager(log logr.Logger, transportObj transport.Transport,
 	completeStateBundleCollectionEntry *BundleCollectionEntry, deltaStateBundleCollectionEntry *BundleCollectionEntry,
 	sentDeltaCountSwitchFactor int) error {
 	// check that the delta state collection does indeed wrap a delta bundle
@@ -29,7 +29,7 @@ func NewGenericHybridSyncManager(log logr.Logger, transportObj transport.Transpo
 		return errExpectingDeltaStateBundle
 	}
 
-	genericHybridSyncManager := &hybridSyncManager{
+	hybridSyncManager := &hybridSyncManager{
 		log:      log,
 		syncMode: completeStateMode,
 		bundleCollectionEntryMap: map[syncMode]*BundleCollectionEntry{
@@ -42,8 +42,11 @@ func NewGenericHybridSyncManager(log logr.Logger, transportObj transport.Transpo
 		lock:                       sync.Mutex{},
 	}
 
-	genericHybridSyncManager.appendPredicates()
-	genericHybridSyncManager.setCallbacks(transportObj)
+	hybridSyncManager.appendPredicates()
+
+	if hybridSyncManager.isEnabled(transportObj) { // hybrid mode may be disabled in some different scenarios.
+		hybridSyncManager.setCallbacks(transportObj)
+	}
 
 	return nil
 }
@@ -75,11 +78,15 @@ func (manager *hybridSyncManager) appendPredicates() {
 	}
 }
 
-func (manager *hybridSyncManager) setCallbacks(transportObj transport.Transport) {
-	if manager.sentDeltaCountSwitchFactor == 0 {
-		return // this will prevent switching to delta-state mode
+func (manager *hybridSyncManager) isEnabled(transportObj transport.Transport) bool {
+	if manager.sentDeltaCountSwitchFactor <= 0  || !transportObj.SupportsDeltaBundles() {
+		return false
 	}
 
+	return true
+}
+
+func (manager *hybridSyncManager) setCallbacks(transportObj transport.Transport) {
 	for _, bundleCollectionEntry := range manager.bundleCollectionEntryMap {
 		transportObj.Subscribe(bundleCollectionEntry.transportBundleKey,
 			map[transport.EventType]transport.EventCallback{

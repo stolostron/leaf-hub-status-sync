@@ -104,6 +104,11 @@ func (s *SyncService) Subscribe(messageID string, callbacks map[transport.EventT
 	s.eventSubscriptionMap[messageID] = callbacks
 }
 
+// SupportsDeltaBundles returns false. sync service doesn't support delta bundles.
+func (s *SyncService) SupportsDeltaBundles() bool {
+	return false
+}
+
 // SendAsync function sends a message to the sync service asynchronously.
 func (s *SyncService) SendAsync(message *transport.Message) {
 	s.msgChan <- message
