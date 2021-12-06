@@ -38,8 +38,6 @@ var (
 // AddPoliciesStatusController adds policies status controller to the manager.
 func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport, leafHubName string,
 	incarnation uint64, hubOfHubsConfig *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals) error {
-	createObjFunction := func() bundle.Object { return &policiesv1.Policy{} }
-
 	bundleCollection, err := createBundleCollection(transport, leafHubName, incarnation, hubOfHubsConfig)
 	if err != nil {
 		return fmt.Errorf("failed to add policies controller to the manager - %w", err)
@@ -51,6 +49,8 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 	ownerRefAnnotationPredicate := predicate.NewPredicateFuncs(func(meta metav1.Object, object runtime.Object) bool {
 		return helpers.HasAnnotation(meta, datatypes.OriginOwnerReferenceAnnotation)
 	})
+
+	createObjFunction := func() bundle.Object { return &policiesv1.Policy{} }
 
 	// initialize policy status controller (contains multiple bundles)
 	if err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, transport, policyCleanupFinalizer,
@@ -64,19 +64,14 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 
 func createBundleCollection(transportObj transport.Transport, leafHubName string, incarnation uint64,
 	hubOfHubsConfig *configv1.Config) ([]*generic.BundleCollectionEntry, error) {
+	deltaSentCountSwitchFactor, err := readEnvVars()
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize bundle collection - %w", err)
+	}
+
 	// clusters per policy (base bundle)
 	clustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.ClustersPerPolicyMsgKey)
 	clustersPerPolicyBundle := bundle.NewClustersPerPolicyBundle(leafHubName, incarnation, extractPolicyID)
-
-	// complete compliance status bundle
-	completeComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.PolicyCompleteComplianceMsgKey)
-	completeComplianceStatusBundle := bundle.NewCompleteComplianceStatusBundle(leafHubName, clustersPerPolicyBundle,
-		incarnation, extractPolicyID)
-
-	// delta compliance status bundle
-	deltaComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.PolicyDeltaComplianceMsgKey)
-	deltaComplianceStatusBundle := bundle.NewDeltaComplianceStatusBundle(leafHubName, completeComplianceStatusBundle,
-		clustersPerPolicyBundle.(*bundle.ClustersPerPolicyBundle), incarnation, extractPolicyID)
 
 	// minimal compliance status bundle
 	minimalComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
@@ -88,11 +83,10 @@ func createBundleCollection(transportObj transport.Transport, leafHubName string
 
 	// apply a hybrid sync manager on the (full aggregation) compliance bundles
 	completeComplianceStatusBundleCollectionEntry, deltaComplianceStatusBundleCollectionEntry,
-		err := getHybridComplianceBundleCollectionEntries(transportObj, fullStatusPredicate,
-		completeComplianceStatusTransportKey, completeComplianceStatusBundle, deltaComplianceStatusTransportKey,
-		deltaComplianceStatusBundle)
+		err := getHybridComplianceBundleCollectionEntries(transportObj, leafHubName, incarnation, fullStatusPredicate,
+		clustersPerPolicyBundle, deltaSentCountSwitchFactor)
 	if err != nil {
-		return nil, fmt.Errorf("%w", err)
+		return nil, fmt.Errorf("failed to initialize hybrid sync manager - %w", err)
 	}
 
 	// no need to send in the same cycle both clusters per policy and compliance. if CpP was sent, don't send compliance
@@ -105,31 +99,44 @@ func createBundleCollection(transportObj transport.Transport, leafHubName string
 	}, nil
 }
 
-// getHybridComplianceBundleCollectionEntries creates a complete/delta compliance bundle collection entries and has
-// them managed by a genericHybridSyncManager.
-// The collection entries are returned (or nils with an error if any occurred).
-func getHybridComplianceBundleCollectionEntries(transport transport.Transport, fullStatusPredicate func() bool,
-	completeComplianceStatusTransportKey string, completeComplianceStatusBundle bundle.Bundle,
-	deltaComplianceStatusTransportKey string,
-	deltaComplianceStatusBundle bundle.Bundle) (*generic.BundleCollectionEntry, *generic.BundleCollectionEntry, error) {
+func readEnvVars() (int, error) {
 	// delta bundle sent-count switch factor from env var
 	deltaCountSwitchFactorString, found := os.LookupEnv(envVarComplianceStatusSentDeltasCountSwitchFactor)
 	if !found {
-		return nil, nil, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarComplianceStatusSentDeltasCountSwitchFactor)
+		return 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarComplianceStatusSentDeltasCountSwitchFactor)
 	}
 
 	deltaCountSwitchFactor, err := strconv.Atoi(deltaCountSwitchFactorString)
 	if err != nil {
-		return nil, nil, fmt.Errorf("%w: %v - %s", err, errEnvVarIllegalValue,
+		return 0, fmt.Errorf("%w: %v - %s", err, errEnvVarIllegalValue,
 			envVarComplianceStatusSentDeltasCountSwitchFactor)
 	}
+
+	return deltaCountSwitchFactor, nil
+}
+
+// getHybridComplianceBundleCollectionEntries creates a complete/delta compliance bundle collection entries and has
+// them managed by a genericHybridSyncManager.
+// The collection entries are returned (or nils with an error if any occurred).
+func getHybridComplianceBundleCollectionEntries(transport transport.Transport, leafHubName string,
+	incarnation uint64, fullStatusPredicate func() bool, clustersPerPolicyBundle bundle.Bundle,
+	deltaCountSwitchFactor int) (*generic.BundleCollectionEntry, *generic.BundleCollectionEntry, error) {
+	// complete compliance status bundle
+	completeComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.PolicyCompleteComplianceMsgKey)
+	completeComplianceStatusBundle := bundle.NewCompleteComplianceStatusBundle(leafHubName, clustersPerPolicyBundle,
+		incarnation, extractPolicyID)
+
+	// delta compliance status bundle
+	deltaComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.PolicyDeltaComplianceMsgKey)
+	deltaComplianceStatusBundle := bundle.NewDeltaComplianceStatusBundle(leafHubName, completeComplianceStatusBundle,
+		clustersPerPolicyBundle.(*bundle.ClustersPerPolicyBundle), incarnation, extractPolicyID)
 
 	completeComplianceBundleCollectionEntry := generic.NewBundleCollectionEntry(completeComplianceStatusTransportKey,
 		completeComplianceStatusBundle, fullStatusPredicate)
 	deltaComplianceBundleCollectionEntry := generic.NewBundleCollectionEntry(deltaComplianceStatusTransportKey,
 		deltaComplianceStatusBundle, fullStatusPredicate)
 
-	if err = generic.NewHybridSyncManager(ctrl.Log.WithName("compliance-status hybrid sync manager"),
+	if err := generic.NewHybridSyncManager(ctrl.Log.WithName("compliance-status hybrid sync manager"),
 		transport, completeComplianceBundleCollectionEntry, deltaComplianceBundleCollectionEntry,
 		deltaCountSwitchFactor); err != nil {
 		return nil, nil, fmt.Errorf("%w: %v", err, errFailedToCreateHybridSyncManager)
