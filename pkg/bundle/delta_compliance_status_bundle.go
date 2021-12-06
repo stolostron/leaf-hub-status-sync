@@ -26,7 +26,7 @@ func NewDeltaComplianceStatusBundle(leafHubName string, baseBundle Bundle,
 		},
 		baseBundle:                  baseBundle,
 		clustersPerPolicyBaseBundle: clustersPerPolicyBundle,
-		policyComplianceRecords:     make(map[string]*policyComplianceStatus),
+		complianceRecordsCache:      make(map[string]*policyComplianceStatus),
 		extractObjIDFunc:            extractObjIDFunc,
 		lock:                        sync.Mutex{},
 	}
@@ -37,7 +37,7 @@ type DeltaComplianceStatusBundle struct {
 	statusbundle.BaseDeltaComplianceStatusBundle
 	baseBundle                  Bundle
 	clustersPerPolicyBaseBundle *ClustersPerPolicyBundle
-	policyComplianceRecords     map[string]*policyComplianceStatus
+	complianceRecordsCache      map[string]*policyComplianceStatus
 	extractObjIDFunc            ExtractObjIDFunc
 	lock                        sync.Mutex
 }
@@ -65,9 +65,10 @@ func (bundle *DeltaComplianceStatusBundle) UpdateObject(object Object) {
 		return // can't update the object without finding its id
 	}
 
-	// if policy is new then sync what's in the clustersPerPolicy base (already sent)
-	if _, policyHasRecords := bundle.policyComplianceRecords[originPolicyID]; !policyHasRecords {
+	// if policy is new then sync what's in the clustersPerPolicy base
+	if _, policyHasRecords := bundle.complianceRecordsCache[originPolicyID]; !policyHasRecords {
 		bundle.updateSpecificPolicyRecordsFromBase(originPolicyID)
+		return
 	}
 
 	// get policy compliance status, this will also update info in records
@@ -108,7 +109,7 @@ func (bundle *DeltaComplianceStatusBundle) DeleteObject(object Object) {
 	bundle.Objects = append(bundle.Objects[:index], bundle.Objects[index+1:]...) // remove from objects
 
 	// delete from policies records and the policies' existence map
-	delete(bundle.policyComplianceRecords, originPolicyID)
+	delete(bundle.complianceRecordsCache, originPolicyID)
 }
 
 // GetBundleVersion function to get bundle version.
@@ -128,6 +129,7 @@ func (bundle *DeltaComplianceStatusBundle) SyncState() {
 	bundle.BaseBundleVersion.Generation = bundle.baseBundle.GetBundleVersion().Generation
 
 	// update policy records from the ClustersPerPolicy bundle's (full-state) status
+	bundle.complianceRecordsCache = make(map[string]*policyComplianceStatus)
 	bundle.updatePolicyRecordsFromBase()
 }
 
@@ -137,7 +139,6 @@ func (bundle *DeltaComplianceStatusBundle) Reset() {
 	defer bundle.lock.Unlock()
 
 	bundle.Objects = nil // safe since go1.0
-	bundle.policyComplianceRecords = make(map[string]*policyComplianceStatus)
 }
 
 func (bundle *DeltaComplianceStatusBundle) updateSpecificPolicyRecordsFromBase(policyID string) {
@@ -203,33 +204,33 @@ func (bundle *DeltaComplianceStatusBundle) getChangedClusters(policy *v1.Policy,
 	for _, clusterCompliance := range policy.Status.Status {
 		switch clusterCompliance.ComplianceState {
 		case v1.Compliant:
-			if bundle.policyComplianceRecords[policyID].compliantClustersSet.Contains(clusterCompliance.ClusterName) {
+			if bundle.complianceRecordsCache[policyID].compliantClustersSet.Contains(clusterCompliance.ClusterName) {
 				continue
 			}
 
-			bundle.policyComplianceRecords[policyID].compliantClustersSet.Add(clusterCompliance.ClusterName)
-			bundle.policyComplianceRecords[policyID].nonCompliantClustersSet.Remove(clusterCompliance.ClusterName)
-			bundle.policyComplianceRecords[policyID].unknownClustersSet.Remove(clusterCompliance.ClusterName)
+			bundle.complianceRecordsCache[policyID].compliantClustersSet.Add(clusterCompliance.ClusterName)
+			bundle.complianceRecordsCache[policyID].nonCompliantClustersSet.Remove(clusterCompliance.ClusterName)
+			bundle.complianceRecordsCache[policyID].unknownClustersSet.Remove(clusterCompliance.ClusterName)
 
 			compliantClusters = append(compliantClusters, clusterCompliance.ClusterName)
 		case v1.NonCompliant:
-			if bundle.policyComplianceRecords[policyID].nonCompliantClustersSet.Contains(clusterCompliance.ClusterName) {
+			if bundle.complianceRecordsCache[policyID].nonCompliantClustersSet.Contains(clusterCompliance.ClusterName) {
 				continue
 			}
 
-			bundle.policyComplianceRecords[policyID].compliantClustersSet.Remove(clusterCompliance.ClusterName)
-			bundle.policyComplianceRecords[policyID].nonCompliantClustersSet.Add(clusterCompliance.ClusterName)
-			bundle.policyComplianceRecords[policyID].unknownClustersSet.Remove(clusterCompliance.ClusterName)
+			bundle.complianceRecordsCache[policyID].compliantClustersSet.Remove(clusterCompliance.ClusterName)
+			bundle.complianceRecordsCache[policyID].nonCompliantClustersSet.Add(clusterCompliance.ClusterName)
+			bundle.complianceRecordsCache[policyID].unknownClustersSet.Remove(clusterCompliance.ClusterName)
 
 			nonCompliantClusters = append(nonCompliantClusters, clusterCompliance.ClusterName)
 		default:
-			if bundle.policyComplianceRecords[policyID].unknownClustersSet.Contains(clusterCompliance.ClusterName) {
+			if bundle.complianceRecordsCache[policyID].unknownClustersSet.Contains(clusterCompliance.ClusterName) {
 				continue
 			}
 
-			bundle.policyComplianceRecords[policyID].compliantClustersSet.Remove(clusterCompliance.ClusterName)
-			bundle.policyComplianceRecords[policyID].nonCompliantClustersSet.Remove(clusterCompliance.ClusterName)
-			bundle.policyComplianceRecords[policyID].unknownClustersSet.Add(clusterCompliance.ClusterName)
+			bundle.complianceRecordsCache[policyID].compliantClustersSet.Remove(clusterCompliance.ClusterName)
+			bundle.complianceRecordsCache[policyID].nonCompliantClustersSet.Remove(clusterCompliance.ClusterName)
+			bundle.complianceRecordsCache[policyID].unknownClustersSet.Add(clusterCompliance.ClusterName)
 
 			unknownComplianceClusters = append(unknownComplianceClusters, clusterCompliance.ClusterName)
 		}
@@ -299,7 +300,7 @@ func (bundle *DeltaComplianceStatusBundle) getExistingPolicyState(policyIndex in
 }
 
 func (bundle *DeltaComplianceStatusBundle) syncGenericStatus(status *statusbundle.PolicyGenericComplianceStatus) {
-	bundle.policyComplianceRecords[status.PolicyID] = &policyComplianceStatus{
+	bundle.complianceRecordsCache[status.PolicyID] = &policyComplianceStatus{
 		compliantClustersSet:    set.NewSet(status.CompliantClusters),
 		nonCompliantClustersSet: set.NewSet(status.NonCompliantClusters),
 		unknownClustersSet:      set.NewSet(status.UnknownComplianceClusters),
