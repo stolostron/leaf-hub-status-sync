@@ -14,7 +14,7 @@ func NewCompleteComplianceStatusBundle(leafHubName string, baseBundle Bundle, in
 		BaseCompleteComplianceStatusBundle: statusbundle.BaseCompleteComplianceStatusBundle{
 			Objects:           make([]*statusbundle.PolicyCompleteComplianceStatus, 0),
 			LeafHubName:       leafHubName,
-			BaseBundleVersion: baseBundle.GetBundleVersion(),
+			BaseBundleVersion: baseBundle.GetBundleVersion(), // ALWAYS SYNCED SINCE POINTER
 			BundleVersion:     statusbundle.NewBundleVersion(incarnation, 0),
 		},
 		baseBundle:       baseBundle,
@@ -35,8 +35,6 @@ type ComplianceStatusBundle struct {
 func (bundle *ComplianceStatusBundle) UpdateObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
-
-	bundle.BaseBundleVersion = bundle.baseBundle.GetBundleVersion()
 
 	policy, ok := object.(*policyv1.Policy)
 	if !ok {
@@ -77,8 +75,6 @@ func (bundle *ComplianceStatusBundle) UpdateObject(object Object) {
 func (bundle *ComplianceStatusBundle) DeleteObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
-
-	bundle.BaseBundleVersion = bundle.baseBundle.GetBundleVersion()
 
 	_, ok := object.(*policyv1.Policy)
 	if !ok {

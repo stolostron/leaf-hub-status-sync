@@ -38,11 +38,12 @@ func NewSyncService(compressor compressors.Compressor, log logr.Logger) (*SyncSe
 	syncServiceClient.SetAppKeyAndSecret("user@myorg", "")
 
 	return &SyncService{
-		log:        log,
-		client:     syncServiceClient,
-		compressor: compressor,
-		msgChan:    make(chan *transport.Message),
-		stopChan:   make(chan struct{}, 1),
+		log:                  log,
+		client:               syncServiceClient,
+		eventSubscriptionMap: make(map[string]map[transport.EventType]transport.EventCallback),
+		compressor:           compressor,
+		msgChan:              make(chan *transport.Message),
+		stopChan:             make(chan struct{}, 1),
 	}, nil
 }
 
@@ -72,13 +73,14 @@ func readEnvVars() (string, string, uint16, error) {
 
 // SyncService abstracts Sync Service client.
 type SyncService struct {
-	log        logr.Logger
-	client     *client.SyncServiceClient
-	compressor compressors.Compressor
-	msgChan    chan *transport.Message
-	stopChan   chan struct{}
-	startOnce  sync.Once
-	stopOnce   sync.Once
+	log                  logr.Logger
+	client               *client.SyncServiceClient
+	eventSubscriptionMap map[string]map[transport.EventType]transport.EventCallback
+	compressor           compressors.Compressor
+	msgChan              chan *transport.Message
+	stopChan             chan struct{}
+	startOnce            sync.Once
+	stopOnce             sync.Once
 }
 
 // Start function starts sync service.
@@ -95,6 +97,11 @@ func (s *SyncService) Stop() {
 		close(s.stopChan)
 		close(s.msgChan)
 	})
+}
+
+// Subscribe adds a callback to be delegated when a given event occurs for a message with the given ID.
+func (s *SyncService) Subscribe(messageID string, callbacks map[transport.EventType]transport.EventCallback) {
+	s.eventSubscriptionMap[messageID] = callbacks
 }
 
 // SendAsync function sends a message to the sync service asynchronously.
@@ -115,28 +122,36 @@ func (s *SyncService) sendMessages() {
 				Description: fmt.Sprintf("%s:%s", compressionHeader, s.compressor.GetType()),
 			}
 
+			transport.InvokeCallback(s.eventSubscriptionMap, msg.ID, transport.DeliveryAttempt)
+
 			if err := s.client.UpdateObject(&objectMetaData); err != nil {
-				s.log.Error(err, "Failed to update the object in the Edge Sync Service")
+				s.reportError(err, "Failed to update the object in the Edge Sync Service", msg)
 				continue
 			}
 
 			compressedBytes, err := s.compressor.Compress(msg.Payload)
 			if err != nil {
-				s.log.Error(err, "Failed to compress payload", "CompressorType",
-					s.compressor.GetType(), "MessageId", msg.ID, "MessageType", msg.MsgType, "Version",
-					msg.Version)
-
+				s.reportError(err, "Failed to compress payload", msg)
 				continue
 			}
 
 			reader := bytes.NewReader(compressedBytes)
 			if err := s.client.UpdateObjectData(&objectMetaData, reader); err != nil {
-				s.log.Error(err, "Failed to update the object data in the Edge Sync Service")
+				s.reportError(err, "Failed to update the object data in the Edge Sync Service", msg)
 				continue
 			}
+
+			transport.InvokeCallback(s.eventSubscriptionMap, msg.ID, transport.DeliverySuccess)
 
 			s.log.Info("Message sent successfully", "MessageId", msg.ID, "MessageType", msg.MsgType,
 				"Version", msg.Version)
 		}
 	}
+}
+
+func (s *SyncService) reportError(err error, errorMsg string, msg *transport.Message) {
+	transport.InvokeCallback(s.eventSubscriptionMap, msg.ID, transport.DeliveryFailure)
+
+	s.log.Error(err, errorMsg, "CompressorType", s.compressor.GetType(), "MessageId", msg.ID,
+		"MessageType", msg.MsgType, "Version", msg.Version)
 }

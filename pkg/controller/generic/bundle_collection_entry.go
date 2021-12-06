@@ -12,7 +12,7 @@ func NewBundleCollectionEntry(transportBundleKey string, bundle bundle.Bundle,
 		transportBundleKey:    transportBundleKey,
 		bundle:                bundle,
 		predicate:             predicate,
-		lastSentBundleVersion: bundle.GetBundleVersion(),
+		lastSentBundleVersion: *bundle.GetBundleVersion(),
 	}
 }
 
@@ -21,5 +21,5 @@ type BundleCollectionEntry struct {
 	transportBundleKey    string
 	bundle                bundle.Bundle
 	predicate             func() bool
-	lastSentBundleVersion *status.BundleVersion
+	lastSentBundleVersion status.BundleVersion // not pointer so it does not point to the bundle's internal version
 }
