@@ -52,13 +52,14 @@ func NewProducer(compressor compressors.Compressor, log logr.Logger) (*Producer,
 	}
 
 	return &Producer{
-		log:                  log,
-		kafkaProducer:        kafkaProducer,
-		topic:                topic,
-		eventSubscriptionMap: make(map[string]map[transport.EventType]transport.EventCallback),
-		compressor:           compressor,
-		deliveryChan:         deliveryChan,
-		stopChan:             make(chan struct{}),
+		log:                      log,
+		kafkaProducer:            kafkaProducer,
+		topic:                    topic,
+		eventSubscriptionMap:     make(map[string]map[transport.EventType]transport.EventCallback),
+		deltaMessageKeyPrefixMap: make(map[string]*int),
+		compressor:               compressor,
+		deliveryChan:             deliveryChan,
+		stopChan:                 make(chan struct{}),
 	}, nil
 }
 
@@ -128,15 +129,16 @@ func readSSLEnvVar(kafkaConfigMap *kafka.ConfigMap) error {
 
 // Producer abstracts hub-of-hubs-kafka-transport kafka-producer's generic usage.
 type Producer struct {
-	log                  logr.Logger
-	kafkaProducer        *kafkaproducer.KafkaProducer
-	eventSubscriptionMap map[string]map[transport.EventType]transport.EventCallback
-	topic                string
-	compressor           compressors.Compressor
-	deliveryChan         chan kafka.Event
-	stopChan             chan struct{}
-	startOnce            sync.Once
-	stopOnce             sync.Once
+	log                      logr.Logger
+	kafkaProducer            *kafkaproducer.KafkaProducer
+	eventSubscriptionMap     map[string]map[transport.EventType]transport.EventCallback
+	deltaMessageKeyPrefixMap map[string]*int
+	topic                    string
+	compressor               compressors.Compressor
+	deliveryChan             chan kafka.Event
+	stopChan                 chan struct{}
+	startOnce                sync.Once
+	stopOnce                 sync.Once
 }
 
 // Start starts the kafka.
@@ -180,21 +182,29 @@ func (p *Producer) deliveryHandler(kafkaMessage *kafka.Message) {
 		p.log.Error(kafkaMessage.TopicPartition.Error, "failed to deliver message",
 			"MessageId", string(kafkaMessage.Key), "TopicPartition", kafkaMessage.TopicPartition)
 		transport.InvokeCallback(p.eventSubscriptionMap, string(kafkaMessage.Key), transport.DeliveryFailure)
-
+		// note: the printed message key may contain delta-bundle prefix
 		return
 	}
 
 	transport.InvokeCallback(p.eventSubscriptionMap, string(kafkaMessage.Key), transport.DeliverySuccess)
 }
 
+// RegisterDeltaMessagePrefix registers a bundle type (delta-bundle) with a counter to be used as message
+// key prefix, to control the message-compaction if supported and enabled and not lose delta bundles uncontrollably.
+//
+// IMPORTANT:
+//
+// 1) this implies that when using this functionality, it must be fine that the reader (consumer) can lose
+// delta-messages due to compaction.
+//
+// 2) the given prefix must be safe to read by the transport (upon sending message).
+func (p *Producer) RegisterDeltaMessagePrefix(msgID string, prefix *int) {
+	p.deltaMessageKeyPrefixMap[msgID] = prefix
+}
+
 // Subscribe adds a callback to be delegated when a given event occurs for a message with the given ID.
 func (p *Producer) Subscribe(messageID string, callbacks map[transport.EventType]transport.EventCallback) {
 	p.eventSubscriptionMap[messageID] = callbacks
-}
-
-// SupportsDeltaBundles returns true. kafka does support delta bundles.
-func (p *Producer) SupportsDeltaBundles() bool {
-	return true
 }
 
 // SendAsync sends a message to the sync service asynchronously.
@@ -221,7 +231,13 @@ func (p *Producer) SendAsync(message *transport.Message) {
 		{Key: kafkaHeaderTypes.HeaderCompressionType, Value: []byte(p.compressor.GetType())},
 	}
 
-	if err = p.kafkaProducer.ProduceAsync(message.ID, p.topic, partition, headers, compressedBytes); err != nil {
+	hybridSyncFriendlyKey := message.ID
+	if prefix, found := p.deltaMessageKeyPrefixMap[message.ID]; found {
+		hybridSyncFriendlyKey = fmt.Sprintf("[%d]%s", *prefix, message.ID)
+	}
+
+	if err = p.kafkaProducer.ProduceAsync(hybridSyncFriendlyKey, p.topic, partition, headers,
+		compressedBytes); err != nil {
 		p.log.Error(err, "failed to send message", "MessageId", message.ID, "MessageType",
 			message.MsgType, "Version", message.Version)
 		transport.InvokeCallback(p.eventSubscriptionMap, message.ID, transport.DeliveryFailure)

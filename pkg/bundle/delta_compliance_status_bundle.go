@@ -300,9 +300,23 @@ func (bundle *DeltaComplianceStatusBundle) getExistingPolicyState(policyIndex in
 }
 
 func (bundle *DeltaComplianceStatusBundle) syncGenericStatus(status *statusbundle.PolicyGenericComplianceStatus) {
-	bundle.complianceRecordsCache[status.PolicyID] = &policyComplianceStatus{
-		compliantClustersSet:    set.NewSet(status.CompliantClusters),
-		nonCompliantClustersSet: set.NewSet(status.NonCompliantClusters),
-		unknownClustersSet:      set.NewSet(status.UnknownComplianceClusters),
+	policyComplianceStatus := &policyComplianceStatus{
+		compliantClustersSet:    set.NewSet(),
+		nonCompliantClustersSet: set.NewSet(),
+		unknownClustersSet:      set.NewSet(),
 	}
+
+	for _, cluster := range status.CompliantClusters {
+		policyComplianceStatus.compliantClustersSet.Add(cluster)
+	}
+
+	for _, cluster := range status.NonCompliantClusters {
+		policyComplianceStatus.nonCompliantClustersSet.Add(cluster)
+	}
+
+	for _, cluster := range status.UnknownComplianceClusters {
+		policyComplianceStatus.unknownClustersSet.Add(cluster)
+	}
+
+	bundle.complianceRecordsCache[status.PolicyID] = policyComplianceStatus
 }

@@ -45,6 +45,12 @@ func NewHybridSyncManager(log logr.Logger, transportObj transport.Transport,
 	hybridSyncManager.appendPredicates()
 
 	if hybridSyncManager.isEnabled(transportObj) { // hybrid mode may be disabled in some different scenarios.
+		hybridTransport, _ := transportObj.(transport.HybridSyncTransport) // no need to check
+		hybridTransport.RegisterDeltaMessagePrefix(deltaStateBundleCollectionEntry.transportBundleKey,
+			&hybridSyncManager.sentDeltaCount) // set prefix for delta-bundles for msg compaction not to cause-
+		// data loss.
+		// the sentDeltaCount variable is modified only in callbacks (by transport calls) therefore it can be read
+		// by the transport safely.
 		hybridSyncManager.setCallbacks(transportObj)
 	}
 
@@ -79,7 +85,11 @@ func (manager *hybridSyncManager) appendPredicates() {
 }
 
 func (manager *hybridSyncManager) isEnabled(transportObj transport.Transport) bool {
-	if manager.sentDeltaCountSwitchFactor <= 0 || !transportObj.SupportsDeltaBundles() {
+	if manager.sentDeltaCountSwitchFactor <= 0 {
+		return false
+	}
+
+	if _, ok := transportObj.(transport.HybridSyncTransport); !ok {
 		return false
 	}
 
