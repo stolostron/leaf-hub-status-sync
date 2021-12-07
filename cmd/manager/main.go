@@ -17,6 +17,7 @@ import (
 	compressor "github.com/open-cluster-management/hub-of-hubs-message-compression"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport/kafka"
 	syncservice "github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport/sync-service"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
@@ -38,6 +39,7 @@ const (
 	envVarControllerNamespace               = "POD_NAMESPACE"
 	envVarTransportMsgCompressionType       = "TRANSPORT_MESSAGE_COMPRESSION_TYPE"
 	envVarTransportType                     = "TRANSPORT_TYPE"
+	kafkaTransportTypeName                  = "kafka"
 	syncServiceTransportTypeName            = "sync-service"
 	leaderElectionLockName                  = "leaf-hub-status-sync-lock"
 	incarnationConfigMapKey                 = "incarnation"
@@ -65,6 +67,13 @@ func getTransport(transportType string, transportMsgCompressorType string) (tran
 	}
 
 	switch transportType {
+	case kafkaTransportTypeName:
+		kafkaProducer, err := kafka.NewProducer(msgCompressor, ctrl.Log.WithName("kafka"))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create kafka-producer: %w", err)
+		}
+
+		return kafkaProducer, nil
 	case syncServiceTransportTypeName:
 		syncService, err := syncservice.NewSyncService(msgCompressor, ctrl.Log.WithName("sync-service"))
 		if err != nil {

@@ -123,6 +123,18 @@ spec:
               value: "$TRANSPORT_TYPE"
             - name: TRANSPORT_MESSAGE_COMPRESSION_TYPE
               value: "gzip"
+            - name: KAFKA_PRODUCER_ID
+              value: "$LH_ID"
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: "$KAFKA_BOOTSTRAP_SERVERS"
+            - name: KAFKA_TOPIC
+              value: "status"
+            - name: KAFKA_MESSAGE_SIZE_LIMIT_KB
+              value: "940"
+            - name: KAFKA_SSL_CA
+              value: "$KAFKA_SSL_CA"
+            - name: COMPLIANCE_STATUS_DELTA_COUNT_SWITCH_FACTOR
+              value: "100"
             - name: SYNC_SERVICE_PROTOCOL
               value: "http"
             - name: SYNC_SERVICE_HOST

@@ -18,7 +18,7 @@ const (
 
 var errExpectingDeltaStateBundle = errors.New("expecting a BundleCollectionEntry that wraps a DeltaStateBundle bundle")
 
-// NewGenericHybridSyncManager creates a manager that manages two BundleCollectionEntry instances that wrap a
+// NewHybridSyncManager creates a manager that manages two BundleCollectionEntry instances that wrap a
 // complete-state bundle and a delta-state bundle.
 func NewHybridSyncManager(log logr.Logger, transportObj transport.Transport,
 	completeStateBundleCollectionEntry *BundleCollectionEntry, deltaStateBundleCollectionEntry *BundleCollectionEntry,
@@ -79,7 +79,7 @@ func (manager *hybridSyncManager) appendPredicates() {
 }
 
 func (manager *hybridSyncManager) isEnabled(transportObj transport.Transport) bool {
-	if manager.sentDeltaCountSwitchFactor <= 0  || !transportObj.SupportsDeltaBundles() {
+	if manager.sentDeltaCountSwitchFactor <= 0 || !transportObj.SupportsDeltaBundles() {
 		return false
 	}
 
