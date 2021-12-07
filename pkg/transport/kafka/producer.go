@@ -224,8 +224,9 @@ func (p *Producer) SendAsync(message *transport.Message) {
 	if err = p.kafkaProducer.ProduceAsync(message.ID, p.topic, partition, headers, compressedBytes); err != nil {
 		p.log.Error(err, "failed to send message", "MessageId", message.ID, "MessageType",
 			message.MsgType, "Version", message.Version)
-
 		transport.InvokeCallback(p.eventSubscriptionMap, message.ID, transport.DeliveryFailure)
+
+		return
 	}
 
 	transport.InvokeCallback(p.eventSubscriptionMap, message.ID, transport.DeliveryAttempt)
