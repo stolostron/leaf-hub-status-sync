@@ -142,7 +142,7 @@ type Producer struct {
 // Start starts the kafka.
 func (p *Producer) Start() {
 	p.startOnce.Do(func() {
-		go p.handleDelivery()
+		go p.deliveryReportHandler()
 	})
 }
 
@@ -156,7 +156,7 @@ func (p *Producer) Stop() {
 	})
 }
 
-func (p *Producer) handleDelivery() {
+func (p *Producer) deliveryReportHandler() {
 	for {
 		select {
 		case <-p.stopChan:
@@ -169,13 +169,13 @@ func (p *Producer) handleDelivery() {
 				continue
 			}
 
-			p.deliveryHandler(kafkaMessage)
+			p.handleDeliveryReport(kafkaMessage)
 		}
 	}
 }
 
-// deliveryHandler handles results of sent messages.
-func (p *Producer) deliveryHandler(kafkaMessage *kafka.Message) {
+// handleDeliveryReport handles results of sent messages.
+func (p *Producer) handleDeliveryReport(kafkaMessage *kafka.Message) {
 	if kafkaMessage.TopicPartition.Error != nil {
 		p.log.Error(kafkaMessage.TopicPartition.Error, "failed to deliver message",
 			"MessageId", string(kafkaMessage.Key), "TopicPartition", kafkaMessage.TopicPartition)
