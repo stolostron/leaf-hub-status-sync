@@ -171,7 +171,7 @@ func (bundle *ClustersPerPolicyBundle) updateObjectIfChanged(objectIndex int, po
 
 func (bundle *ClustersPerPolicyBundle) clusterListContains(subsetClusters []string, allClusters []string) bool {
 	for _, clusterName := range subsetClusters {
-		if !ContainsString(allClusters, clusterName) {
+		if !containsString(allClusters, clusterName) {
 			return false
 		}
 	}

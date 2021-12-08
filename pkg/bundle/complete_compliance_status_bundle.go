@@ -166,7 +166,7 @@ func (bundle *ComplianceStatusBundle) clusterListsEqual(oldClusters []string, ne
 	}
 
 	for _, newClusterName := range newClusters {
-		if !ContainsString(oldClusters, newClusterName) {
+		if !containsString(oldClusters, newClusterName) {
 			return false
 		}
 	}
