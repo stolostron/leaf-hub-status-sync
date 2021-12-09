@@ -45,7 +45,14 @@ func SyncToTransport(transportObj transport.Transport, msgID string, msgType str
 		return fmt.Errorf("failed to sync object from type %s with id %s - %w", msgType, msgID, err)
 	}
 
+	transportMessageKey := msgID
+
+	if deltaStateBundle, ok := payload.(bundle.DeltaStateBundle); ok {
+		transportMessageKey = fmt.Sprintf("%s@%d", msgID, deltaStateBundle.GetTransportationID())
+	}
+
 	transportObj.SendAsync(&transport.Message{
+		Key:     transportMessageKey,
 		ID:      msgID,
 		MsgType: msgType,
 		Version: version.String(),

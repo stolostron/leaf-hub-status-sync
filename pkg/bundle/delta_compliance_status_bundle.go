@@ -24,22 +24,24 @@ func NewDeltaComplianceStatusBundle(leafHubName string, baseBundle Bundle,
 			BaseBundleVersion: statusbundle.NewBundleVersion(incarnation, baseBundle.GetBundleVersion().Generation),
 			BundleVersion:     statusbundle.NewBundleVersion(incarnation, 0),
 		},
-		baseBundle:                  baseBundle,
-		clustersPerPolicyBaseBundle: clustersPerPolicyBundle,
-		complianceRecordsCache:      make(map[string]*policyComplianceStatus),
-		extractObjIDFunc:            extractObjIDFunc,
-		lock:                        sync.Mutex{},
+		cyclicTransportationBundleID: 0,
+		baseBundle:                   baseBundle,
+		clustersPerPolicyBaseBundle:  clustersPerPolicyBundle,
+		complianceRecordsCache:       make(map[string]*policyComplianceStatus),
+		extractObjIDFunc:             extractObjIDFunc,
+		lock:                         sync.Mutex{},
 	}
 }
 
 // DeltaComplianceStatusBundle abstracts management of compliance status bundle.
 type DeltaComplianceStatusBundle struct {
 	statusbundle.BaseDeltaComplianceStatusBundle
-	baseBundle                  Bundle
-	clustersPerPolicyBaseBundle *ClustersPerPolicyBundle
-	complianceRecordsCache      map[string]*policyComplianceStatus
-	extractObjIDFunc            ExtractObjIDFunc
-	lock                        sync.Mutex
+	cyclicTransportationBundleID int
+	baseBundle                   Bundle
+	clustersPerPolicyBaseBundle  *ClustersPerPolicyBundle
+	complianceRecordsCache       map[string]*policyComplianceStatus
+	extractObjIDFunc             ExtractObjIDFunc
+	lock                         sync.Mutex
 }
 
 // policyComplianceStatus holds each policy's full compliance status at all times. It is needed since the
@@ -48,6 +50,11 @@ type policyComplianceStatus struct {
 	compliantClustersSet    set.Set
 	nonCompliantClustersSet set.Set
 	unknownClustersSet      set.Set
+}
+
+// GetTransportationID function to get bundle transportation ID to be attached to message-key during transportation.
+func (bundle *DeltaComplianceStatusBundle) GetTransportationID() int {
+	return bundle.cyclicTransportationBundleID
 }
 
 // UpdateObject function to update a single object inside a bundle.
@@ -131,6 +138,9 @@ func (bundle *DeltaComplianceStatusBundle) SyncState() {
 	// update policy records from the ClustersPerPolicy bundle's (full-state) status
 	bundle.complianceRecordsCache = make(map[string]*policyComplianceStatus)
 	bundle.updatePolicyRecordsFromBase()
+
+	// reset ID since state-sync means base has changed and a new line is starting
+	bundle.cyclicTransportationBundleID = 0
 }
 
 // Reset flushes the objects in the bundle (after delivery).
@@ -138,7 +148,8 @@ func (bundle *DeltaComplianceStatusBundle) Reset() {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	bundle.Objects = nil // safe since go1.0
+	bundle.Objects = nil                  // safe since go1.0
+	bundle.cyclicTransportationBundleID++ // increment ID since a reset means a new bundle is starting
 }
 
 func (bundle *DeltaComplianceStatusBundle) updateSpecificPolicyRecordsFromBase(policyID string) {

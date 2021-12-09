@@ -32,6 +32,8 @@ type Bundle interface {
 // DeltaStateBundle abstracts the logic needed from the delta-state bundle.
 type DeltaStateBundle interface {
 	Bundle
+	// GetTransportationID function to get bundle transportation ID to be attached to message-key during transportation.
+	GetTransportationID() int
 	// SyncState syncs the state of the delta-bundle with the full-state.
 	SyncState()
 	// Reset flushes the delta-state bundle's objects.

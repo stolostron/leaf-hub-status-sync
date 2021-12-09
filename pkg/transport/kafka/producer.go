@@ -221,9 +221,9 @@ func (p *Producer) SendAsync(message *transport.Message) {
 		{Key: kafkaHeaderTypes.HeaderCompressionType, Value: []byte(p.compressor.GetType())},
 	}
 
-	if err = p.kafkaProducer.ProduceAsync(message.ID, p.topic, partition, headers, compressedBytes); err != nil {
-		p.log.Error(err, "failed to send message", "MessageId", message.ID, "MessageType",
-			message.MsgType, "Version", message.Version)
+	if err = p.kafkaProducer.ProduceAsync(message.Key, p.topic, partition, headers, compressedBytes); err != nil {
+		p.log.Error(err, "failed to send message", "MessageKey", message.Key, "MessageId", message.ID,
+			"MessageType", message.MsgType, "Version", message.Version)
 		transport.InvokeCallback(p.eventSubscriptionMap, message.ID, transport.DeliveryFailure)
 
 		return
@@ -231,6 +231,6 @@ func (p *Producer) SendAsync(message *transport.Message) {
 
 	transport.InvokeCallback(p.eventSubscriptionMap, message.ID, transport.DeliveryAttempt)
 
-	p.log.Info("message sent to transport server", "MessageId", message.ID, "MessageType",
-		message.MsgType, "Version", message.Version)
+	p.log.Info("message sent to transport server", "MessageKey", message.Key, "MessageId", message.ID,
+		"MessageType", message.MsgType, "Version", message.Version)
 }
