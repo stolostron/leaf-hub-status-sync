@@ -54,6 +54,9 @@ type policyComplianceStatus struct {
 
 // GetTransportationID function to get bundle transportation ID to be attached to message-key during transportation.
 func (bundle *DeltaComplianceStatusBundle) GetTransportationID() int {
+	bundle.lock.Lock()
+	defer bundle.lock.Unlock()
+
 	return bundle.cyclicTransportationBundleID
 }
 
