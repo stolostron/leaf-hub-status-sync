@@ -2,6 +2,7 @@ package generic
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/go-logr/logr"
@@ -20,7 +21,7 @@ var errExpectingDeltaStateBundle = errors.New("expecting a BundleCollectionEntry
 
 // NewHybridSyncManager creates a manager that manages two BundleCollectionEntry instances that wrap a
 // complete-state bundle and a delta-state bundle.
-func NewHybridSyncManager(log logr.Logger, transportObj transport.Transport,
+func NewHybridSyncManager(log logr.Logger, transportObj transport.Transport, leafHubName string,
 	completeStateBundleCollectionEntry *BundleCollectionEntry, deltaStateBundleCollectionEntry *BundleCollectionEntry,
 	sentDeltaCountSwitchFactor int) error {
 	// check that the delta state collection does indeed wrap a delta bundle
@@ -30,8 +31,9 @@ func NewHybridSyncManager(log logr.Logger, transportObj transport.Transport,
 	}
 
 	hybridSyncManager := &hybridSyncManager{
-		log:      log,
-		syncMode: completeStateMode,
+		log:         log,
+		leafHubName: leafHubName,
+		syncMode:    completeStateMode,
 		bundleCollectionEntryMap: map[syncMode]*BundleCollectionEntry{
 			completeStateMode: completeStateBundleCollectionEntry,
 			deltaStateMode:    deltaStateBundleCollectionEntry,
@@ -55,6 +57,7 @@ func NewHybridSyncManager(log logr.Logger, transportObj transport.Transport,
 // won't get collected by the GC since callbacks are used.
 type hybridSyncManager struct {
 	log                        logr.Logger
+	leafHubName                string
 	syncMode                   syncMode
 	bundleCollectionEntryMap   map[syncMode]*BundleCollectionEntry
 	deltaStateBundle           bundle.DeltaStateBundle
@@ -88,7 +91,7 @@ func (manager *hybridSyncManager) isEnabled(transportObj transport.Transport) bo
 
 func (manager *hybridSyncManager) setCallbacks(transportObj transport.Transport) {
 	for _, bundleCollectionEntry := range manager.bundleCollectionEntryMap {
-		transportObj.Subscribe(bundleCollectionEntry.transportBundleKey,
+		transportObj.Subscribe(bundleCollectionEntry.bundle.GetID(),
 			map[transport.EventType]transport.EventCallback{
 				transport.DeliveryAttempt: manager.handleTransportationAttempt,
 				transport.DeliverySuccess: manager.handleTransportationSuccess,
@@ -108,6 +111,7 @@ func (manager *hybridSyncManager) handleTransportationAttempt() {
 
 	// else we're in delta
 	manager.sentDeltaCount++
+	manager.updateDeltaCollectionTransportKey()
 
 	if manager.sentDeltaCount == manager.sentDeltaCountSwitchFactor {
 		manager.switchToCompleteStateMode()
@@ -151,7 +155,13 @@ func (manager *hybridSyncManager) switchToDeltaStateMode() {
 
 	manager.syncMode = deltaStateMode
 	manager.sentDeltaCount = 0
+	manager.updateDeltaCollectionTransportKey() // update key to reset cycle
 
 	manager.deltaStateBundle.Reset()
 	manager.deltaStateBundle.SyncState()
+}
+
+func (manager *hybridSyncManager) updateDeltaCollectionTransportKey() {
+	manager.bundleCollectionEntryMap[deltaStateMode].transportBundleKey = fmt.Sprintf("%s.%s@%d",
+		manager.leafHubName, manager.deltaStateBundle.GetID(), manager.sentDeltaCount)
 }
