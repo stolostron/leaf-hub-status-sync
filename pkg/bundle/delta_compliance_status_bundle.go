@@ -6,10 +6,14 @@ import (
 
 	set "github.com/deckarep/golang-set"
 	v1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
+	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 )
 
-const unknownComplianceStatus = "unknown"
+const (
+	deltaComplianceStatusBundleID = datatypes.PolicyDeltaComplianceMsgKey
+	unknownComplianceStatus       = "unknown"
+)
 
 var errPolicyStatusUnchanged = errors.New("policy status did not changed")
 
@@ -48,6 +52,11 @@ type policyComplianceStatus struct {
 	compliantClustersSet    set.Set
 	nonCompliantClustersSet set.Set
 	unknownClustersSet      set.Set
+}
+
+// GetID returns type identifier for this bundle.
+func (bundle *DeltaComplianceStatusBundle) GetID() string {
+	return deltaComplianceStatusBundleID
 }
 
 // UpdateObject function to update a single object inside a bundle.

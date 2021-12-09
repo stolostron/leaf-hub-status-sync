@@ -21,6 +21,8 @@ type Object interface {
 
 // Bundle is an abstraction for managing different bundle types.
 type Bundle interface {
+	// GetID function to get bundle ID (data-type), used to identify the bundle.
+	GetID() string
 	// UpdateObject function to update a single object inside a bundle.
 	UpdateObject(object Object)
 	// DeleteObject function to delete a single object inside a bundle.

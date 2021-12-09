@@ -70,13 +70,12 @@ func createBundleCollection(transportObj transport.Transport, leafHubName string
 	}
 
 	// clusters per policy (base bundle)
-	clustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.ClustersPerPolicyMsgKey)
 	clustersPerPolicyBundle := bundle.NewClustersPerPolicyBundle(leafHubName, incarnation, extractPolicyID)
+	clustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, clustersPerPolicyBundle.GetID())
 
 	// minimal compliance status bundle
-	minimalComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
-		datatypes.MinimalPolicyComplianceMsgKey)
 	minimalComplianceStatusBundle := bundle.NewMinimalComplianceStatusBundle(leafHubName, incarnation)
+	minimalComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName, minimalComplianceStatusBundle.GetID())
 
 	fullStatusPredicate := func() bool { return hubOfHubsConfig.Spec.AggregationLevel == configv1.Full }
 	minimalStatusPredicate := func() bool { return hubOfHubsConfig.Spec.AggregationLevel == configv1.Minimal }
@@ -122,14 +121,14 @@ func getHybridComplianceBundleCollectionEntries(transport transport.Transport, l
 	incarnation uint64, fullStatusPredicate func() bool, clustersPerPolicyBundle bundle.Bundle,
 	deltaCountSwitchFactor int) (*generic.BundleCollectionEntry, *generic.BundleCollectionEntry, error) {
 	// complete compliance status bundle
-	completeComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.PolicyCompleteComplianceMsgKey)
 	completeComplianceStatusBundle := bundle.NewCompleteComplianceStatusBundle(leafHubName, clustersPerPolicyBundle,
 		incarnation, extractPolicyID)
+	completeComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName, completeComplianceStatusBundle.GetID())
 
 	// delta compliance status bundle
-	deltaComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.PolicyDeltaComplianceMsgKey)
 	deltaComplianceStatusBundle := bundle.NewDeltaComplianceStatusBundle(leafHubName, completeComplianceStatusBundle,
 		clustersPerPolicyBundle.(*bundle.ClustersPerPolicyBundle), incarnation, extractPolicyID)
+	deltaComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName, deltaComplianceStatusBundle.GetID())
 
 	completeComplianceBundleCollectionEntry := generic.NewBundleCollectionEntry(completeComplianceStatusTransportKey,
 		completeComplianceStatusBundle, fullStatusPredicate)

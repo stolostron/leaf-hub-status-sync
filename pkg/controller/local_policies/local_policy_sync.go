@@ -48,19 +48,19 @@ func createBundleCollection(leafHubName string, incarnation uint64,
 	extractLocalPolicyIDFunc := func(obj bundle.Object) (string, bool) { return string(obj.GetUID()), true }
 
 	// clusters per policy (base bundle)
-	localClustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName,
-		datatypes.LocalClustersPerPolicyMsgKey)
 	localClustersPerPolicyBundle := bundle.NewClustersPerPolicyBundle(leafHubName, incarnation,
 		extractLocalPolicyIDFunc)
+	localClustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, localClustersPerPolicyBundle.GetID())
 
 	// compliance status bundle
-	localCompleteComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
-		datatypes.LocalPolicyCompleteComplianceMsgKey)
 	localCompleteComplianceStatusBundle := bundle.NewCompleteComplianceStatusBundle(leafHubName,
 		localClustersPerPolicyBundle, incarnation, extractLocalPolicyIDFunc)
+	localCompleteComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
+		localCompleteComplianceStatusBundle.GetID())
 
-	localPolicySpecTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalPolicySpecMsgKey)
-	localPolicySpecBundle := bundle.NewGenericStatusBundle(leafHubName, incarnation, cleanPolicyFunc)
+	localPolicySpecBundle := bundle.NewGenericStatusBundle(datatypes.LocalPolicySpecMsgKey, leafHubName, incarnation,
+		cleanPolicyFunc)
+	localPolicySpecTransportKey := fmt.Sprintf("%s.%s", leafHubName, localPolicySpecBundle.GetID())
 
 	// check for full information
 	localPolicyStatusPredicate := func() bool {

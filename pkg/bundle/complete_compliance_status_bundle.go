@@ -4,8 +4,11 @@ import (
 	"sync"
 
 	policyv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
+	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 )
+
+const completeComplianceStatusBundleID = datatypes.PolicyCompleteComplianceMsgKey
 
 // NewCompleteComplianceStatusBundle creates a new instance of ComplianceStatusBundle.
 func NewCompleteComplianceStatusBundle(leafHubName string, baseBundle Bundle, incarnation uint64,
@@ -29,6 +32,11 @@ type ComplianceStatusBundle struct {
 	baseBundle       Bundle
 	extractObjIDFunc ExtractObjIDFunc
 	lock             sync.Mutex
+}
+
+// GetID returns type identifier for this bundle.
+func (bundle *ComplianceStatusBundle) GetID() string {
+	return completeComplianceStatusBundleID
 }
 
 // UpdateObject function to update a single object inside a bundle.

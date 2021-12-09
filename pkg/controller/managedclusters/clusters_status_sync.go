@@ -25,11 +25,12 @@ const (
 func AddClustersStatusController(mgr ctrl.Manager, transport transport.Transport, leafHubName string,
 	incarnation uint64, hubOfHubsConfig *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals) error {
 	createObjFunction := func() bundle.Object { return &clusterv1.ManagedCluster{} }
-	transportBundleKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.ManagedClustersMsgKey)
+	managedClustersBundle := bundle.NewGenericStatusBundle(datatypes.ManagedClustersMsgKey, leafHubName, incarnation,
+		nil)
 
 	bundleCollection := []*generic.BundleCollectionEntry{ // single bundle for managed clusters
-		generic.NewBundleCollectionEntry(transportBundleKey, bundle.NewGenericStatusBundle(leafHubName, incarnation,
-			nil),
+		generic.NewBundleCollectionEntry(fmt.Sprintf("%s.%s", leafHubName, managedClustersBundle.GetID()),
+			managedClustersBundle,
 			func() bool { // bundle predicate
 				return hubOfHubsConfig.Spec.AggregationLevel == configv1.Full ||
 					hubOfHubsConfig.Spec.AggregationLevel == configv1.Minimal

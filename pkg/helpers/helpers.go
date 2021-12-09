@@ -38,19 +38,20 @@ func HasLabel(obj metav1.Object, label string) bool {
 }
 
 // SyncToTransport syncs the provided bundle to transport.
-func SyncToTransport(transportObj transport.Transport, msgID string, msgType string, version fmt.Stringer,
-	payload bundle.Bundle) error {
+func SyncToTransport(transportObj transport.Transport, transportMsgKey string, msgID string, msgType string,
+	version fmt.Stringer, payload bundle.Bundle) error {
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("failed to sync object from type %s with id %s - %w", msgType, msgID, err)
 	}
 
-	transportObj.SendAsync(&transport.Message{
-		ID:      msgID,
-		MsgType: msgType,
-		Version: version.String(),
-		Payload: payloadBytes,
-	})
+	transportObj.SendAsync(transportMsgKey,
+		&transport.Message{
+			ID:      msgID,
+			MsgType: msgType,
+			Version: version.String(),
+			Payload: payloadBytes,
+		})
 
 	return nil
 }

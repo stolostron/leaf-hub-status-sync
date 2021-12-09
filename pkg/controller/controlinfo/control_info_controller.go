@@ -22,12 +22,12 @@ const (
 // AddControlInfoController creates a new instance of control info controller and adds it to the manager.
 func AddControlInfoController(mgr ctrl.Manager, transport transport.Transport, leafHubName string, incarnation uint64,
 	_ *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals) error {
-	transportBundleKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.ControlInfoMsgKey)
+	controlInfoBundle := bundle.NewControlInfoBundle(leafHubName, incarnation)
 
 	controlInfoCtrl := &LeafHubControlInfoController{
 		log:                     ctrl.Log.WithName(controlInfoLogName),
-		bundle:                  bundle.NewControlInfoBundle(leafHubName, incarnation),
-		transportBundleKey:      transportBundleKey,
+		bundle:                  controlInfoBundle,
+		transportBundleKey:      fmt.Sprintf("%s.%s", leafHubName, controlInfoBundle.GetID()),
 		transport:               transport,
 		resolveSyncIntervalFunc: syncIntervalsData.GetControlInfo,
 	}
@@ -91,7 +91,7 @@ func (c *LeafHubControlInfoController) periodicSync(ctx context.Context) {
 func (c *LeafHubControlInfoController) syncBundle() {
 	c.bundle.UpdateObject(nil) // increase generation
 
-	if err := helpers.SyncToTransport(c.transport, c.transportBundleKey, datatypes.StatusBundle,
+	if err := helpers.SyncToTransport(c.transport, c.transportBundleKey, c.bundle.GetID(), datatypes.StatusBundle,
 		c.bundle.GetBundleVersion(), c.bundle); err != nil {
 		c.log.Error(err, "failed to sync to transport")
 	}

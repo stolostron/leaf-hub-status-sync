@@ -198,7 +198,7 @@ func (p *Producer) SupportsDeltaBundles() bool {
 }
 
 // SendAsync sends a message to the sync service asynchronously.
-func (p *Producer) SendAsync(message *transport.Message) {
+func (p *Producer) SendAsync(key string, message *transport.Message) {
 	messageBytes, err := json.Marshal(message)
 	if err != nil {
 		p.log.Error(err, "failed to send message", "MessageId", message.ID, "MessageType",
@@ -221,7 +221,7 @@ func (p *Producer) SendAsync(message *transport.Message) {
 		{Key: kafkaHeaderTypes.HeaderCompressionType, Value: []byte(p.compressor.GetType())},
 	}
 
-	if err = p.kafkaProducer.ProduceAsync(message.ID, p.topic, partition, headers, compressedBytes); err != nil {
+	if err = p.kafkaProducer.ProduceAsync(key, p.topic, partition, headers, compressedBytes); err != nil {
 		p.log.Error(err, "failed to send message", "MessageId", message.ID, "MessageType",
 			message.MsgType, "Version", message.Version)
 		transport.InvokeCallback(p.eventSubscriptionMap, message.ID, transport.DeliveryFailure)

@@ -110,7 +110,7 @@ func (s *SyncService) SupportsDeltaBundles() bool {
 }
 
 // SendAsync function sends a message to the sync service asynchronously.
-func (s *SyncService) SendAsync(message *transport.Message) {
+func (s *SyncService) SendAsync(_ string, message *transport.Message) {
 	s.msgChan <- message
 }
 

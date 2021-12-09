@@ -8,7 +8,8 @@ import (
 )
 
 // NewGenericStatusBundle creates a new instance of GenericStatusBundle.
-func NewGenericStatusBundle(leafHubName string, incarnation uint64, cleanObjFunc func(obj Object)) Bundle {
+func NewGenericStatusBundle(bundleID string, leafHubName string, incarnation uint64,
+	cleanObjFunc func(obj Object)) Bundle {
 	if cleanObjFunc == nil {
 		cleanObjFunc = func(object Object) {}
 	}
@@ -17,6 +18,7 @@ func NewGenericStatusBundle(leafHubName string, incarnation uint64, cleanObjFunc
 		Objects:       make([]Object, 0),
 		LeafHubName:   leafHubName,
 		BundleVersion: statusbundle.NewBundleVersion(incarnation, 0),
+		id:            bundleID,
 		cleanObjFunc:  cleanObjFunc,
 		lock:          sync.Mutex{},
 	}
@@ -29,8 +31,14 @@ type GenericStatusBundle struct {
 	Objects       []Object                    `json:"objects"`
 	LeafHubName   string                      `json:"leafHubName"`
 	BundleVersion *statusbundle.BundleVersion `json:"bundleVersion"`
+	id            string
 	cleanObjFunc  func(obj Object)
 	lock          sync.Mutex
+}
+
+// GetID returns type identifier for this bundle.
+func (bundle *GenericStatusBundle) GetID() string {
+	return bundle.id
 }
 
 // UpdateObject function to update a single object inside a bundle.

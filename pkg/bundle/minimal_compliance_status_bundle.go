@@ -8,6 +8,8 @@ import (
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 )
 
+const minimalComplianceStatusBundleID = datatypes.MinimalPolicyComplianceMsgKey
+
 // NewMinimalComplianceStatusBundle creates a new instance of MinimalComplianceStatusBundle.
 func NewMinimalComplianceStatusBundle(leafHubName string, incarnation uint64) Bundle {
 	return &MinimalComplianceStatusBundle{
@@ -24,6 +26,11 @@ func NewMinimalComplianceStatusBundle(leafHubName string, incarnation uint64) Bu
 type MinimalComplianceStatusBundle struct {
 	statusbundle.BaseMinimalComplianceStatusBundle
 	lock sync.Mutex
+}
+
+// GetID returns type identifier for this bundle.
+func (bundle *MinimalComplianceStatusBundle) GetID() string {
+	return minimalComplianceStatusBundleID
 }
 
 // UpdateObject function to update a single object inside a bundle.

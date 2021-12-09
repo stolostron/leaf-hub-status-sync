@@ -27,11 +27,12 @@ func AddLocalPlacementRulesController(mgr ctrl.Manager, transport transport.Tran
 	incarnation uint64, hubOfHubsConfig *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals) error {
 	createObjFunc := func() bundle.Object { return &placementrulesv1.PlacementRule{} }
 
-	localPlacementRuleTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalPlacementRulesMsgKey)
+	localPlacementRuleBundle := bundle.NewGenericStatusBundle(datatypes.LocalPlacementRulesMsgKey, leafHubName,
+		incarnation, cleanPlacementRuleFunc)
 
 	bundleCollection := []*generic.BundleCollectionEntry{
-		generic.NewBundleCollectionEntry(localPlacementRuleTransportKey,
-			bundle.NewGenericStatusBundle(leafHubName, incarnation, cleanPlacementRuleFunc),
+		generic.NewBundleCollectionEntry(fmt.Sprintf("%s.%s", leafHubName, localPlacementRuleBundle.GetID()),
+			localPlacementRuleBundle,
 			func() bool { // bundle predicate
 				return hubOfHubsConfig.Spec.EnableLocalPolicies
 			}),
