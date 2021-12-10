@@ -5,17 +5,18 @@ package controller
 
 import (
 	"fmt"
-	"time"
 
 	clustersv1 "github.com/open-cluster-management/api/cluster/v1"
-	placementrulev1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/apps/v1"
+	placementrulesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/apps/v1"
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/applications"
 	configCtrl "github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/config"
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/controlinfo"
 	localpolicies "github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/local_policies"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/managedclusters"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/policies"
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/syncintervals"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -31,8 +32,7 @@ func AddToScheme(s *runtime.Scheme) error {
 	}
 
 	schemeBuilders := []*scheme.Builder{
-		policiesv1.SchemeBuilder, configv1.SchemeBuilder,
-		placementrulev1.SchemeBuilder, subv1.SchemeBuilder,
+		policiesv1.SchemeBuilder, configv1.SchemeBuilder, placementrulesv1.SchemeBuilder, subv1.SchemeBuilder,
 	} // add schemes
 
 	for _, schemeBuilder := range schemeBuilders {
@@ -45,23 +45,28 @@ func AddToScheme(s *runtime.Scheme) error {
 }
 
 // AddControllers adds all the controllers to the Manager.
-func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, syncInterval time.Duration,
-	leafHubName string) error {
+func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, leafHubName string) error {
 	config := &configv1.Config{}
+	syncIntervalsData := syncintervals.NewSyncIntervals()
 
-	if err := configCtrl.AddConfigController(mgr, "hub-of-hubs-config", config); err != nil {
-		return fmt.Errorf("first failed to add controller: %w", err)
+	if err := configCtrl.AddConfigController(mgr, config); err != nil {
+		return fmt.Errorf("failed to add controller: %w", err)
 	}
 
-	addControllerFunctions := []func(ctrl.Manager, transport.Transport, time.Duration, string, *configv1.Config) error{
+	if err := syncintervals.AddSyncIntervalsController(mgr, syncIntervalsData); err != nil {
+		return fmt.Errorf("failed to add controller: %w", err)
+	}
+
+	addControllerFunctions := []func(ctrl.Manager, transport.Transport, string, *configv1.Config,
+		*syncintervals.SyncIntervals) error{
 		managedclusters.AddClustersStatusController, policies.AddPoliciesStatusController,
-		localpolicies.AddLocalPoliciesController, localpolicies.AddLocalPlacementruleController,
-		applications.AddSubscriptionStatusController,
+		localpolicies.AddLocalPoliciesController, localpolicies.AddLocalPlacementRulesController,
+		controlinfo.AddControlInfoController, applications.AddSubscriptionStatusController,
 	}
 
-	for i, addControllerFunction := range addControllerFunctions {
-		if err := addControllerFunction(mgr, transportImpl, syncInterval, leafHubName, config); err != nil {
-			return fmt.Errorf("%d second failed to add controller: %w", i, err)
+	for _, addControllerFunction := range addControllerFunctions {
+		if err := addControllerFunction(mgr, transportImpl, leafHubName, config, syncIntervalsData); err != nil {
+			return fmt.Errorf("failed to add controller: %w", err)
 		}
 	}
 

@@ -3,12 +3,10 @@ package config
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/go-logr/logr"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/generic"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,11 +16,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
+const (
+	configLogName = "hub-of-hubs-config"
+)
+
 // AddConfigController creates a new instance of config controller and adds it to the manager.
-func AddConfigController(mgr ctrl.Manager, logName string, configObject *configv1.Config) error {
+func AddConfigController(mgr ctrl.Manager, configObject *configv1.Config) error {
 	hubOfHubsConfigCtrl := &hubOfHubsConfigController{
 		client:       mgr.GetClient(),
-		log:          ctrl.Log.WithName(logName),
+		log:          ctrl.Log.WithName(configLogName),
 		configObject: configObject,
 	}
 
@@ -37,7 +39,7 @@ func AddConfigController(mgr ctrl.Manager, logName string, configObject *configv
 		For(&configv1.Config{}).
 		WithEventFilter(predicate.And(hohNamespacePredicate, ownerRefAnnotationPredicate)).
 		Complete(hubOfHubsConfigCtrl); err != nil {
-		return fmt.Errorf("failed to add controller to the manager - %w", err)
+		return fmt.Errorf("failed to add hub of hubs config controller to the manager - %w", err)
 	}
 
 	return nil
@@ -58,7 +60,7 @@ func (c *hubOfHubsConfigController) Reconcile(request ctrl.Request) (ctrl.Result
 		return ctrl.Result{}, nil
 	} else if err != nil {
 		reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
-		return ctrl.Result{Requeue: true, RequeueAfter: generic.RequeuePeriodSeconds * time.Second},
+		return ctrl.Result{Requeue: true, RequeueAfter: helpers.RequeuePeriod},
 			fmt.Errorf("reconciliation failed: %w", err)
 	}
 

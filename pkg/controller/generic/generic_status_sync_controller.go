@@ -2,15 +2,15 @@ package generic
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"strconv"
 	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/syncintervals"
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -19,22 +19,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-const (
-	// RequeuePeriodSeconds is the time to wait until reconciliation retry in failure cases.
-	RequeuePeriodSeconds = 5
-	// BASE the base in which to format.
-	BASE = 10
-)
-
 // CreateObjectFunction is a function for how to create an object that is stored inside the bundle.
 type CreateObjectFunction func() bundle.Object
-
-// TODO: finalize is temporary for demo.
 
 // NewGenericStatusSyncController creates a new instance of genericStatusSyncController and adds it to the manager.
 func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport transport.Transport,
 	finalizerName string, orderedBundleCollection []*BundleCollectionEntry, createObjFunc CreateObjectFunction,
-	syncInterval time.Duration, predicate predicate.Predicate) error {
+	predicate predicate.Predicate, resolveSyncIntervalFunc syncintervals.ResolveSyncIntervalFunc) error {
 	statusSyncCtrl := &genericStatusSyncController{
 		client:                  mgr.GetClient(),
 		log:                     ctrl.Log.WithName(logName),
@@ -42,7 +33,8 @@ func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport 
 		orderedBundleCollection: orderedBundleCollection,
 		finalizerName:           finalizerName,
 		createObjFunc:           createObjFunc,
-		periodicSyncInterval:    syncInterval,
+		resolveSyncIntervalFunc: resolveSyncIntervalFunc,
+		lock:                    sync.Mutex{},
 	}
 	statusSyncCtrl.init()
 
@@ -65,8 +57,9 @@ type genericStatusSyncController struct {
 	orderedBundleCollection []*BundleCollectionEntry
 	finalizerName           string
 	createObjFunc           CreateObjectFunction
-	periodicSyncInterval    time.Duration
+	resolveSyncIntervalFunc syncintervals.ResolveSyncIntervalFunc
 	startOnce               sync.Once
+	lock                    sync.Mutex
 }
 
 func (c *genericStatusSyncController) init() {
@@ -89,19 +82,21 @@ func (c *genericStatusSyncController) Reconcile(request ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, nil
 	} else if err != nil {
 		reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
-		return ctrl.Result{Requeue: true, RequeueAfter: RequeuePeriodSeconds * time.Second},
+		return ctrl.Result{Requeue: true, RequeueAfter: helpers.RequeuePeriod},
 			fmt.Errorf("reconciliation failed: %w", err)
 	}
 
-	if c.isObjectBeingDeleted(object) {
+	if c.finalizerName != "hub-of-hubs.open-cluster-management.io/local-placement-rule-cleanup" &&
+		c.isObjectBeingDeleted(object) {
 		if err := c.deleteObjectAndFinalizer(ctx, object, reqLogger); err != nil {
 			reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
-			return ctrl.Result{Requeue: true, RequeueAfter: RequeuePeriodSeconds * time.Second}, err
+			return ctrl.Result{Requeue: true, RequeueAfter: helpers.RequeuePeriod}, err
 		}
-	} else { // otherwise, the object was not deleted and no error occurred
+	} else if c.finalizerName != "hub-of-hubs.open-cluster-management.io/local-placement-rule-cleanup" {
+		// otherwise, the object was not deleted and no error occurred
 		if err := c.updateObjectAndFinalizer(ctx, object, reqLogger); err != nil {
 			reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
-			return ctrl.Result{Requeue: true, RequeueAfter: RequeuePeriodSeconds * time.Second}, err
+			return ctrl.Result{Requeue: true, RequeueAfter: helpers.RequeuePeriod}, err
 		}
 	}
 
@@ -121,6 +116,9 @@ func (c *genericStatusSyncController) updateObjectAndFinalizer(ctx context.Conte
 	}
 
 	cleanObject(object)
+
+	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
+	defer c.lock.Unlock()
 
 	for _, entry := range c.orderedBundleCollection {
 		entry.bundle.UpdateObject(object) // update in each bundle from the collection according to their order.
@@ -146,9 +144,13 @@ func (c *genericStatusSyncController) addFinalizer(ctx context.Context, object b
 
 func (c *genericStatusSyncController) deleteObjectAndFinalizer(ctx context.Context, object bundle.Object,
 	log logr.Logger) error {
+	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
+
 	for _, entry := range c.orderedBundleCollection {
 		entry.bundle.DeleteObject(object) // delete from all bundles.
 	}
+
+	c.lock.Unlock() // not using defer since remove finalizer may get delayed. release lock as soon as possible.
 
 	return c.removeFinalizer(ctx, object, log)
 }
@@ -170,38 +172,47 @@ func (c *genericStatusSyncController) removeFinalizer(ctx context.Context, objec
 }
 
 func (c *genericStatusSyncController) periodicSync() {
-	ticker := time.NewTicker(c.periodicSyncInterval)
+	currentSyncInterval := c.resolveSyncIntervalFunc()
+	ticker := time.NewTicker(currentSyncInterval)
 
 	for {
 		<-ticker.C // wait for next time interval
+		c.syncBundles()
 
-		for _, entry := range c.orderedBundleCollection {
-			if !entry.predicate() { // evaluate if bundle has to be sent only if predicate is true.
-				continue
-			}
+		resolvedInterval := c.resolveSyncIntervalFunc()
 
-			bundleGeneration := entry.bundle.GetBundleGeneration()
-
-			// send to transport only if bundle has changed
-			if bundleGeneration > entry.lastSentBundleGeneration {
-				c.syncToTransport(entry.transportBundleKey, datatypes.StatusBundle,
-					strconv.FormatUint(bundleGeneration, BASE), entry.bundle)
-
-				entry.lastSentBundleGeneration = bundleGeneration
-			}
+		// reset ticker if sync interval has changed
+		if resolvedInterval != currentSyncInterval {
+			currentSyncInterval = resolvedInterval
+			ticker.Reset(currentSyncInterval)
+			c.log.Info(fmt.Sprintf("sync interval has been reset to %s", currentSyncInterval.String()))
 		}
 	}
 }
 
-func (c *genericStatusSyncController) syncToTransport(id string, objType string, generation string,
-	payload bundle.Bundle) {
-	payloadBytes, err := json.Marshal(payload)
-	if err != nil {
-		c.log.Info(fmt.Sprintf("failed to sync object from type %s with id %s- %s", objType, id, err))
-		return
-	}
+func (c *genericStatusSyncController) syncBundles() {
+	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
+	defer c.lock.Unlock()
 
-	c.transport.SendAsync(id, objType, generation, payloadBytes)
+	for _, entry := range c.orderedBundleCollection {
+		if !entry.predicate() { // evaluate if bundle has to be sent only if predicate is true.
+			continue
+		}
+
+		bundleGeneration := entry.bundle.GetBundleGeneration()
+
+		// send to transport only if bundle has changed.
+		if bundleGeneration > entry.lastSentBundleGeneration {
+			if err := helpers.SyncToTransport(c.transport, entry.transportBundleKey, datatypes.StatusBundle,
+				bundleGeneration, entry.bundle); err != nil {
+				c.log.Error(err, "failed to sync to transport")
+
+				continue // do not update last sent generation in case of failure in sync bundle to transport
+			}
+
+			entry.lastSentBundleGeneration = bundleGeneration
+		}
+	}
 }
 
 func cleanObject(object bundle.Object) {

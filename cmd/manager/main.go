@@ -8,12 +8,11 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
-	lhSyncService "github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport/sync-service"
+	syncservice "github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport/sync-service"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	"github.com/spf13/pflag"
@@ -26,7 +25,6 @@ import (
 const (
 	metricsHost                     = "0.0.0.0"
 	metricsPort               int32 = 8527
-	envVarSyncInterval              = "PERIODIC_SYNC_INTERVAL"
 	envVarLeafHubName               = "LH_ID"
 	envVarControllerNamespace       = "POD_NAMESPACE"
 	leaderElectionLockName          = "leaf-hub-status-sync-lock"
@@ -54,18 +52,6 @@ func doMain() int {
 		return 1
 	}
 
-	syncIntervalString, found := os.LookupEnv(envVarSyncInterval)
-	if !found {
-		log.Error(nil, "Not found:", "environment variable", envVarSyncInterval)
-		return 1
-	}
-
-	syncInterval, err := time.ParseDuration(syncIntervalString)
-	if err != nil {
-		log.Error(err, "the environment var ", envVarSyncInterval, " is not valid duration")
-		return 1
-	}
-
 	leafHubName, found := os.LookupEnv(envVarLeafHubName)
 	if !found {
 		log.Error(nil, "Not found:", "environment variable", envVarLeafHubName)
@@ -73,7 +59,7 @@ func doMain() int {
 	}
 
 	// transport layer initialization
-	syncService, err := lhSyncService.NewSyncService(ctrl.Log.WithName("sync-service"))
+	syncService, err := syncservice.NewSyncService(ctrl.Log.WithName("sync-service"))
 	if err != nil {
 		log.Error(err, "failed to initialize")
 		return 1
@@ -82,7 +68,7 @@ func doMain() int {
 	syncService.Start()
 	defer syncService.Stop()
 
-	mgr, err := createManager(leaderElectionNamespace, metricsHost, metricsPort, syncService, syncInterval, leafHubName)
+	mgr, err := createManager(leaderElectionNamespace, syncService, leafHubName)
 	if err != nil {
 		log.Error(err, "Failed to create manager")
 		return 1
@@ -98,8 +84,8 @@ func doMain() int {
 	return 0
 }
 
-func createManager(leaderElectionNamespace, metricsHost string, metricsPort int32, transport transport.Transport,
-	syncInterval time.Duration, leafHubName string) (ctrl.Manager, error) {
+func createManager(leaderElectionNamespace string, transport transport.Transport,
+	leafHubName string) (ctrl.Manager, error) {
 	options := ctrl.Options{
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		LeaderElection:          true,
@@ -116,7 +102,7 @@ func createManager(leaderElectionNamespace, metricsHost string, metricsPort int3
 		return nil, fmt.Errorf("failed to add schemes: %w", err)
 	}
 
-	if err := controller.AddControllers(mgr, transport, syncInterval, leafHubName); err != nil {
+	if err := controller.AddControllers(mgr, transport, leafHubName); err != nil {
 		return nil, fmt.Errorf("failed to add controllers: %w", err)
 	}
 

@@ -9,6 +9,9 @@ import (
 
 var errObjectNotFound = errors.New("object not found")
 
+// ExtractObjIDFunc a function type used to get the id of an object.
+type ExtractObjIDFunc func(obj Object) (string, bool)
+
 // Object is an interface for a single object inside a bundle.
 type Object interface {
 	metav1.Object

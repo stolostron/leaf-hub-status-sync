@@ -3,10 +3,14 @@
 # Leaf-Hub-Status-Sync
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/open-cluster-management/leaf-hub-status-sync)](https://goreportcard.com/report/github.com/open-cluster-management/leaf-hub-status-sync)
+[![Go Reference](https://pkg.go.dev/badge/github.com/open-cluster-management/leaf-hub-status-sync.svg)](https://pkg.go.dev/github.com/open-cluster-management/leaf-hub-status-sync)
+[![License](https://img.shields.io/github/license/open-cluster-management/leaf-hub-status-sync)](/LICENSE)
 
 The leaf hub status sync component of [Hub-of-Hubs](https://github.com/open-cluster-management/hub-of-hubs).
 
-## How it works
+Go to the [Contributing guide](CONTRIBUTING.md) to learn how to get involved.
+
+## Getting Started
 
 ## Build and push the image to docker registry
 

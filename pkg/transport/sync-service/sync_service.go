@@ -19,19 +19,9 @@ const (
 )
 
 var (
-	errEnvVarNotFound  = errors.New("not found environment variable")
-	errEnvVarWrongType = errors.New("wrong type of environment variable")
+	errEnvVarNotFound    = errors.New(" environment variable not found")
+	errEnvVarInvalidType = errors.New("environment variable invalid type")
 )
-
-// SyncService abstracts Sync Service client.
-type SyncService struct {
-	client    *client.SyncServiceClient
-	msgChan   chan *syncServiceMessage
-	stopChan  chan struct{}
-	startOnce sync.Once
-	stopOnce  sync.Once
-	log       logr.Logger
-}
 
 // NewSyncService creates a new instance of SyncService.
 func NewSyncService(log logr.Logger) (*SyncService, error) {
@@ -45,35 +35,45 @@ func NewSyncService(log logr.Logger) (*SyncService, error) {
 	syncServiceClient.SetAppKeyAndSecret("user@myorg", "")
 
 	return &SyncService{
-		client:   syncServiceClient,
 		log:      log,
+		client:   syncServiceClient,
 		msgChan:  make(chan *syncServiceMessage),
 		stopChan: make(chan struct{}, 1),
 	}, nil
 }
 
 func readEnvVars() (string, string, uint16, error) {
-	protocol := os.Getenv(envVarSyncServiceProtocol)
-	if protocol == "" {
+	protocol, found := os.LookupEnv(envVarSyncServiceProtocol)
+	if !found {
 		return "", "", 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarSyncServiceProtocol)
 	}
 
-	host := os.Getenv(envVarSyncServiceHost)
-	if host == "" {
+	host, found := os.LookupEnv(envVarSyncServiceHost)
+	if !found {
 		return "", "", 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarSyncServiceHost)
 	}
 
-	portStr := os.Getenv(envVarSyncServicePort)
-	if portStr == "" {
+	portStr, found := os.LookupEnv(envVarSyncServicePort)
+	if !found {
 		return "", "", 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarSyncServicePort)
 	}
 
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
-		return "", "", 0, fmt.Errorf("%w: %s must be an integer", errEnvVarWrongType, envVarSyncServicePort)
+		return "", "", 0, fmt.Errorf("%w: %s must be an integer", errEnvVarInvalidType, envVarSyncServicePort)
 	}
 
 	return protocol, host, uint16(port), nil
+}
+
+// SyncService abstracts Sync Service client.
+type SyncService struct {
+	log       logr.Logger
+	client    *client.SyncServiceClient
+	msgChan   chan *syncServiceMessage
+	stopChan  chan struct{}
+	startOnce sync.Once
+	stopOnce  sync.Once
 }
 
 // Start function starts sync service.
@@ -86,7 +86,9 @@ func (s *SyncService) Start() {
 // Stop function stops sync service.
 func (s *SyncService) Stop() {
 	s.stopOnce.Do(func() {
+		s.stopChan <- struct{}{}
 		close(s.stopChan)
+		close(s.msgChan)
 	})
 }
 
@@ -117,19 +119,19 @@ func (s *SyncService) sendMessages() {
 		case <-s.stopChan:
 			return
 		case msg := <-s.msgChan:
-			metaData := client.ObjectMetaData{
+			objectMetaData := client.ObjectMetaData{
 				ObjectID:   msg.id,
 				ObjectType: msg.msgType,
 				Version:    msg.version,
 			}
 
-			if err := s.client.UpdateObject(&metaData); err != nil {
+			if err := s.client.UpdateObject(&objectMetaData); err != nil {
 				s.log.Error(err, "Failed to update the object in the Edge Sync Service")
 				continue
 			}
 
 			reader := bytes.NewReader(msg.payload)
-			if err := s.client.UpdateObjectData(&metaData, reader); err != nil {
+			if err := s.client.UpdateObjectData(&objectMetaData, reader); err != nil {
 				s.log.Error(err, "Failed to update the object data in the Edge Sync Service")
 				continue
 			}

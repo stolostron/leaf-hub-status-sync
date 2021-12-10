@@ -1,25 +1,26 @@
 package helpers
 
 import (
+	"encoding/json"
+	"fmt"
+	"log"
 	"strconv"
+	"time"
 
+	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ContainsString returns true if the string exists in the array and false otherwise.
-func ContainsString(slice []string, s string) bool {
-	for _, item := range slice {
-		if item == s {
-			return true
-		}
-	}
+const (
+	// RequeuePeriod is the time to wait until reconciliation retry in failure cases.
+	RequeuePeriod = 5 * time.Second
+	// base10 is the base used to cast string to int.
+	base10 = 10
+)
 
-	return false
-}
-
-// GetBundleGenerationFromTransport returns bundle generation from transport layer.
-func GetBundleGenerationFromTransport(transport transport.Transport, msgID string, msgType string) uint64 {
+// GetGenerationFromTransport returns bundle generation from transport layer.
+func GetGenerationFromTransport(transport transport.Transport, msgID string, msgType string) uint64 {
 	version := transport.GetVersion(msgID, msgType)
 	if version == "" {
 		return 0
@@ -45,12 +46,30 @@ func HasAnnotation(obj metav1.Object, annotation string) bool {
 }
 
 // HasLabel returns a bool if the given label exists in labels.
-func HasLabel(obj metav1.Object, annotation string) bool {
+func HasLabel(obj metav1.Object, label string) bool {
 	if obj == nil || obj.GetLabels() == nil {
 		return false
 	}
 
-	_, found := obj.GetLabels()[annotation]
+	_, found := obj.GetLabels()[label]
 
 	return found
+}
+
+// SyncToTransport syncs the provided bundle to transport.
+func SyncToTransport(transport transport.Transport, msgID string, msgType string, generation uint64,
+	payload bundle.Bundle) error {
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to sync object from type %s with id %s - %w", msgType, msgID, err)
+	}
+
+	log.Println("***************")
+	log.Println(string(payloadBytes))
+	log.Println("***************")
+
+	version := strconv.FormatUint(generation, base10)
+	transport.SendAsync(msgID, msgType, version, payloadBytes)
+
+	return nil
 }
