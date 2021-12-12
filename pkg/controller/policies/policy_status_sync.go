@@ -28,9 +28,9 @@ const (
 
 // AddPoliciesStatusController adds policies status controller to the manager.
 func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport, leafHubName string,
-	hubOfHubsConfig *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals) error {
+	incarnation uint64, hubOfHubsConfig *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals) error {
 	createObjFunction := func() bundle.Object { return &policiesv1.Policy{} }
-	bundleCollection := createBundleCollection(transport, leafHubName, hubOfHubsConfig)
+	bundleCollection := createBundleCollection(leafHubName, incarnation, hubOfHubsConfig)
 
 	ownerRefAnnotationPredicate := predicate.NewPredicateFuncs(func(meta metav1.Object, object runtime.Object) bool {
 		return helpers.HasAnnotation(meta, datatypes.OriginOwnerReferenceAnnotation) &&
@@ -47,25 +47,22 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 	return nil
 }
 
-func createBundleCollection(transport transport.Transport, leafHubName string,
+func createBundleCollection(leafHubName string, incarnation uint64,
 	hubOfHubsConfig *configv1.Config) []*generic.BundleCollectionEntry {
 	// clusters per policy (base bundle)
 	clustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.ClustersPerPolicyMsgKey)
-	clustersPerPolicyBundle := bundle.NewClustersPerPolicyBundle(leafHubName, helpers.GetGenerationFromTransport(
-		transport, clustersPerPolicyTransportKey, datatypes.StatusBundle), extractPolicyID)
+	clustersPerPolicyBundle := bundle.NewClustersPerPolicyBundle(leafHubName, incarnation, extractPolicyID)
 
 	// complete compliance status bundle
 	completeComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
 		datatypes.PolicyCompleteComplianceMsgKey)
 	completeComplianceStatusBundle := bundle.NewCompleteComplianceStatusBundle(leafHubName, clustersPerPolicyBundle,
-		helpers.GetGenerationFromTransport(transport, completeComplianceStatusTransportKey, datatypes.StatusBundle),
-		extractPolicyID)
+		incarnation, extractPolicyID)
 
 	// minimal compliance status bundle
 	minimalComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
 		datatypes.MinimalPolicyComplianceMsgKey)
-	minimalComplianceStatusBundle := bundle.NewMinimalComplianceStatusBundle(leafHubName,
-		helpers.GetGenerationFromTransport(transport, minimalComplianceStatusTransportKey, datatypes.StatusBundle))
+	minimalComplianceStatusBundle := bundle.NewMinimalComplianceStatusBundle(leafHubName, incarnation)
 
 	fullStatusPredicate := func() bool { return hubOfHubsConfig.Spec.AggregationLevel == configv1.Full }
 	minimalStatusPredicate := func() bool { return hubOfHubsConfig.Spec.AggregationLevel == configv1.Minimal }

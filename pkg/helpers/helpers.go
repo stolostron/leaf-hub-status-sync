@@ -3,8 +3,6 @@ package helpers
 import (
 	"encoding/json"
 	"fmt"
-	"log"
-	"strconv"
 	"time"
 
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
@@ -15,24 +13,7 @@ import (
 const (
 	// RequeuePeriod is the time to wait until reconciliation retry in failure cases.
 	RequeuePeriod = 5 * time.Second
-	// base10 is the base used to cast string to int.
-	base10 = 10
 )
-
-// GetGenerationFromTransport returns bundle generation from transport layer.
-func GetGenerationFromTransport(transport transport.Transport, msgID string, msgType string) uint64 {
-	version := transport.GetVersion(msgID, msgType)
-	if version == "" {
-		return 0
-	}
-
-	generation, err := strconv.Atoi(version)
-	if err != nil {
-		return 0
-	}
-
-	return uint64(generation)
-}
 
 // HasAnnotation returns a bool if the given annotation exists in annotations.
 func HasAnnotation(obj metav1.Object, annotation string) bool {
@@ -57,19 +38,19 @@ func HasLabel(obj metav1.Object, label string) bool {
 }
 
 // SyncToTransport syncs the provided bundle to transport.
-func SyncToTransport(transport transport.Transport, msgID string, msgType string, generation uint64,
+func SyncToTransport(transportObj transport.Transport, msgID string, msgType string, version fmt.Stringer,
 	payload bundle.Bundle) error {
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("failed to sync object from type %s with id %s - %w", msgType, msgID, err)
 	}
 
-	log.Println("***************")
-	log.Println(string(payloadBytes))
-	log.Println("***************")
-
-	version := strconv.FormatUint(generation, base10)
-	transport.SendAsync(msgID, msgType, version, payloadBytes)
+	transportObj.SendAsync(&transport.Message{
+		ID:      msgID,
+		MsgType: msgType,
+		Version: version.String(),
+		Payload: payloadBytes,
+	})
 
 	return nil
 }
