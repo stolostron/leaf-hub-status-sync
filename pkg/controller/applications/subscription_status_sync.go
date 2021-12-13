@@ -27,14 +27,12 @@ const (
 
 // AddSubscriptionStatusController adds subscription status controller to the manager.
 func AddSubscriptionStatusController(mgr ctrl.Manager, transport transport.Transport, leafHubName string,
-	hubOfHubsConfig *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals) error {
+	incarnation uint64, hubOfHubsConfig *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals) error {
 	createObjFunction := func() bundle.Object { return &subv1.Subscription{} }
 
 	subscriptionTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.SubscriptionStatusMsgKey)
 	subscriptionBundle := generic.NewBundleCollectionEntry(subscriptionTransportKey,
-		bundle.NewGenericStatusBundle(leafHubName,
-			helpers.GetGenerationFromTransport(transport, subscriptionTransportKey, datatypes.StatusBundle),
-			cleanSubscriptionFunction),
+		bundle.NewGenericStatusBundle(leafHubName, incarnation, cleanSubscriptionFunction),
 		func() bool { // bundle predicate
 			return true
 		})

@@ -7,16 +7,6 @@ import (
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 )
 
-// BundType used to define an enum for whether the bundle carries global or local policies.
-type BundType int
-
-const (
-	// LocalBundle means this bundle contains local policies.
-	LocalBundle BundType = iota
-	// GlobalBundle means this bundle contains global policies.
-	GlobalBundle
-)
-
 // NewClustersPerPolicyBundle creates a new instance of ClustersPerPolicyBundle.
 func NewClustersPerPolicyBundle(leafHubName string, incarnation uint64,
 	extractObjIDFunc ExtractObjIDFunc) Bundle {
