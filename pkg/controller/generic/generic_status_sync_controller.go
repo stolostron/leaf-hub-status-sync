@@ -86,13 +86,12 @@ func (c *genericStatusSyncController) Reconcile(request ctrl.Request) (ctrl.Resu
 			fmt.Errorf("reconciliation failed: %w", err)
 	}
 
-	if c.finalizerName != "hub-of-hubs.open-cluster-management.io/local-placement-rule-cleanup" &&
-		c.isObjectBeingDeleted(object) {
+	if c.isObjectBeingDeleted(object) {
 		if err := c.deleteObjectAndFinalizer(ctx, object, reqLogger); err != nil {
 			reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
 			return ctrl.Result{Requeue: true, RequeueAfter: helpers.RequeuePeriod}, err
 		}
-	} else if c.finalizerName != "hub-of-hubs.open-cluster-management.io/local-placement-rule-cleanup" {
+	} else {
 		// otherwise, the object was not deleted and no error occurred
 		if err := c.updateObjectAndFinalizer(ctx, object, reqLogger); err != nil {
 			reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
