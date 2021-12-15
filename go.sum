@@ -681,10 +681,8 @@ github.com/open-cluster-management/api v0.0.0-20210527013639-a6845f2ebcb1 h1:AaF
 github.com/open-cluster-management/api v0.0.0-20210527013639-a6845f2ebcb1/go.mod h1:ot+A1DWq+v1IV+e1S7nhIteYAmNByFgtazvzpoeAfRQ=
 github.com/open-cluster-management/governance-policy-propagator v0.0.0-20210520203318-a78632de1e26 h1:EXnaCT1VMzyBenLpxBJ4gGQblX3LTlgq+P9Vi1S/OKw=
 github.com/open-cluster-management/governance-policy-propagator v0.0.0-20210520203318-a78632de1e26/go.mod h1:7gzDyC7PddcuInXS+kLrfYmto/ImSORibXwy8RGjNM8=
-github.com/open-cluster-management/hub-of-hubs-data-types v0.2.2 h1:lgRG/84QKTW38W0ynu+yeYwkTswqWNGka0QMX2B5yTk=
-github.com/open-cluster-management/hub-of-hubs-data-types v0.2.2/go.mod h1:rLtZFQ8YdGQ2XHHKJFBOtQwnP63UDxaalhlQG8anP90=
-github.com/open-cluster-management/hub-of-hubs-data-types v0.2.3-0.20211214080631-0006cf2003da h1:Z2Vsng07Mm1mzQtPr+jpDtm4nDguz5hFnLjimiBS4OA=
-github.com/open-cluster-management/hub-of-hubs-data-types v0.2.3-0.20211214080631-0006cf2003da/go.mod h1:rLtZFQ8YdGQ2XHHKJFBOtQwnP63UDxaalhlQG8anP90=
+github.com/open-cluster-management/hub-of-hubs-data-types v0.2.3-0.20211215102909-71931c81af46 h1:ZogUJ2oBk9qmXIEw+SIU9jGi2lb1VcMCh9gXjhRF77Y=
+github.com/open-cluster-management/hub-of-hubs-data-types v0.2.3-0.20211215102909-71931c81af46/go.mod h1:rLtZFQ8YdGQ2XHHKJFBOtQwnP63UDxaalhlQG8anP90=
 github.com/open-cluster-management/hub-of-hubs-data-types/apis/config v0.1.1-0.20211025080255-3b72d5df4ae0 h1:rGtBeYzFL95fQ2P4Na98sP7PbnXvGzFC9KygHoONRCc=
 github.com/open-cluster-management/hub-of-hubs-data-types/apis/config v0.1.1-0.20211025080255-3b72d5df4ae0/go.mod h1:xpGxw+0si9vuDABvcJ9FxjznPw/uAbICzhaX+9JLLho=
 github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-20211201092145-1f7a72298d73 h1:B7IRxG/gd3KOCCTeoxSC/0WrGnAeeW3iLqIaH7Ayles=

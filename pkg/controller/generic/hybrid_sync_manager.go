@@ -26,7 +26,7 @@ func NewHybridSyncManager(log logr.Logger, transportObj transport.Transport,
 	hybridSyncManager := &hybridSyncManager{
 		log:            log,
 		activeSyncMode: status.CompleteStateMode,
-		bundleCollectionEntryMap: map[status.HybridSyncMode]*BundleCollectionEntry{
+		bundleCollectionEntryMap: map[status.BundleSyncMode]*BundleCollectionEntry{
 			status.CompleteStateMode: completeStateBundleCollectionEntry,
 			status.DeltaStateMode:    deltaStateBundleCollectionEntry,
 		},
@@ -49,8 +49,8 @@ func NewHybridSyncManager(log logr.Logger, transportObj transport.Transport,
 // won't get collected by the GC since callbacks are used.
 type hybridSyncManager struct {
 	log                        logr.Logger
-	activeSyncMode             status.HybridSyncMode
-	bundleCollectionEntryMap   map[status.HybridSyncMode]*BundleCollectionEntry
+	activeSyncMode             status.BundleSyncMode
+	bundleCollectionEntryMap   map[status.BundleSyncMode]*BundleCollectionEntry
 	deltaStateBundle           bundle.DeltaStateBundle
 	sentDeltaCountSwitchFactor int
 	sentDeltaCount             int
