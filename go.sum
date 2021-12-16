@@ -685,8 +685,8 @@ github.com/open-cluster-management/hub-of-hubs-data-types v0.2.3-0.2021121510290
 github.com/open-cluster-management/hub-of-hubs-data-types v0.2.3-0.20211215102909-71931c81af46/go.mod h1:rLtZFQ8YdGQ2XHHKJFBOtQwnP63UDxaalhlQG8anP90=
 github.com/open-cluster-management/hub-of-hubs-data-types/apis/config v0.1.1-0.20211025080255-3b72d5df4ae0 h1:rGtBeYzFL95fQ2P4Na98sP7PbnXvGzFC9KygHoONRCc=
 github.com/open-cluster-management/hub-of-hubs-data-types/apis/config v0.1.1-0.20211025080255-3b72d5df4ae0/go.mod h1:xpGxw+0si9vuDABvcJ9FxjznPw/uAbICzhaX+9JLLho=
-github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-20211201092145-1f7a72298d73 h1:B7IRxG/gd3KOCCTeoxSC/0WrGnAeeW3iLqIaH7Ayles=
-github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-20211201092145-1f7a72298d73/go.mod h1:Fhdc1zx1GwFuDn5p+KvWZ7fvhSvLet2Fr4cYdA3RUyI=
+github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-20211216120922-1d1a1ad71d7f h1:Sg7Z1UJtZyORoe8nQltccEzzs7kdDcRK8OWffESNS2A=
+github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-20211216120922-1d1a1ad71d7f/go.mod h1:Fhdc1zx1GwFuDn5p+KvWZ7fvhSvLet2Fr4cYdA3RUyI=
 github.com/open-cluster-management/hub-of-hubs-message-compression v0.0.0-20211122122545-c99e2d497b43 h1:/cHgEhBhyZk8unQ5KE7Njune1nqfTSfFblR0334KB2M=
 github.com/open-cluster-management/hub-of-hubs-message-compression v0.0.0-20211122122545-c99e2d497b43/go.mod h1:4n6jdPc/GDenlcLznm830bnlzM7ZWeHQFIoxwFxK+Bg=
 github.com/open-horizon/edge-sync-service-client v0.0.0-20190711093406-dc3a19905da2 h1:ZmX/tuCgFVbe07pqObNWf14cAYpHN8gVRSkWnbtSUW4=
