@@ -10,9 +10,9 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-logr/logr"
+	"github.com/open-cluster-management/hub-of-hubs-kafka-transport/headers"
 	kafkaclient "github.com/open-cluster-management/hub-of-hubs-kafka-transport/kafka-client"
 	kafkaproducer "github.com/open-cluster-management/hub-of-hubs-kafka-transport/kafka-client/kafka-producer"
-	kafkaHeaderTypes "github.com/open-cluster-management/hub-of-hubs-kafka-transport/types"
 	"github.com/open-cluster-management/hub-of-hubs-message-compression/compressors"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 )
@@ -215,10 +215,8 @@ func (p *Producer) SendAsync(message *transport.Message) {
 		return
 	}
 
-	headers := []kafka.Header{
-		{Key: kafkaHeaderTypes.MsgIDKey, Value: []byte(message.ID)},
-		{Key: kafkaHeaderTypes.MsgTypeKey, Value: []byte(message.MsgType)},
-		{Key: kafkaHeaderTypes.HeaderCompressionType, Value: []byte(p.compressor.GetType())},
+	messageHeaders := []kafka.Header{
+		{Key: headers.CompressionType, Value: []byte(p.compressor.GetType())},
 	}
 
 	if err = p.kafkaProducer.ProduceAsync(message.Key, p.topic, partition, headers, compressedBytes); err != nil {
