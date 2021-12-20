@@ -72,6 +72,11 @@ Go to the [Contributing guide](CONTRIBUTING.md) to learn how to get involved.
         $ export SYNC_SERVICE_PORT=...
         ```
 
+1.  Set the `NUMBER_OF_SIMULATED_LEAF_HUBS` environment variable to hold the number of simulated leaf hubs (not including the original leaf hub).
+    ```
+    $ export NUMBER_OF_SIMULATED_LEAF_HUBS=...
+    ```
+    
 1.  Run the following command to deploy the `leaf-hub-status-sync` to your leaf hub cluster:
     ```
     envsubst < deploy/leaf-hub-status-sync.yaml.template | kubectl apply -f -
