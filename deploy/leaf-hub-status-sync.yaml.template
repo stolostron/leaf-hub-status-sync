@@ -135,6 +135,8 @@ spec:
               value: "$KAFKA_SSL_CA"
             - name: COMPLIANCE_STATUS_DELTA_COUNT_SWITCH_FACTOR
               value: "100"
+            - name: NUMBER_OF_SIMULATED_LEAF_HUBS
+              value: "0"
             - name: SYNC_SERVICE_PROTOCOL
               value: "http"
             - name: SYNC_SERVICE_HOST
