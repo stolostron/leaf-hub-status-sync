@@ -103,6 +103,8 @@ type genericStatusSyncController struct {
 }
 
 func (c *genericStatusSyncController) init() {
+	c.simulationContext = newSimulationContext(c.log)
+
 	c.startOnce.Do(func() {
 		go c.periodicSync()
 	})
@@ -292,8 +294,6 @@ func getLeafHubNameFieldPointer(entry *BundleCollectionEntry) *string {
 func getLeafHubName(entry *BundleCollectionEntry) string {
 	return *getLeafHubNameFieldPointer(entry)
 }
-
-const transportKeyPartsCount = 2
 
 func (c *genericStatusSyncController) changeLeafHubName(entry *BundleCollectionEntry, newLeafHubName string) {
 	tokens := strings.Split(entry.transportBundleKey, ".")
