@@ -25,12 +25,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-const (
-	// envNumberOfSimulatedLeafHubs is environment variable used to control number of simulated leaf hubs.
-	envNumberOfSimulatedLeafHubs = "NUMBER_OF_SIMULATED_LEAF_HUBS"
-	// transportBundleKeyParts is a number of parts in BundleCollectionEntry.transportBundleKey field.
-	transportBundleKeyParts = 2
-)
+// envNumberOfSimulatedLeafHubs is environment variable used to control number of simulated leaf hubs.
+const envNumberOfSimulatedLeafHubs = "NUMBER_OF_SIMULATED_LEAF_HUBS"
 
 // CreateObjectFunction is a function for how to create an object that is stored inside the bundle.
 type CreateObjectFunction func() bundle.Object
@@ -244,10 +240,8 @@ func (c *genericStatusSyncController) syncBundles() {
 
 		// send to transport only if bundle has changed.
 		if bundleVersion.NewerThan(&entry.lastSentBundleVersion) {
-			leafHubName := getLeafHubName(entry.bundle)
-
 			// clone before sending to transport (in case callbacks modify internals)
-			clone := cloneBundle(entry.bundle)
+			constantBundle := cloneIfDeltaBundle(entry.bundle)
 
 			if err := helpers.SyncToTransport(c.transport, entry.transportBundleKey, datatypes.StatusBundle,
 				bundleVersion, entry.bundle); err != nil {
@@ -256,19 +250,27 @@ func (c *genericStatusSyncController) syncBundles() {
 				return // do not update last sent generation in case of failure in sync bundle to transport
 			}
 
-			// send simulated entries
+			// SIMULATION ENTRIES
+			bundleType := strings.Split(entry.transportBundleKey, ".")[1]
+			leafHubName := getLeafHubName(constantBundle)
+
 			for i := 1; i <= c.simulationContext.numOfLeafHubs; i++ {
 				simulatedLeafHubName := fmt.Sprintf("%s_simulated_%d", leafHubName, i)
+				simulatedTransportKey := fmt.Sprintf("%s.%s", simulatedLeafHubName, bundleType)
 
-				c.changeLeafHubName(entry, clone, simulatedLeafHubName) // change name of clone, doesn't affect orig
-
-				if err := helpers.SyncToTransport(c.transport, entry.transportBundleKey, datatypes.StatusBundle,
-					bundleVersion, clone); err != nil {
+				// change name of clone, affects complete state cloning (since returns bundle as is)
+				c.changeLeafHubName(constantBundle, simulatedLeafHubName)
+				// sync
+				if err := helpers.SyncToTransport(c.transport, simulatedTransportKey, datatypes.StatusBundle,
+					bundleVersion, constantBundle); err != nil {
+					c.changeLeafHubName(constantBundle, leafHubName)
 					c.log.Error(err, "failed to sync to transport")
 
 					return // do not update last sent generation in case of failure in sync bundle to transport
 				}
 			}
+
+			c.changeLeafHubName(constantBundle, leafHubName)
 
 			entry.lastSentBundleVersion = *bundleVersion
 		}
@@ -284,7 +286,7 @@ func cleanObject(object bundle.Object) {
 	object.SetClusterName("")
 }
 
-func cloneBundle(entry bundle.Bundle) bundle.Bundle {
+func cloneIfDeltaBundle(entry bundle.Bundle) bundle.Bundle {
 	switch entry.(type) {
 	case *bundle.DeltaComplianceStatusBundle:
 		marshalled, _ := json.Marshal(entry)
@@ -310,18 +312,7 @@ func getLeafHubName(bundle bundle.Bundle) string {
 	return *getLeafHubNameFieldPointer(bundle)
 }
 
-func (c *genericStatusSyncController) changeLeafHubName(entry *BundleCollectionEntry,
-	bundle bundle.Bundle, newLeafHubName string) {
-	tokens := strings.Split(entry.transportBundleKey, ".")
-
-	if len(tokens) != transportBundleKeyParts {
-		c.log.Info(fmt.Sprintf("unable to parse transportBundleKey '%s'", entry.transportBundleKey))
-		return
-	}
-
-	// change transport bundle key as it depends on leaf hub name
-	entry.transportBundleKey = fmt.Sprintf("%s.%s", newLeafHubName, tokens[1])
-
+func (c *genericStatusSyncController) changeLeafHubName(bundle bundle.Bundle, newLeafHubName string) {
 	// change bundle's 'leafHubName' field value
 	realPtrToLeafHubName := getLeafHubNameFieldPointer(bundle)
 	*realPtrToLeafHubName = newLeafHubName
