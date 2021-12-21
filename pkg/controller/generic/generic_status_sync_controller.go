@@ -2,6 +2,7 @@ package generic
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"reflect"
@@ -243,7 +244,10 @@ func (c *genericStatusSyncController) syncBundles() {
 
 		// send to transport only if bundle has changed.
 		if bundleVersion.NewerThan(&entry.lastSentBundleVersion) {
-			leafHubName := getLeafHubName(entry)
+			leafHubName := getLeafHubName(entry.bundle)
+
+			// clone before sending to transport (in case callbacks modify internals)
+			clone := cloneBundle(entry.bundle)
 
 			if err := helpers.SyncToTransport(c.transport, entry.transportBundleKey, datatypes.StatusBundle,
 				bundleVersion, entry.bundle); err != nil {
@@ -256,18 +260,15 @@ func (c *genericStatusSyncController) syncBundles() {
 			for i := 1; i <= c.simulationContext.numOfLeafHubs; i++ {
 				simulatedLeafHubName := fmt.Sprintf("%s_simulated_%d", leafHubName, i)
 
-				c.changeLeafHubName(entry, simulatedLeafHubName)
+				c.changeLeafHubName(entry, clone, simulatedLeafHubName) // change name of clone, doesn't affect orig
 
 				if err := helpers.SyncToTransport(c.transport, entry.transportBundleKey, datatypes.StatusBundle,
-					bundleVersion, entry.bundle); err != nil {
+					bundleVersion, clone); err != nil {
 					c.log.Error(err, "failed to sync to transport")
 
 					return // do not update last sent generation in case of failure in sync bundle to transport
 				}
 			}
-
-			// restore original leaf hub name for the entry
-			c.changeLeafHubName(entry, leafHubName)
 
 			entry.lastSentBundleVersion = *bundleVersion
 		}
@@ -283,19 +284,34 @@ func cleanObject(object bundle.Object) {
 	object.SetClusterName("")
 }
 
-func getLeafHubNameFieldPointer(entry *BundleCollectionEntry) *string {
-	ptrToBundle := reflect.ValueOf(entry.bundle)
+func cloneBundle(entry bundle.Bundle) bundle.Bundle {
+	switch entry.(type) {
+	case *bundle.DeltaComplianceStatusBundle:
+		marshalled, _ := json.Marshal(entry)
+
+		clone := &bundle.DeltaComplianceStatusBundle{}
+		_ = json.Unmarshal(marshalled, clone)
+
+		return clone
+	default:
+		return entry
+	}
+}
+
+func getLeafHubNameFieldPointer(bundle bundle.Bundle) *string {
+	ptrToBundle := reflect.ValueOf(bundle)
 	reflectedBundle := reflect.Indirect(ptrToBundle)
 	privateMember := reflectedBundle.FieldByName("LeafHubName")
 
 	return (*string)(unsafe.Pointer(privateMember.UnsafeAddr()))
 }
 
-func getLeafHubName(entry *BundleCollectionEntry) string {
-	return *getLeafHubNameFieldPointer(entry)
+func getLeafHubName(bundle bundle.Bundle) string {
+	return *getLeafHubNameFieldPointer(bundle)
 }
 
-func (c *genericStatusSyncController) changeLeafHubName(entry *BundleCollectionEntry, newLeafHubName string) {
+func (c *genericStatusSyncController) changeLeafHubName(entry *BundleCollectionEntry,
+	bundle bundle.Bundle, newLeafHubName string) {
 	tokens := strings.Split(entry.transportBundleKey, ".")
 
 	if len(tokens) != transportBundleKeyParts {
@@ -307,6 +323,6 @@ func (c *genericStatusSyncController) changeLeafHubName(entry *BundleCollectionE
 	entry.transportBundleKey = fmt.Sprintf("%s.%s", newLeafHubName, tokens[1])
 
 	// change bundle's 'leafHubName' field value
-	realPtrToLeafHubName := getLeafHubNameFieldPointer(entry)
+	realPtrToLeafHubName := getLeafHubNameFieldPointer(bundle)
 	*realPtrToLeafHubName = newLeafHubName
 }
