@@ -198,19 +198,19 @@ func (p *Producer) SupportsDeltaBundles() bool {
 }
 
 // SendAsync sends a message to the sync service asynchronously.
-func (p *Producer) SendAsync(message *transport.Message) {
-	messageBytes, err := json.Marshal(message)
+func (p *Producer) SendAsync(msg *transport.Message) {
+	msgBytes, err := json.Marshal(msg)
 	if err != nil {
-		p.log.Error(err, "failed to send message", "MessageId", message.ID, "MessageType",
-			message.MsgType, "Version", message.Version)
+		p.log.Error(err, "failed to send message", "MessageId", msg.ID, "MessageType", msg.MsgType,
+			"Version", msg.Version)
 
 		return
 	}
 
-	compressedBytes, err := p.compressor.Compress(messageBytes)
+	compressedBytes, err := p.compressor.Compress(msgBytes)
 	if err != nil {
 		p.log.Error(err, "failed to compress bundle", "CompressorType", p.compressor.GetType(),
-			"MessageId", message.ID, "MessageType", message.MsgType, "Version", message.Version)
+			"MessageId", msg.ID, "MessageType", msg.MsgType, "Version", msg.Version)
 
 		return
 	}
@@ -219,16 +219,16 @@ func (p *Producer) SendAsync(message *transport.Message) {
 		{Key: headers.CompressionType, Value: []byte(p.compressor.GetType())},
 	}
 
-	if err = p.kafkaProducer.ProduceAsync(message.Key, p.topic, partition, messageHeaders, compressedBytes); err != nil {
-		p.log.Error(err, "failed to send message", "MessageKey", message.Key, "MessageId", message.ID,
-			"MessageType", message.MsgType, "Version", message.Version)
-		transport.InvokeCallback(p.eventSubscriptionMap, message.ID, transport.DeliveryFailure)
+	if err = p.kafkaProducer.ProduceAsync(msg.Key, p.topic, partition, messageHeaders, compressedBytes); err != nil {
+		p.log.Error(err, "failed to send message", "MessageKey", msg.Key, "MessageId", msg.ID,
+			"MessageType", msg.MsgType, "Version", msg.Version)
+		transport.InvokeCallback(p.eventSubscriptionMap, msg.ID, transport.DeliveryFailure)
 
 		return
 	}
 
-	transport.InvokeCallback(p.eventSubscriptionMap, message.ID, transport.DeliveryAttempt)
+	transport.InvokeCallback(p.eventSubscriptionMap, msg.ID, transport.DeliveryAttempt)
 
-	p.log.Info("message sent to transport server", "MessageKey", message.Key, "MessageId", message.ID,
-		"MessageType", message.MsgType, "Version", message.Version)
+	p.log.Info("Message sent successfully", "MessageId", msg.ID, "MessageType", msg.MsgType,
+		"Version", msg.Version)
 }
