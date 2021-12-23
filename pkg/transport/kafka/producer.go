@@ -94,10 +94,12 @@ func readEnvVars() (*kafka.ConfigMap, string, int, error) {
 	}
 
 	kafkaConfigMap := &kafka.ConfigMap{
-		"bootstrap.servers": bootstrapServers,
-		"client.id":         producerID,
-		"acks":              "1",
-		"retries":           "0",
+		"bootstrap.servers":       bootstrapServers,
+		"client.id":               producerID,
+		"acks":                    "1",
+		"retries":                 "0",
+		"socket.keepalive.enable": "true",
+		"log.connection.close":    "false", // silence spontaneous disconnection logs, kafka recovers by itself.
 	}
 
 	if err := readSSLEnvVar(kafkaConfigMap); err != nil {
