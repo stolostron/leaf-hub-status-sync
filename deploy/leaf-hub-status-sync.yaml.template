@@ -146,3 +146,4 @@ spec:
                 fieldRef:
                  apiVersion: v1
                  fieldPath: metadata.namespace
+      terminationGracePeriodSeconds: 10
