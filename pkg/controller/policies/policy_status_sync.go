@@ -136,7 +136,7 @@ func getHybridComplianceBundleCollectionEntries(transport transport.Transport, l
 	deltaComplianceBundleCollectionEntry := generic.NewBundleCollectionEntry(deltaComplianceStatusTransportKey,
 		deltaComplianceStatusBundle, fullStatusPredicate)
 
-	if err := generic.NewHybridSyncManager(ctrl.Log.WithName("compliance-status hybrid sync manager"),
+	if err := generic.NewHybridSyncManager(ctrl.Log.WithName("compliance-status-hybrid-sync-manager"),
 		transport, completeComplianceBundleCollectionEntry, deltaComplianceBundleCollectionEntry,
 		deltaCountSwitchFactor); err != nil {
 		return nil, nil, fmt.Errorf("%w: %v", err, errFailedToCreateHybridSyncManager)
