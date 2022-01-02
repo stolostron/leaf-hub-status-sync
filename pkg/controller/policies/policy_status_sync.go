@@ -9,7 +9,7 @@ import (
 	"os"
 	"strconv"
 
-	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
+	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/api/v1"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
@@ -17,9 +17,8 @@ import (
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/syncintervals"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
@@ -43,11 +42,11 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 		return fmt.Errorf("failed to add policies controller to the manager - %w", err)
 	}
 
-	hohNamespacePredicate := predicate.NewPredicateFuncs(func(meta metav1.Object, object runtime.Object) bool {
-		return meta.GetNamespace() == datatypes.HohSystemNamespace
+	hohNamespacePredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
+		return object.GetNamespace() == datatypes.HohSystemNamespace
 	})
-	ownerRefAnnotationPredicate := predicate.NewPredicateFuncs(func(meta metav1.Object, object runtime.Object) bool {
-		return helpers.HasAnnotation(meta, datatypes.OriginOwnerReferenceAnnotation)
+	ownerRefAnnotationPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
+		return helpers.HasAnnotation(object, datatypes.OriginOwnerReferenceAnnotation)
 	})
 
 	createObjFunction := func() bundle.Object { return &policiesv1.Policy{} }

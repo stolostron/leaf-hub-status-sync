@@ -7,8 +7,7 @@ import (
 	"fmt"
 
 	clustersv1 "github.com/open-cluster-management/api/cluster/v1"
-	placementrulesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/apps/v1"
-	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
+	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/api/v1"
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
 	configCtrl "github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/config"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/controlinfo"
@@ -17,15 +16,16 @@ import (
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/policies"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/syncintervals"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
+	placementrulesv1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
 // AddToScheme adds all Resources to the Scheme.
-func AddToScheme(s *runtime.Scheme) error {
+func AddToScheme(runtimeScheme *runtime.Scheme) error {
 	// add cluster scheme
-	if err := clustersv1.Install(s); err != nil {
+	if err := clustersv1.Install(runtimeScheme); err != nil {
 		return fmt.Errorf("failed to add scheme: %w", err)
 	}
 
@@ -34,7 +34,7 @@ func AddToScheme(s *runtime.Scheme) error {
 	} // add schemes
 
 	for _, schemeBuilder := range schemeBuilders {
-		if err := schemeBuilder.AddToScheme(s); err != nil {
+		if err := schemeBuilder.AddToScheme(runtimeScheme); err != nil {
 			return fmt.Errorf("failed to add scheme: %w", err)
 		}
 	}

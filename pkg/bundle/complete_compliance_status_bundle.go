@@ -3,7 +3,7 @@ package bundle
 import (
 	"sync"
 
-	policyv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
+	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/api/v1"
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 )
 
@@ -36,8 +36,8 @@ func (bundle *ComplianceStatusBundle) UpdateObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	policy, ok := object.(*policyv1.Policy)
-	if !ok {
+	policy, isOk := object.(*policiesv1.Policy)
+	if !isOk {
 		return // do not handle objects other than policy
 	}
 
@@ -76,8 +76,8 @@ func (bundle *ComplianceStatusBundle) DeleteObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	_, ok := object.(*policyv1.Policy)
-	if !ok {
+	_, isOk := object.(*policiesv1.Policy)
+	if !isOk {
 		return // do not handle objects other than policy
 	}
 
@@ -114,7 +114,7 @@ func (bundle *ComplianceStatusBundle) getObjectIndexByUID(uid string) (int, erro
 }
 
 func (bundle *ComplianceStatusBundle) getPolicyComplianceStatus(originPolicyID string,
-	policy *policyv1.Policy) *statusbundle.PolicyCompleteComplianceStatus {
+	policy *policiesv1.Policy) *statusbundle.PolicyCompleteComplianceStatus {
 	nonCompliantClusters, unknownComplianceClusters := bundle.getNonCompliantAndUnknownClusters(policy)
 
 	return &statusbundle.PolicyCompleteComplianceStatus{
@@ -125,16 +125,17 @@ func (bundle *ComplianceStatusBundle) getPolicyComplianceStatus(originPolicyID s
 }
 
 // returns a list of non compliant clusters and a list of unknown compliance clusters.
-func (bundle *ComplianceStatusBundle) getNonCompliantAndUnknownClusters(policy *policyv1.Policy) ([]string, []string) {
+func (bundle *ComplianceStatusBundle) getNonCompliantAndUnknownClusters(policy *policiesv1.Policy) ([]string,
+	[]string) {
 	nonCompliantClusters := make([]string, 0)
 	unknownComplianceClusters := make([]string, 0)
 
 	for _, clusterCompliance := range policy.Status.Status {
-		if clusterCompliance.ComplianceState == policyv1.Compliant {
+		if clusterCompliance.ComplianceState == policiesv1.Compliant {
 			continue
 		}
 
-		if clusterCompliance.ComplianceState == policyv1.NonCompliant {
+		if clusterCompliance.ComplianceState == policiesv1.NonCompliant {
 			nonCompliantClusters = append(nonCompliantClusters, clusterCompliance.ClusterName)
 		} else { // not compliant not non compliant -> means unknown
 			unknownComplianceClusters = append(unknownComplianceClusters, clusterCompliance.ClusterName)
@@ -145,7 +146,7 @@ func (bundle *ComplianceStatusBundle) getNonCompliantAndUnknownClusters(policy *
 }
 
 // if a cluster was removed, object is not considered as changed.
-func (bundle *ComplianceStatusBundle) updateBundleIfObjectChanged(objectIndex int, policy *policyv1.Policy) bool {
+func (bundle *ComplianceStatusBundle) updateBundleIfObjectChanged(objectIndex int, policy *policiesv1.Policy) bool {
 	oldPolicyComplianceStatus := bundle.Objects[objectIndex]
 	newNonCompliantClusters, newUnknownComplianceClusters := bundle.getNonCompliantAndUnknownClusters(policy)
 
