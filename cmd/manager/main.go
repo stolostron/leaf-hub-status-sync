@@ -196,6 +196,11 @@ func getIncarnation(mgr ctrl.Manager) (uint64, error) {
 	ctx := context.Background()
 	configMap := &v1.ConfigMap{}
 
+	// create hoh-local ns if missing
+	if err = createHohLocalNamespaceIfAbsent(client); err != nil {
+		return 0, fmt.Errorf("failed to get incarnation config-map - %w", err)
+	}
+
 	// try to get ConfigMap
 	objKey := ctrlClient.ObjectKey{
 		Namespace: hohLocalNamespace,
@@ -203,13 +208,13 @@ func getIncarnation(mgr ctrl.Manager) (uint64, error) {
 	}
 	if err := client.Get(ctx, objKey, configMap); err != nil {
 		if !k8sErrors.IsNotFound(err) {
-			return 0, fmt.Errorf("failed to get incarnation ConfigMap - %w", err)
+			return 0, fmt.Errorf("failed to get incarnation config-map - %w", err)
 		}
 
 		// incarnation ConfigMap does not exist, create it with incarnation = 0
 		configMap = createIncarnationConfigMap(0)
 		if err := client.Create(ctx, configMap); err != nil {
-			return 0, fmt.Errorf("failed to create incarnation ConfigMap obj - %w", err)
+			return 0, fmt.Errorf("failed to create incarnation config-map obj - %w", err)
 		}
 
 		return 0, nil
@@ -224,7 +229,7 @@ func getIncarnation(mgr ctrl.Manager) (uint64, error) {
 
 	lastIncarnation, err := strconv.ParseUint(incarnationString, base10, uint64Size)
 	if err != nil {
-		return 0, fmt.Errorf("failed to parse value of key %s in ConfigMap %s - %w", incarnationConfigMapKey,
+		return 0, fmt.Errorf("failed to parse value of key %s in config-map %s - %w", incarnationConfigMapKey,
 			incarnationConfigMapKey, err)
 	}
 
@@ -234,6 +239,23 @@ func getIncarnation(mgr ctrl.Manager) (uint64, error) {
 	}
 
 	return lastIncarnation + 1, nil
+}
+
+func createHohLocalNamespaceIfAbsent(client ctrlClient.Client) error {
+	ns := &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: hohLocalNamespace,
+		},
+	}
+	if err := client.Create(context.Background(), ns); err != nil {
+		if k8sErrors.IsAlreadyExists(err) {
+			return nil
+		}
+
+		return fmt.Errorf("failed to create namespace %s - %w", hohLocalNamespace, err)
+	}
+
+	return nil
 }
 
 func createIncarnationConfigMap(incarnation uint64) *v1.ConfigMap {

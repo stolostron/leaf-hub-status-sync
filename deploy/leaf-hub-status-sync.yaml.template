@@ -49,6 +49,12 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - namespaces
+  verbs:
+  - create
+- apiGroups:
+  - ""
+  resources:
   - pods
   - configmaps
   - events
@@ -96,12 +102,6 @@ data:
   managed_clusters: "5s"
   policies: "5s"
   control_info: "60m"
----
-
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: hoh-local
 ---
 
 apiVersion: apps/v1
