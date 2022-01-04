@@ -13,7 +13,6 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
-	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	compressor "github.com/open-cluster-management/hub-of-hubs-message-compression"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
@@ -42,6 +41,7 @@ const (
 	kafkaTransportTypeName                  = "kafka"
 	syncServiceTransportTypeName            = "sync-service"
 	leaderElectionLockName                  = "leaf-hub-status-sync-lock"
+	hohLocalNamespace                       = "hoh-local"
 	incarnationConfigMapKey                 = "incarnation"
 	base10                                  = 10
 	uint64Size                              = 64
@@ -198,7 +198,7 @@ func getIncarnation(mgr ctrl.Manager) (uint64, error) {
 
 	// try to get ConfigMap
 	objKey := ctrlClient.ObjectKey{
-		Namespace: datatypes.HohSystemNamespace,
+		Namespace: hohLocalNamespace,
 		Name:      incarnationConfigMapKey,
 	}
 	if err := client.Get(ctx, objKey, configMap); err != nil {
@@ -207,7 +207,7 @@ func getIncarnation(mgr ctrl.Manager) (uint64, error) {
 		}
 
 		// incarnation ConfigMap does not exist, create it with incarnation = 0
-		configMap = createIncarnationConfigMap(datatypes.HohSystemNamespace, 0)
+		configMap = createIncarnationConfigMap(0)
 		if err := client.Create(ctx, configMap); err != nil {
 			return 0, fmt.Errorf("failed to create incarnation ConfigMap obj - %w", err)
 		}
@@ -228,7 +228,7 @@ func getIncarnation(mgr ctrl.Manager) (uint64, error) {
 			incarnationConfigMapKey, err)
 	}
 
-	newConfigMap := createIncarnationConfigMap(datatypes.HohSystemNamespace, lastIncarnation+1)
+	newConfigMap := createIncarnationConfigMap(lastIncarnation + 1)
 	if err := client.Patch(ctx, newConfigMap, ctrlClient.MergeFrom(configMap)); err != nil {
 		return 0, fmt.Errorf("failed to update incarnation version - %w", err)
 	}
@@ -236,11 +236,11 @@ func getIncarnation(mgr ctrl.Manager) (uint64, error) {
 	return lastIncarnation + 1, nil
 }
 
-func createIncarnationConfigMap(namespace string, incarnation uint64) *v1.ConfigMap {
+func createIncarnationConfigMap(incarnation uint64) *v1.ConfigMap {
 	return &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
+			Namespace: hohLocalNamespace,
 			Name:      incarnationConfigMapKey,
-			Namespace: namespace,
 		},
 		Data: map[string]string{incarnationConfigMapKey: strconv.FormatUint(incarnation, base10)},
 	}

@@ -98,6 +98,12 @@ data:
   control_info: "60m"
 ---
 
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hoh-local
+---
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
