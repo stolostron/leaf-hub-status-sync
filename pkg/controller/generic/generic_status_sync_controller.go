@@ -68,10 +68,9 @@ func (c *genericStatusSyncController) init() {
 	})
 }
 
-func (c *genericStatusSyncController) Reconcile(request ctrl.Request) (ctrl.Result, error) {
+func (c *genericStatusSyncController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	reqLogger := c.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
-	ctx := context.Background()
 	object := c.createObjFunc()
 
 	if err := c.client.Get(ctx, request.NamespacedName, object); apierrors.IsNotFound(err) {

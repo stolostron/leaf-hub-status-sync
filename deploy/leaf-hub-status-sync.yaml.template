@@ -18,7 +18,7 @@ metadata:
   name: leaf-hub-status-sync
 rules:
 - apiGroups:
-  - "cluster.open-cluster-management.io"
+  - cluster.open-cluster-management.io
   resources:
   - managedclusters
   - managedclusters/finalizers
@@ -28,7 +28,7 @@ rules:
   - watch
   - update
 - apiGroups:
-  - "policy.open-cluster-management.io"
+  - policy.open-cluster-management.io
   resources:
   - policies
   - policies/finalizers
@@ -38,7 +38,7 @@ rules:
   - watch
   - update
 - apiGroups:
-  - "hub-of-hubs.open-cluster-management.io"
+  - hub-of-hubs.open-cluster-management.io
   resources:
   - configs
   verbs:
@@ -46,6 +46,12 @@ rules:
   - list
   - watch
   - update
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - create
 - apiGroups:
   - ""
   resources:
@@ -61,7 +67,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - "apps.open-cluster-management.io"
+  - apps.open-cluster-management.io
   resources:
   - placementrules
   - subscriptions
@@ -70,6 +76,15 @@ rules:
   - list
   - watch
   - update
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - create
+  - update
+  - delete
 ---
 
 apiVersion: v1
@@ -87,7 +102,7 @@ metadata:
 data:
   managed_clusters: "5s"
   policies: "5s"
-  control_info: "20m"
+  control_info: "60m"
 ---
 
 apiVersion: apps/v1

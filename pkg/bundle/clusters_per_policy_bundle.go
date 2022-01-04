@@ -3,7 +3,7 @@ package bundle
 import (
 	"sync"
 
-	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
+	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/api/v1"
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 )
 
@@ -33,8 +33,8 @@ func (bundle *ClustersPerPolicyBundle) UpdateObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	policy, ok := object.(*policiesv1.Policy)
-	if !ok {
+	policy, isOk := object.(*policiesv1.Policy)
+	if !isOk {
 		return // do not handle objects other than policy
 	}
 
@@ -66,8 +66,8 @@ func (bundle *ClustersPerPolicyBundle) DeleteObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	_, ok := object.(*policiesv1.Policy)
-	if !ok {
+	_, isOk := object.(*policiesv1.Policy)
+	if !isOk {
 		return // wont handle anything other than policies
 	}
 

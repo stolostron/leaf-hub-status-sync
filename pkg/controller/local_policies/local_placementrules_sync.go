@@ -3,7 +3,6 @@ package localpolicies
 import (
 	"fmt"
 
-	placementrulesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/apps/v1"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
@@ -11,9 +10,9 @@ import (
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/syncintervals"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	placementrulesv1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
@@ -37,8 +36,8 @@ func AddLocalPlacementRulesController(mgr ctrl.Manager, transport transport.Tran
 			}),
 	}
 	// controller predicate
-	localPlacementRulePredicate := predicate.NewPredicateFuncs(func(meta metav1.Object, object runtime.Object) bool {
-		return !helpers.HasAnnotation(meta, datatypes.OriginOwnerReferenceAnnotation)
+	localPlacementRulePredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
+		return !helpers.HasAnnotation(object, datatypes.OriginOwnerReferenceAnnotation)
 	})
 
 	if err := generic.NewGenericStatusSyncController(mgr, localPlacementRuleStatusSyncLog, transport,

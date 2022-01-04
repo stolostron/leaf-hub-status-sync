@@ -10,9 +10,9 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-logr/logr"
+	"github.com/open-cluster-management/hub-of-hubs-kafka-transport/headers"
 	kafkaclient "github.com/open-cluster-management/hub-of-hubs-kafka-transport/kafka-client"
 	kafkaproducer "github.com/open-cluster-management/hub-of-hubs-kafka-transport/kafka-client/kafka-producer"
-	kafkaHeaderTypes "github.com/open-cluster-management/hub-of-hubs-kafka-transport/types"
 	"github.com/open-cluster-management/hub-of-hubs-message-compression/compressors"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 )
@@ -94,10 +94,12 @@ func readEnvVars() (*kafka.ConfigMap, string, int, error) {
 	}
 
 	kafkaConfigMap := &kafka.ConfigMap{
-		"bootstrap.servers": bootstrapServers,
-		"client.id":         producerID,
-		"acks":              "1",
-		"retries":           "0",
+		"bootstrap.servers":       bootstrapServers,
+		"client.id":               producerID,
+		"acks":                    "1",
+		"retries":                 "0",
+		"socket.keepalive.enable": "true",
+		"log.connection.close":    "false", // silence spontaneous disconnection logs, kafka recovers by itself.
 	}
 
 	if err := readSSLEnvVar(kafkaConfigMap); err != nil {
@@ -198,39 +200,37 @@ func (p *Producer) SupportsDeltaBundles() bool {
 }
 
 // SendAsync sends a message to the sync service asynchronously.
-func (p *Producer) SendAsync(message *transport.Message) {
-	messageBytes, err := json.Marshal(message)
+func (p *Producer) SendAsync(msg *transport.Message) {
+	msgBytes, err := json.Marshal(msg)
 	if err != nil {
-		p.log.Error(err, "failed to send message", "MessageId", message.ID, "MessageType",
-			message.MsgType, "Version", message.Version)
+		p.log.Error(err, "failed to send message", "MessageId", msg.ID, "MessageType", msg.MsgType,
+			"Version", msg.Version)
 
 		return
 	}
 
-	compressedBytes, err := p.compressor.Compress(messageBytes)
+	compressedBytes, err := p.compressor.Compress(msgBytes)
 	if err != nil {
 		p.log.Error(err, "failed to compress bundle", "CompressorType", p.compressor.GetType(),
-			"MessageId", message.ID, "MessageType", message.MsgType, "Version", message.Version)
+			"MessageId", msg.ID, "MessageType", msg.MsgType, "Version", msg.Version)
 
 		return
 	}
 
-	headers := []kafka.Header{
-		{Key: kafkaHeaderTypes.MsgIDKey, Value: []byte(message.ID)},
-		{Key: kafkaHeaderTypes.MsgTypeKey, Value: []byte(message.MsgType)},
-		{Key: kafkaHeaderTypes.HeaderCompressionType, Value: []byte(p.compressor.GetType())},
+	messageHeaders := []kafka.Header{
+		{Key: headers.CompressionType, Value: []byte(p.compressor.GetType())},
 	}
 
-	if err = p.kafkaProducer.ProduceAsync(message.ID, p.topic, partition, headers, compressedBytes); err != nil {
-		p.log.Error(err, "failed to send message", "MessageId", message.ID, "MessageType",
-			message.MsgType, "Version", message.Version)
-		transport.InvokeCallback(p.eventSubscriptionMap, message.ID, transport.DeliveryFailure)
+	if err = p.kafkaProducer.ProduceAsync(msg.Key, p.topic, partition, messageHeaders, compressedBytes); err != nil {
+		p.log.Error(err, "failed to send message", "MessageKey", msg.Key, "MessageId", msg.ID,
+			"MessageType", msg.MsgType, "Version", msg.Version)
+		transport.InvokeCallback(p.eventSubscriptionMap, msg.ID, transport.DeliveryFailure)
 
 		return
 	}
 
-	transport.InvokeCallback(p.eventSubscriptionMap, message.ID, transport.DeliveryAttempt)
+	transport.InvokeCallback(p.eventSubscriptionMap, msg.ID, transport.DeliveryAttempt)
 
-	p.log.Info("message sent to transport server", "MessageId", message.ID, "MessageType",
-		message.MsgType, "Version", message.Version)
+	p.log.Info("Message sent successfully", "MessageId", msg.ID, "MessageType", msg.MsgType,
+		"Version", msg.Version)
 }

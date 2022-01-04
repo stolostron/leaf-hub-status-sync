@@ -13,7 +13,6 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
-	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	compressor "github.com/open-cluster-management/hub-of-hubs-message-compression"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
@@ -23,13 +22,13 @@ import (
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	"github.com/spf13/pflag"
 	v1 "k8s.io/api/core/v1"
-	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
-	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -42,6 +41,7 @@ const (
 	kafkaTransportTypeName                  = "kafka"
 	syncServiceTransportTypeName            = "sync-service"
 	leaderElectionLockName                  = "leaf-hub-status-sync-lock"
+	hohLocalNamespace                       = "hoh-local"
 	incarnationConfigMapKey                 = "incarnation"
 	base10                                  = 10
 	uint64Size                              = 64
@@ -188,7 +188,7 @@ func createManager(leaderElectionNamespace string, transport transport.Transport
 // The motivation behind this logic is allowing the message receivers/consumers to infer that messages transmitted
 // from this instance are more recent than all other existing ones, regardless of their instance-specific generations.
 func getIncarnation(mgr ctrl.Manager) (uint64, error) {
-	client, err := ctrlClient.New(mgr.GetConfig(), ctrlClient.Options{Scheme: mgr.GetScheme()})
+	k8sClient, err := client.New(mgr.GetConfig(), client.Options{Scheme: mgr.GetScheme()})
 	if err != nil {
 		return 0, fmt.Errorf("failed to start k8s client - %w", err)
 	}
@@ -196,20 +196,25 @@ func getIncarnation(mgr ctrl.Manager) (uint64, error) {
 	ctx := context.Background()
 	configMap := &v1.ConfigMap{}
 
+	// create hoh-local ns if missing
+	if err = createHohLocalNamespaceIfAbsent(k8sClient); err != nil {
+		return 0, fmt.Errorf("failed to get incarnation config-map - %w", err)
+	}
+
 	// try to get ConfigMap
-	objKey := ctrlClient.ObjectKey{
-		Namespace: datatypes.HohSystemNamespace,
+	objKey := client.ObjectKey{
+		Namespace: hohLocalNamespace,
 		Name:      incarnationConfigMapKey,
 	}
-	if err := client.Get(ctx, objKey, configMap); err != nil {
-		if !k8sErrors.IsNotFound(err) {
-			return 0, fmt.Errorf("failed to get incarnation ConfigMap - %w", err)
+	if err := k8sClient.Get(ctx, objKey, configMap); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return 0, fmt.Errorf("failed to get incarnation config-map - %w", err)
 		}
 
 		// incarnation ConfigMap does not exist, create it with incarnation = 0
-		configMap = createIncarnationConfigMap(datatypes.HohSystemNamespace, 0)
-		if err := client.Create(ctx, configMap); err != nil {
-			return 0, fmt.Errorf("failed to create incarnation ConfigMap obj - %w", err)
+		configMap = createIncarnationConfigMap(0)
+		if err := k8sClient.Create(ctx, configMap); err != nil {
+			return 0, fmt.Errorf("failed to create incarnation config-map obj - %w", err)
 		}
 
 		return 0, nil
@@ -224,23 +229,36 @@ func getIncarnation(mgr ctrl.Manager) (uint64, error) {
 
 	lastIncarnation, err := strconv.ParseUint(incarnationString, base10, uint64Size)
 	if err != nil {
-		return 0, fmt.Errorf("failed to parse value of key %s in ConfigMap %s - %w", incarnationConfigMapKey,
+		return 0, fmt.Errorf("failed to parse value of key %s in config-map %s - %w", incarnationConfigMapKey,
 			incarnationConfigMapKey, err)
 	}
 
-	newConfigMap := createIncarnationConfigMap(datatypes.HohSystemNamespace, lastIncarnation+1)
-	if err := client.Patch(ctx, newConfigMap, ctrlClient.MergeFrom(configMap)); err != nil {
+	newConfigMap := createIncarnationConfigMap(lastIncarnation + 1)
+	if err := k8sClient.Patch(ctx, newConfigMap, client.MergeFrom(configMap)); err != nil {
 		return 0, fmt.Errorf("failed to update incarnation version - %w", err)
 	}
 
 	return lastIncarnation + 1, nil
 }
 
-func createIncarnationConfigMap(namespace string, incarnation uint64) *v1.ConfigMap {
+func createHohLocalNamespaceIfAbsent(client client.Client) error {
+	ns := &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: hohLocalNamespace,
+		},
+	}
+	if err := client.Create(context.Background(), ns); !apierrors.IsAlreadyExists(err) {
+		return fmt.Errorf("failed to create namespace %s - %w", hohLocalNamespace, err)
+	}
+
+	return nil
+}
+
+func createIncarnationConfigMap(incarnation uint64) *v1.ConfigMap {
 	return &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
+			Namespace: hohLocalNamespace,
 			Name:      incarnationConfigMapKey,
-			Namespace: namespace,
 		},
 		Data: map[string]string{incarnationConfigMapKey: strconv.FormatUint(incarnation, base10)},
 	}

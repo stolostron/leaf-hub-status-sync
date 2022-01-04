@@ -49,16 +49,13 @@ type LeafHubControlInfoController struct {
 }
 
 // Start function starts control info controller.
-func (c *LeafHubControlInfoController) Start(stopChannel <-chan struct{}) error {
-	ctx, cancelContext := context.WithCancel(context.Background())
-	defer cancelContext()
-
-	c.log.Info("started control info controller")
+func (c *LeafHubControlInfoController) Start(ctx context.Context) error {
+	c.log.Info("Starting Controller")
 
 	go c.periodicSync(ctx)
 
-	<-stopChannel // blocking wait for stop event
-	c.log.Info("stopped control info controller")
+	<-ctx.Done() // blocking wait for stop event
+	c.log.Info("Stopping Controller")
 
 	return nil
 }

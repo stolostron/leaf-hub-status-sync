@@ -5,15 +5,9 @@ import (
 	"sync"
 
 	"github.com/go-logr/logr"
+	"github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
-)
-
-type syncMode int8
-
-const (
-	completeStateMode syncMode = iota
-	deltaStateMode    syncMode = iota
 )
 
 var errExpectingDeltaStateBundle = errors.New("expecting a BundleCollectionEntry that wraps a DeltaStateBundle bundle")
@@ -30,11 +24,11 @@ func NewHybridSyncManager(log logr.Logger, transportObj transport.Transport,
 	}
 
 	hybridSyncManager := &hybridSyncManager{
-		log:      log,
-		syncMode: completeStateMode,
-		bundleCollectionEntryMap: map[syncMode]*BundleCollectionEntry{
-			completeStateMode: completeStateBundleCollectionEntry,
-			deltaStateMode:    deltaStateBundleCollectionEntry,
+		log:            log,
+		activeSyncMode: status.CompleteStateMode,
+		bundleCollectionEntryMap: map[status.BundleSyncMode]*BundleCollectionEntry{
+			status.CompleteStateMode: completeStateBundleCollectionEntry,
+			status.DeltaStateMode:    deltaStateBundleCollectionEntry,
 		},
 		deltaStateBundle:           deltaStateBundle,
 		sentDeltaCountSwitchFactor: sentDeltaCountSwitchFactor,
@@ -55,8 +49,8 @@ func NewHybridSyncManager(log logr.Logger, transportObj transport.Transport,
 // won't get collected by the GC since callbacks are used.
 type hybridSyncManager struct {
 	log                        logr.Logger
-	syncMode                   syncMode
-	bundleCollectionEntryMap   map[syncMode]*BundleCollectionEntry
+	activeSyncMode             status.BundleSyncMode
+	bundleCollectionEntryMap   map[status.BundleSyncMode]*BundleCollectionEntry
 	deltaStateBundle           bundle.DeltaStateBundle
 	sentDeltaCountSwitchFactor int
 	sentDeltaCount             int
@@ -67,13 +61,13 @@ func (manager *hybridSyncManager) appendPredicates() {
 	// append predicates for mode-management
 	for syncMode, bundleCollectionEntry := range manager.bundleCollectionEntryMap {
 		entry := bundleCollectionEntry       // to use in func
-		syncMode := syncMode                 // to use in func
+		mode := syncMode                     // to use in func
 		originalPredicate := entry.predicate // avoid recursion
 		entry.predicate = func() bool {
 			manager.lock.Lock()
 			defer manager.lock.Unlock()
 
-			return manager.syncMode == syncMode && originalPredicate()
+			return manager.activeSyncMode == mode && originalPredicate()
 		}
 	}
 }
@@ -101,7 +95,7 @@ func (manager *hybridSyncManager) handleTransportationAttempt() {
 	manager.lock.Lock()
 	defer manager.lock.Unlock()
 
-	if manager.syncMode == completeStateMode {
+	if manager.activeSyncMode == status.CompleteStateMode {
 		manager.switchToDeltaStateMode()
 		return
 	}
@@ -122,7 +116,7 @@ func (manager *hybridSyncManager) handleTransportationSuccess() {
 	manager.lock.Lock()
 	defer manager.lock.Unlock()
 
-	if manager.syncMode == deltaStateMode {
+	if manager.activeSyncMode == status.DeltaStateMode {
 		return
 	}
 
@@ -133,7 +127,7 @@ func (manager *hybridSyncManager) handleTransportationFailure() {
 	manager.lock.Lock()
 	defer manager.lock.Unlock()
 
-	if manager.syncMode == completeStateMode {
+	if manager.activeSyncMode == status.CompleteStateMode {
 		return
 	}
 
@@ -143,13 +137,13 @@ func (manager *hybridSyncManager) handleTransportationFailure() {
 
 func (manager *hybridSyncManager) switchToCompleteStateMode() {
 	manager.log.Info("switched to complete-state mode")
-	manager.syncMode = completeStateMode
+	manager.activeSyncMode = status.CompleteStateMode
 }
 
 func (manager *hybridSyncManager) switchToDeltaStateMode() {
 	manager.log.Info("switched to delta-state mode")
 
-	manager.syncMode = deltaStateMode
+	manager.activeSyncMode = status.DeltaStateMode
 	manager.sentDeltaCount = 0
 
 	manager.deltaStateBundle.Reset()

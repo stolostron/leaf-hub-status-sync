@@ -10,8 +10,6 @@ import (
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -30,8 +28,8 @@ func AddSyncIntervalsController(mgr ctrl.Manager, syncIntervals *SyncIntervals) 
 		syncIntervalsData: syncIntervals,
 	}
 
-	syncIntervalsPredicate := predicate.NewPredicateFuncs(func(meta metav1.Object, object runtime.Object) bool {
-		return meta.GetNamespace() == datatypes.HohSystemNamespace && meta.GetName() == configMapName
+	syncIntervalsPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
+		return object.GetNamespace() == datatypes.HohSystemNamespace && object.GetName() == configMapName
 	})
 
 	if err := ctrl.NewControllerManagedBy(mgr).
@@ -50,10 +48,9 @@ type syncIntervalsController struct {
 	syncIntervalsData *SyncIntervals
 }
 
-func (c *syncIntervalsController) Reconcile(request ctrl.Request) (ctrl.Result, error) {
+func (c *syncIntervalsController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	reqLogger := c.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
-	ctx := context.Background()
 	configMap := &v1.ConfigMap{}
 
 	if err := c.client.Get(ctx, request.NamespacedName, configMap); apierrors.IsNotFound(err) {

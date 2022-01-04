@@ -3,7 +3,7 @@ package bundle
 import (
 	"sync"
 
-	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
+	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/api/v1"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 )

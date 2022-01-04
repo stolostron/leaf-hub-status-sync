@@ -17,6 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
@@ -41,6 +42,8 @@ func AddSubscriptionStatusController(mgr ctrl.Manager, transport transport.Trans
 
 	isGlobalSubscription := predicate.NewPredicateFuncs(func(meta metav1.Object, object runtime.Object) bool {
 		return helpers.HasAnnotation(meta, datatypes.OriginOwnerReferenceAnnotation)
+	isGlobalSubscription := predicate.NewPredicateFuncs(func(object client.Object) bool {
+		return helpers.HasAnnotation(object, datatypes.OriginOwnerReferenceAnnotation)
 	})
 
 	if err := generic.NewGenericStatusSyncController(mgr, subscriptionStatusSyncLog, transport,
