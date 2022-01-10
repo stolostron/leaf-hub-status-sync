@@ -14,8 +14,6 @@ import (
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
 	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -40,8 +38,6 @@ func AddSubscriptionStatusController(mgr ctrl.Manager, transport transport.Trans
 
 	bundleCollection := []*generic.BundleCollectionEntry{subscriptionBundle}
 
-	isGlobalSubscription := predicate.NewPredicateFuncs(func(meta metav1.Object, object runtime.Object) bool {
-		return helpers.HasAnnotation(meta, datatypes.OriginOwnerReferenceAnnotation)
 	isGlobalSubscription := predicate.NewPredicateFuncs(func(object client.Object) bool {
 		return helpers.HasAnnotation(object, datatypes.OriginOwnerReferenceAnnotation)
 	})
