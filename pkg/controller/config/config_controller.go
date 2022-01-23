@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
-	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
+	datatypes "github.com/stolostron/hub-of-hubs-data-types"
+	configv1 "github.com/stolostron/hub-of-hubs-data-types/apis/config/v1"
+	"github.com/stolostron/leaf-hub-status-sync/pkg/helpers"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
+	"github.com/stolostron/leaf-hub-status-sync/pkg/bundle"
+	"github.com/stolostron/leaf-hub-status-sync/pkg/transport"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

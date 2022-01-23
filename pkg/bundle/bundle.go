@@ -3,7 +3,7 @@ package bundle
 import (
 	"errors"
 
-	"github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
+	"github.com/stolostron/hub-of-hubs-data-types/bundle/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )

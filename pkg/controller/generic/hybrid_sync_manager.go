@@ -5,9 +5,9 @@ import (
 	"sync"
 
 	"github.com/go-logr/logr"
-	"github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
+	"github.com/stolostron/hub-of-hubs-data-types/bundle/status"
+	"github.com/stolostron/leaf-hub-status-sync/pkg/bundle"
+	"github.com/stolostron/leaf-hub-status-sync/pkg/transport"
 )
 
 var errExpectingDeltaStateBundle = errors.New("expecting a BundleCollectionEntry that wraps a DeltaStateBundle bundle")

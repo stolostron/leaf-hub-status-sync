@@ -4,7 +4,7 @@ import (
 	"sync"
 
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/api/v1"
-	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
+	statusbundle "github.com/stolostron/hub-of-hubs-data-types/bundle/status"
 )
 
 // NewClustersPerPolicyBundle creates a new instance of ClustersPerPolicyBundle.

@@ -1,8 +1,8 @@
 package generic
 
 import (
-	"github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
+	"github.com/stolostron/hub-of-hubs-data-types/bundle/status"
+	"github.com/stolostron/leaf-hub-status-sync/pkg/bundle"
 )
 
 // NewBundleCollectionEntry creates a new instance of BundleCollectionEntry.
