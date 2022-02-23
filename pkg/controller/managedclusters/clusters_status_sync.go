@@ -28,7 +28,7 @@ func AddClustersStatusController(mgr ctrl.Manager, transport transport.Transport
 	createObjFunction := func() bundle.Object { return &clusterv1.ManagedCluster{} }
 	transportBundleKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.ManagedClustersMsgKey)
 	managedClusterAnnotations := map[string]string{
-		"managedClusterManagedBy": leafHubName,
+		managedClusterManagedBy: leafHubName,
 	}
 
 	bundleCollection := []*generic.BundleCollectionEntry{ // single bundle for managed clusters

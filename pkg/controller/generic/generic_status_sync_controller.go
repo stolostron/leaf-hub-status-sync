@@ -138,7 +138,7 @@ func (c *genericStatusSyncController) addAnnotations(ctx context.Context, object
 	object.SetAnnotations(c.annotations)
 
 	if err := c.client.Update(ctx, object); err != nil {
-		return fmt.Errorf("failed to add label %s - %w", c.annotations, err)
+		return fmt.Errorf("failed to add annotations %s - %w", c.annotations, err)
 	}
 
 	return nil
