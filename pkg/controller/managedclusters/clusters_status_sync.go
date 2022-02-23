@@ -19,6 +19,7 @@ import (
 const (
 	clusterStatusSyncLogName       = "clusters-status-sync"
 	managedClusterCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/managed-cluster-cleanup"
+	managedClusterManagedBy        = "open-cluster-management/managed-by"
 )
 
 // AddClustersStatusController adds managed clusters status controller to the manager.
@@ -26,6 +27,9 @@ func AddClustersStatusController(mgr ctrl.Manager, transport transport.Transport
 	incarnation uint64, hubOfHubsConfig *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals) error {
 	createObjFunction := func() bundle.Object { return &clusterv1.ManagedCluster{} }
 	transportBundleKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.ManagedClustersMsgKey)
+	managedClusterAnnotations := map[string]string{
+		"managedClusterManagedBy": leafHubName,
+	}
 
 	bundleCollection := []*generic.BundleCollectionEntry{ // single bundle for managed clusters
 		generic.NewBundleCollectionEntry(transportBundleKey, bundle.NewGenericStatusBundle(leafHubName, incarnation,
@@ -37,7 +41,7 @@ func AddClustersStatusController(mgr ctrl.Manager, transport transport.Transport
 	}
 
 	if err := generic.NewGenericStatusSyncController(mgr, clusterStatusSyncLogName, transport,
-		managedClusterCleanupFinalizer, bundleCollection, createObjFunction, nil,
+		managedClusterCleanupFinalizer, managedClusterAnnotations, bundleCollection, createObjFunction, nil,
 		syncIntervalsData.GetManagerClusters); err != nil {
 		return fmt.Errorf("failed to add managed clusters controller to the manager - %w", err)
 	}
