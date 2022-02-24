@@ -42,9 +42,10 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 		return fmt.Errorf("failed to add policies controller to the manager - %w", err)
 	}
 
-	hohNamespacePredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
-		return object.GetNamespace() == datatypes.HohSystemNamespace
+	rootPolicyPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
+		return !helpers.HasLabel(object, helpers.RootPolicyLabel)
 	})
+
 	ownerRefAnnotationPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
 		return helpers.HasAnnotation(object, datatypes.OriginOwnerReferenceAnnotation)
 	})
@@ -53,7 +54,7 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 
 	// initialize policy status controller (contains multiple bundles)
 	if err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, transport, policyCleanupFinalizer,
-		bundleCollection, createObjFunction, predicate.And(hohNamespacePredicate, ownerRefAnnotationPredicate),
+		bundleCollection, createObjFunction, predicate.And(rootPolicyPredicate, ownerRefAnnotationPredicate),
 		syncIntervalsData.GetPolicies); err != nil {
 		return fmt.Errorf("failed to add policies controller to the manager - %w", err)
 	}
