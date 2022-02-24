@@ -25,6 +25,7 @@ import (
 const (
 	policiesStatusSyncLog                             = "policies-status-sync"
 	policyCleanupFinalizer                            = "hub-of-hubs.open-cluster-management.io/policy-cleanup"
+	rootPolicyLabel                                   = "policy.open-cluster-management.io/root-policy"
 	envVarComplianceStatusSentDeltasCountSwitchFactor = "COMPLIANCE_STATUS_DELTA_COUNT_SWITCH_FACTOR"
 )
 
@@ -43,7 +44,7 @@ func AddPoliciesStatusController(mgr ctrl.Manager, transport transport.Transport
 	}
 
 	rootPolicyPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
-		return !helpers.HasLabel(object, helpers.RootPolicyLabel)
+		return !helpers.HasLabel(object, rootPolicyLabel)
 	})
 
 	ownerRefAnnotationPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {

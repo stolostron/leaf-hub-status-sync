@@ -13,8 +13,6 @@ import (
 const (
 	// RequeuePeriod is the time to wait until reconciliation retry in failure cases.
 	RequeuePeriod = 5 * time.Second
-	// RootPolicyLabel a label used to point to the root policy. if this label appears on a policy, it's not the root.
-	RootPolicyLabel = "policy.open-cluster-management.io/root-policy"
 )
 
 // HasAnnotation returns a bool if the given annotation exists in annotations.

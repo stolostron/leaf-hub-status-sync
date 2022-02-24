@@ -19,6 +19,7 @@ import (
 const (
 	localPoliciesStatusSyncLog  = "local-policies-status-sync"
 	localPolicyCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/local-policy-cleanup"
+	rootPolicyLabel             = "policy.open-cluster-management.io/root-policy"
 )
 
 // AddLocalPoliciesController this function adds a new local policies sync controller.
@@ -29,7 +30,7 @@ func AddLocalPoliciesController(mgr ctrl.Manager, transport transport.Transport,
 
 	localPolicyPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
 		return !helpers.HasAnnotation(object, datatypes.OriginOwnerReferenceAnnotation) &&
-			!helpers.HasLabel(object, helpers.RootPolicyLabel)
+			!helpers.HasLabel(object, rootPolicyLabel)
 	})
 
 	if err := generic.NewGenericStatusSyncController(mgr, localPoliciesStatusSyncLog, transport,
