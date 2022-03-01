@@ -4,8 +4,8 @@ import (
 	"sync"
 
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/api/v1"
-	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
-	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
+	datatypes "github.com/stolostron/hub-of-hubs-data-types"
+	statusbundle "github.com/stolostron/hub-of-hubs-data-types/bundle/status"
 )
 
 // NewMinimalComplianceStatusBundle creates a new instance of MinimalComplianceStatusBundle.

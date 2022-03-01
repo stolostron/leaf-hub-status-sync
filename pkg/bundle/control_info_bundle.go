@@ -3,7 +3,7 @@ package bundle
 import (
 	"sync"
 
-	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
+	statusbundle "github.com/stolostron/hub-of-hubs-data-types/bundle/status"
 )
 
 // NewControlInfoBundle creates a new instance of ControlInfoBundle.

@@ -7,12 +7,12 @@ import (
 	"fmt"
 
 	clusterv1 "github.com/open-cluster-management/api/cluster/v1"
-	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
-	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/generic"
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/syncintervals"
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
+	datatypes "github.com/stolostron/hub-of-hubs-data-types"
+	configv1 "github.com/stolostron/hub-of-hubs-data-types/apis/config/v1"
+	"github.com/stolostron/leaf-hub-status-sync/pkg/bundle"
+	"github.com/stolostron/leaf-hub-status-sync/pkg/controller/generic"
+	"github.com/stolostron/leaf-hub-status-sync/pkg/controller/syncintervals"
+	"github.com/stolostron/leaf-hub-status-sync/pkg/transport"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 

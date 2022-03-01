@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
+	datatypes "github.com/stolostron/hub-of-hubs-data-types"
+	"github.com/stolostron/leaf-hub-status-sync/pkg/helpers"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"

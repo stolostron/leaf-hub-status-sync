@@ -9,9 +9,9 @@ import (
 	"sync"
 
 	"github.com/go-logr/logr"
-	"github.com/open-cluster-management/hub-of-hubs-message-compression/compressors"
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
 	"github.com/open-horizon/edge-sync-service-client/client"
+	"github.com/stolostron/hub-of-hubs-message-compression/compressors"
+	"github.com/stolostron/leaf-hub-status-sync/pkg/transport"
 )
 
 const (

@@ -6,7 +6,7 @@ import (
 
 	set "github.com/deckarep/golang-set"
 	v1 "github.com/open-cluster-management/governance-policy-propagator/api/v1"
-	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
+	statusbundle "github.com/stolostron/hub-of-hubs-data-types/bundle/status"
 )
 
 const unknownComplianceStatus = "unknown"
