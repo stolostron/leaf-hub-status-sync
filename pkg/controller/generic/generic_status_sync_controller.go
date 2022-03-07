@@ -24,7 +24,7 @@ type CreateObjectFunction func() bundle.Object
 
 // NewGenericStatusSyncController creates a new instance of genericStatusSyncController and adds it to the manager.
 func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport transport.Transport,
-	finalizerName string, annotations map[string]string, orderedBundleCollection []*BundleCollectionEntry, createObjFunc CreateObjectFunction,
+	finalizerName string, orderedBundleCollection []*BundleCollectionEntry, createObjFunc CreateObjectFunction,
 	predicate predicate.Predicate, resolveSyncIntervalFunc syncintervals.ResolveSyncIntervalFunc) error {
 	statusSyncCtrl := &genericStatusSyncController{
 		client:                  mgr.GetClient(),
@@ -32,7 +32,6 @@ func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport 
 		transport:               transport,
 		orderedBundleCollection: orderedBundleCollection,
 		finalizerName:           finalizerName,
-		annotations:             annotations,
 		createObjFunc:           createObjFunc,
 		resolveSyncIntervalFunc: resolveSyncIntervalFunc,
 		lock:                    sync.Mutex{},
@@ -57,7 +56,6 @@ type genericStatusSyncController struct {
 	transport               transport.Transport
 	orderedBundleCollection []*BundleCollectionEntry
 	finalizerName           string
-	annotations             map[string]string
 	createObjFunc           CreateObjectFunction
 	resolveSyncIntervalFunc syncintervals.ResolveSyncIntervalFunc
 	startOnce               sync.Once
@@ -113,9 +111,6 @@ func (c *genericStatusSyncController) updateObjectAndFinalizer(ctx context.Conte
 	if err := c.addFinalizer(ctx, object, log); err != nil {
 		return fmt.Errorf("failed to add finalizer - %w", err)
 	}
-	if err := c.addAnnotations(ctx, object, log); err != nil {
-		return fmt.Errorf("failed to add annotations - %w", err)
-	}
 
 	cleanObject(object)
 
@@ -124,21 +119,6 @@ func (c *genericStatusSyncController) updateObjectAndFinalizer(ctx context.Conte
 
 	for _, entry := range c.orderedBundleCollection {
 		entry.bundle.UpdateObject(object) // update in each bundle from the collection according to their order.
-	}
-
-	return nil
-}
-
-func (c *genericStatusSyncController) addAnnotations(ctx context.Context, object bundle.Object, log logr.Logger) error {
-	if c.annotations == nil {
-		return nil
-	}
-
-	log.Info("adding annotations")
-	object.SetAnnotations(c.annotations)
-
-	if err := c.client.Update(ctx, object); err != nil {
-		return fmt.Errorf("failed to add annotations %s - %w", c.annotations, err)
 	}
 
 	return nil

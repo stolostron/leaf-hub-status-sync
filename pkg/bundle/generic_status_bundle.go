@@ -8,17 +8,17 @@ import (
 )
 
 // NewGenericStatusBundle creates a new instance of GenericStatusBundle.
-func NewGenericStatusBundle(leafHubName string, incarnation uint64, cleanObjFunc func(obj Object)) Bundle {
-	if cleanObjFunc == nil {
-		cleanObjFunc = func(object Object) {}
+func NewGenericStatusBundle(leafHubName string, incarnation uint64, manipulateObjFunc func(obj Object)) Bundle {
+	if manipulateObjFunc == nil {
+		manipulateObjFunc = func(object Object) {}
 	}
 
 	return &GenericStatusBundle{
-		Objects:       make([]Object, 0),
-		LeafHubName:   leafHubName,
-		BundleVersion: statusbundle.NewBundleVersion(incarnation, 0),
-		cleanObjFunc:  cleanObjFunc,
-		lock:          sync.Mutex{},
+		Objects:           make([]Object, 0),
+		LeafHubName:       leafHubName,
+		BundleVersion:     statusbundle.NewBundleVersion(incarnation, 0),
+		manipulateObjFunc: manipulateObjFunc,
+		lock:              sync.Mutex{},
 	}
 }
 
@@ -26,11 +26,11 @@ func NewGenericStatusBundle(leafHubName string, incarnation uint64, cleanObjFunc
 // except for fields that are not relevant in the hub of hubs like finalizers, etc.
 // for bundles that require more specific behavior, it's required to implement your own status bundle struct.
 type GenericStatusBundle struct {
-	Objects       []Object                    `json:"objects"`
-	LeafHubName   string                      `json:"leafHubName"`
-	BundleVersion *statusbundle.BundleVersion `json:"bundleVersion"`
-	cleanObjFunc  func(obj Object)
-	lock          sync.Mutex
+	Objects           []Object                    `json:"objects"`
+	LeafHubName       string                      `json:"leafHubName"`
+	BundleVersion     *statusbundle.BundleVersion `json:"bundleVersion"`
+	manipulateObjFunc func(obj Object)
+	lock              sync.Mutex
 }
 
 // UpdateObject function to update a single object inside a bundle.
@@ -38,7 +38,7 @@ func (bundle *GenericStatusBundle) UpdateObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	bundle.cleanObjFunc(object)
+	bundle.manipulateObjFunc(object)
 
 	index, err := bundle.getObjectIndexByUID(object.GetUID())
 	if err != nil { // object not found, need to add it to the bundle
