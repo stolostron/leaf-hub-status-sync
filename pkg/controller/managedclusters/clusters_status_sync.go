@@ -12,6 +12,7 @@ import (
 	"github.com/stolostron/leaf-hub-status-sync/pkg/bundle"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/controller/generic"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/controller/syncintervals"
+	"github.com/stolostron/leaf-hub-status-sync/pkg/helpers"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/transport"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -28,7 +29,7 @@ func AddClustersStatusController(mgr ctrl.Manager, transport transport.Transport
 	createObjFunction := func() bundle.Object { return &clusterv1.ManagedCluster{} }
 	transportBundleKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.ManagedClustersMsgKey)
 	manipulateObjFunc := func(object bundle.Object) {
-		object.SetAnnotations(map[string]string{
+		helpers.AddAnnotation(object, map[string]string{
 			managedClusterManagedBy: leafHubName,
 		})
 	}
