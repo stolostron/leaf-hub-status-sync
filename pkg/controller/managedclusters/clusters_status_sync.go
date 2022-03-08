@@ -29,7 +29,7 @@ func AddClustersStatusController(mgr ctrl.Manager, transport transport.Transport
 	createObjFunction := func() bundle.Object { return &clusterv1.ManagedCluster{} }
 	transportBundleKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.ManagedClustersMsgKey)
 	manipulateObjFunc := func(object bundle.Object) {
-		helpers.AddAnnotation(object, map[string]string{
+		helpers.AddAnnotations(object, map[string]string{
 			managedClusterManagedBy: leafHubName,
 		})
 	}
