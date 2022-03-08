@@ -26,6 +26,21 @@ func HasAnnotation(obj metav1.Object, annotation string) bool {
 	return found
 }
 
+// AddAnnotation adds the given annotations to the existing annotations.
+func AddAnnotation(obj metav1.Object, annotations map[string]string) {
+	if obj != nil {
+		if obj.GetAnnotations() == nil {
+			obj.SetAnnotations(annotations)
+		} else {
+			mergedAnnotations := obj.GetAnnotations()
+			for k, v := range annotations {
+				mergedAnnotations[k] = v
+			}
+			obj.SetAnnotations(mergedAnnotations)
+		}
+	}
+}
+
 // HasLabel returns a bool if the given label exists in labels.
 func HasLabel(obj metav1.Object, label string) bool {
 	if obj == nil || obj.GetLabels() == nil {

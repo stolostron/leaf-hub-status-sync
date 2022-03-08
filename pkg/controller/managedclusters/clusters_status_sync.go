@@ -12,6 +12,7 @@ import (
 	"github.com/stolostron/leaf-hub-status-sync/pkg/bundle"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/controller/generic"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/controller/syncintervals"
+	"github.com/stolostron/leaf-hub-status-sync/pkg/helpers"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/transport"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -19,6 +20,7 @@ import (
 const (
 	clusterStatusSyncLogName       = "clusters-status-sync"
 	managedClusterCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/managed-cluster-cleanup"
+	managedClusterManagedBy        = "open-cluster-management/managed-by"
 )
 
 // AddClustersStatusController adds managed clusters status controller to the manager.
@@ -26,10 +28,15 @@ func AddClustersStatusController(mgr ctrl.Manager, transport transport.Transport
 	incarnation uint64, hubOfHubsConfig *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals) error {
 	createObjFunction := func() bundle.Object { return &clusterv1.ManagedCluster{} }
 	transportBundleKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.ManagedClustersMsgKey)
+	manipulateObjFunc := func(object bundle.Object) {
+		helpers.AddAnnotation(object, map[string]string{
+			managedClusterManagedBy: leafHubName,
+		})
+	}
 
 	bundleCollection := []*generic.BundleCollectionEntry{ // single bundle for managed clusters
 		generic.NewBundleCollectionEntry(transportBundleKey, bundle.NewGenericStatusBundle(leafHubName, incarnation,
-			nil),
+			manipulateObjFunc),
 			func() bool { // bundle predicate
 				return hubOfHubsConfig.Spec.AggregationLevel == configv1.Full ||
 					hubOfHubsConfig.Spec.AggregationLevel == configv1.Minimal
