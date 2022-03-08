@@ -18,9 +18,9 @@ import (
 )
 
 const (
-	clusterStatusSyncLogName       = "clusters-status-sync"
-	managedClusterCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/managed-cluster-cleanup"
-	managedClusterManagedBy        = "open-cluster-management/managed-by"
+	clusterStatusSyncLogName          = "clusters-status-sync"
+	managedClusterCleanupFinalizer    = "hub-of-hubs.open-cluster-management.io/managed-cluster-cleanup"
+	managedClusterManagedByAnnotation = "hub-of-hubs.open-cluster-management.io/managed-by"
 )
 
 // AddClustersStatusController adds managed clusters status controller to the manager.
@@ -30,7 +30,7 @@ func AddClustersStatusController(mgr ctrl.Manager, transport transport.Transport
 	transportBundleKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.ManagedClustersMsgKey)
 	manipulateObjFunc := func(object bundle.Object) {
 		helpers.AddAnnotations(object, map[string]string{
-			managedClusterManagedBy: leafHubName,
+			managedClusterManagedByAnnotation: leafHubName,
 		})
 	}
 
