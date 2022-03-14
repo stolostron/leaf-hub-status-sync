@@ -9,7 +9,6 @@ import (
 	clustersv1 "github.com/open-cluster-management/api/cluster/v1"
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/api/v1"
 	placementrulesv1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
-	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	configv1 "github.com/stolostron/hub-of-hubs-data-types/apis/config/v1"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/controller/applications"
 	configCtrl "github.com/stolostron/leaf-hub-status-sync/pkg/controller/config"
@@ -20,6 +19,7 @@ import (
 	"github.com/stolostron/leaf-hub-status-sync/pkg/controller/syncintervals"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/transport"
 	"k8s.io/apimachinery/pkg/runtime"
+	subscriptionsv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
@@ -32,7 +32,7 @@ func AddToScheme(runtimeScheme *runtime.Scheme) error {
 	}
 
 	schemeBuilders := []*scheme.Builder{
-		policiesv1.SchemeBuilder, configv1.SchemeBuilder, placementrulesv1.SchemeBuilder, subv1.SchemeBuilder,
+		policiesv1.SchemeBuilder, configv1.SchemeBuilder, placementrulesv1.SchemeBuilder, subscriptionsv1.SchemeBuilder,
 	} // add schemes
 
 	for _, schemeBuilder := range schemeBuilders {

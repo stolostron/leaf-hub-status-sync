@@ -6,14 +6,14 @@ package applications
 import (
 	"fmt"
 
-	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
-	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/bundle"
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/generic"
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/controller/syncintervals"
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/helpers"
-	"github.com/open-cluster-management/leaf-hub-status-sync/pkg/transport"
-	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	datatypes "github.com/stolostron/hub-of-hubs-data-types"
+	configv1 "github.com/stolostron/hub-of-hubs-data-types/apis/config/v1"
+	"github.com/stolostron/leaf-hub-status-sync/pkg/bundle"
+	"github.com/stolostron/leaf-hub-status-sync/pkg/controller/generic"
+	"github.com/stolostron/leaf-hub-status-sync/pkg/controller/syncintervals"
+	"github.com/stolostron/leaf-hub-status-sync/pkg/helpers"
+	"github.com/stolostron/leaf-hub-status-sync/pkg/transport"
+	subscriptionsv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -21,13 +21,13 @@ import (
 
 const (
 	subscriptionStatusSyncLog    = "subscriptions-status-sync"
-	subscriptionCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/subscription-cleanup"
+	subscriptionCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/subscriptionsv1-cleanup"
 )
 
-// AddSubscriptionStatusController adds subscription status controller to the manager.
+// AddSubscriptionStatusController adds subscriptionsv1 status controller to the manager.
 func AddSubscriptionStatusController(mgr ctrl.Manager, transport transport.Transport, leafHubName string,
 	incarnation uint64, hubOfHubsConfig *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals) error {
-	createObjFunction := func() bundle.Object { return &subv1.Subscription{} }
+	createObjFunction := func() bundle.Object { return &subscriptionsv1.Subscription{} }
 
 	subscriptionTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.SubscriptionStatusMsgKey)
 	subscriptionBundle := generic.NewBundleCollectionEntry(subscriptionTransportKey,
@@ -45,17 +45,17 @@ func AddSubscriptionStatusController(mgr ctrl.Manager, transport transport.Trans
 	if err := generic.NewGenericStatusSyncController(mgr, subscriptionStatusSyncLog, transport,
 		subscriptionCleanupFinalizer, bundleCollection, createObjFunction, isGlobalSubscription,
 		syncIntervalsData.GetPolicies); err != nil {
-		return fmt.Errorf("failed adding subscription controller - %w", err)
+		return fmt.Errorf("failed adding subscriptionsv1 controller - %w", err)
 	}
 
 	return nil
 }
 
 func cleanSubscriptionFunction(object bundle.Object) {
-	placement, ok := object.(*subv1.Subscription)
+	placement, ok := object.(*subscriptionsv1.Subscription)
 	if !ok {
-		panic("Wrong instance passed to clean placement rule function, not subv1.subscription")
+		panic("Wrong instance passed to clean placement rule function, not subv1.subscriptionsv1")
 	}
 
-	placement.Spec = subv1.SubscriptionSpec{}
+	placement.Spec = subscriptionsv1.SubscriptionSpec{}
 }
