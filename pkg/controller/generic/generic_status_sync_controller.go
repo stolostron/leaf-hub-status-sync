@@ -90,8 +90,7 @@ func (c *genericStatusSyncController) Reconcile(ctx context.Context, request ctr
 			reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
 			return ctrl.Result{Requeue: true, RequeueAfter: helpers.RequeuePeriod}, err
 		}
-	} else {
-		// otherwise, the object was not deleted and no error occurred
+	} else { // otherwise, the object was not deleted and no error occurred
 		if err := c.updateObjectAndFinalizer(ctx, object, reqLogger); err != nil {
 			reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
 			return ctrl.Result{Requeue: true, RequeueAfter: helpers.RequeuePeriod}, err

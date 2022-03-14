@@ -21,7 +21,7 @@ import (
 
 const (
 	subscriptionStatusSyncLog    = "subscriptions-status-sync"
-	subscriptionCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/subscriptionsv1-cleanup"
+	subscriptionCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/subscriptions-cleanup"
 )
 
 // AddSubscriptionStatusController adds subscriptionsv1 status controller to the manager.
@@ -30,13 +30,12 @@ func AddSubscriptionStatusController(mgr ctrl.Manager, transport transport.Trans
 	createObjFunction := func() bundle.Object { return &subscriptionsv1.Subscription{} }
 
 	subscriptionTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.SubscriptionStatusMsgKey)
-	subscriptionBundle := generic.NewBundleCollectionEntry(subscriptionTransportKey,
-		bundle.NewGenericStatusBundle(leafHubName, incarnation, cleanSubscriptionFunction),
+
+	bundleCollection := []*generic.BundleCollectionEntry{generic.NewBundleCollectionEntry(subscriptionTransportKey,
+		bundle.NewGenericStatusBundle(leafHubName, incarnation, cleanSubscription),
 		func() bool { // bundle predicate
 			return true
-		})
-
-	bundleCollection := []*generic.BundleCollectionEntry{subscriptionBundle}
+		})}
 
 	isGlobalSubscription := predicate.NewPredicateFuncs(func(object client.Object) bool {
 		return helpers.HasAnnotation(object, datatypes.OriginOwnerReferenceAnnotation)
@@ -45,16 +44,16 @@ func AddSubscriptionStatusController(mgr ctrl.Manager, transport transport.Trans
 	if err := generic.NewGenericStatusSyncController(mgr, subscriptionStatusSyncLog, transport,
 		subscriptionCleanupFinalizer, bundleCollection, createObjFunction, isGlobalSubscription,
 		syncIntervalsData.GetPolicies); err != nil {
-		return fmt.Errorf("failed adding subscriptionsv1 controller - %w", err)
+		return fmt.Errorf("failed adding subscriptions controller - %w", err)
 	}
 
 	return nil
 }
 
-func cleanSubscriptionFunction(object bundle.Object) {
+func cleanSubscription(object bundle.Object) {
 	placement, ok := object.(*subscriptionsv1.Subscription)
 	if !ok {
-		panic("Wrong instance passed to clean placement rule function, not subv1.subscriptionsv1")
+		panic("Wrong instance passed to clean subscriptions function, not a subscription")
 	}
 
 	placement.Spec = subscriptionsv1.SubscriptionSpec{}
