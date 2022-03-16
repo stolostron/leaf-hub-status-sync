@@ -30,7 +30,7 @@ func AddLocalPlacementRulesController(mgr ctrl.Manager, transport transport.Tran
 
 	bundleCollection := []*generic.BundleCollectionEntry{
 		generic.NewBundleCollectionEntry(localPlacementRuleTransportKey,
-			bundle.NewGenericStatusBundle(leafHubName, incarnation, cleanPlacementRuleFunc),
+			bundle.NewGenericStatusBundle(leafHubName, incarnation, cleanPlacementRule),
 			func() bool { // bundle predicate
 				return hubOfHubsConfig.Spec.EnableLocalPolicies
 			}),
@@ -49,7 +49,7 @@ func AddLocalPlacementRulesController(mgr ctrl.Manager, transport transport.Tran
 	return nil
 }
 
-func cleanPlacementRuleFunc(object bundle.Object) {
+func cleanPlacementRule(object bundle.Object) {
 	placement, ok := object.(*placementrulesv1.PlacementRule)
 	if !ok {
 		panic("Wrong instance passed to clean placement rule function, not appsv1.PlacementRule")

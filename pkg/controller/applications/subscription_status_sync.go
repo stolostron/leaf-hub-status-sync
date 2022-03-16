@@ -21,10 +21,10 @@ import (
 
 const (
 	subscriptionStatusSyncLog    = "subscriptions-status-sync"
-	subscriptionCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/subscriptions-cleanup"
+	subscriptionCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/subscription-cleanup"
 )
 
-// AddSubscriptionStatusController adds subscriptionsv1 status controller to the manager.
+// AddSubscriptionStatusController adds subscriptions status controller to the manager.
 func AddSubscriptionStatusController(mgr ctrl.Manager, transport transport.Transport, leafHubName string,
 	incarnation uint64, hubOfHubsConfig *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals) error {
 	createObjFunction := func() bundle.Object { return &subscriptionsv1.Subscription{} }
@@ -53,7 +53,7 @@ func AddSubscriptionStatusController(mgr ctrl.Manager, transport transport.Trans
 func cleanSubscription(object bundle.Object) {
 	placement, ok := object.(*subscriptionsv1.Subscription)
 	if !ok {
-		panic("Wrong instance passed to clean subscriptions function, not a subscription")
+		panic("Wrong instance passed to clean subscription function, not a subscription")
 	}
 
 	placement.Spec = subscriptionsv1.SubscriptionSpec{}

@@ -59,7 +59,7 @@ func createBundleCollection(leafHubName string, incarnation uint64,
 		localClustersPerPolicyBundle, incarnation, extractLocalPolicyIDFunc)
 
 	localPolicySpecTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalPolicySpecMsgKey)
-	localPolicySpecBundle := bundle.NewGenericStatusBundle(leafHubName, incarnation, cleanPolicyFunc)
+	localPolicySpecBundle := bundle.NewGenericStatusBundle(leafHubName, incarnation, cleanPolicy)
 
 	// check for full information
 	localPolicyStatusPredicate := func() bool {
@@ -76,10 +76,11 @@ func createBundleCollection(leafHubName string, incarnation uint64,
 	}
 }
 
-func cleanPolicyFunc(object bundle.Object) {
+// status will be sent in the policy status bundles.
+func cleanPolicy(object bundle.Object) {
 	policy, ok := object.(*policiesv1.Policy)
 	if !ok {
-		panic("Wrong instance passed to clean placement rule function, not appsv1.Policy")
+		panic("Wrong instance passed to clean policy function, not a Policy")
 	}
 
 	policy.Status = policiesv1.PolicyStatus{}
