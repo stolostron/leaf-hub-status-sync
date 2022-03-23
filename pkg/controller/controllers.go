@@ -10,12 +10,12 @@ import (
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/api/v1"
 	placementrulesv1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 	configv1 "github.com/stolostron/hub-of-hubs-data-types/apis/config/v1"
-	"github.com/stolostron/leaf-hub-status-sync/pkg/controller/applications"
 	configCtrl "github.com/stolostron/leaf-hub-status-sync/pkg/controller/config"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/controller/controlinfo"
 	localpolicies "github.com/stolostron/leaf-hub-status-sync/pkg/controller/local_policies"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/controller/managedclusters"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/controller/policies"
+	"github.com/stolostron/leaf-hub-status-sync/pkg/controller/subscriptions"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/controller/syncintervals"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/transport"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -59,9 +59,12 @@ func AddControllers(mgr ctrl.Manager, transportImpl transport.Transport, leafHub
 
 	addControllerFunctions := []func(ctrl.Manager, transport.Transport, string, uint64, *configv1.Config,
 		*syncintervals.SyncIntervals) error{
-		managedclusters.AddClustersStatusController, policies.AddPoliciesStatusController,
-		localpolicies.AddLocalPoliciesController, localpolicies.AddLocalPlacementRulesController,
-		controlinfo.AddControlInfoController, applications.AddSubscriptionStatusController,
+		managedclusters.AddClustersStatusController,
+		policies.AddPoliciesStatusController,
+		subscriptions.AddSubscriptionStatusController,
+		localpolicies.AddLocalPoliciesController,
+		localpolicies.AddLocalPlacementRulesController,
+		controlinfo.AddControlInfoController,
 	}
 
 	for _, addControllerFunction := range addControllerFunctions {

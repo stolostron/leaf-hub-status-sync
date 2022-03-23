@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Red Hat, Inc.
 // Copyright Contributors to the Open Cluster Management project
 
-package applications
+package subscriptions
 
 import (
 	"fmt"
@@ -28,7 +28,6 @@ const (
 func AddSubscriptionStatusController(mgr ctrl.Manager, transport transport.Transport, leafHubName string,
 	incarnation uint64, hubOfHubsConfig *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals) error {
 	createObjFunction := func() bundle.Object { return &subscriptionsv1.Subscription{} }
-
 	subscriptionTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.SubscriptionStatusMsgKey)
 
 	bundleCollection := []*generic.BundleCollectionEntry{generic.NewBundleCollectionEntry(subscriptionTransportKey,
@@ -44,7 +43,7 @@ func AddSubscriptionStatusController(mgr ctrl.Manager, transport transport.Trans
 	if err := generic.NewGenericStatusSyncController(mgr, subscriptionStatusSyncLog, transport,
 		subscriptionCleanupFinalizer, bundleCollection, createObjFunction, isGlobalSubscription,
 		syncIntervalsData.GetPolicies); err != nil {
-		return fmt.Errorf("failed adding subscriptions controller - %w", err)
+		return fmt.Errorf("to add subscriptions controller to the manager - %w", err)
 	}
 
 	return nil
