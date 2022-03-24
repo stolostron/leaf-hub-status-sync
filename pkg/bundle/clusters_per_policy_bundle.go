@@ -33,8 +33,8 @@ func (bundle *ClustersPerPolicyBundle) UpdateObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	policy, isOk := object.(*policiesv1.Policy)
-	if !isOk {
+	policy, isPolicy := object.(*policiesv1.Policy)
+	if !isPolicy {
 		return // do not handle objects other than policy
 	}
 
@@ -66,9 +66,9 @@ func (bundle *ClustersPerPolicyBundle) DeleteObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	_, isOk := object.(*policiesv1.Policy)
-	if !isOk {
-		return // wont handle anything other than policies
+	_, isPolicy := object.(*policiesv1.Policy)
+	if !isPolicy {
+		return // do not handle objects other than policy
 	}
 
 	originPolicyID, ok := bundle.extractObjIDFunc(object)

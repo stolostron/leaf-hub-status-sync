@@ -31,8 +31,8 @@ func (bundle *MinimalComplianceStatusBundle) UpdateObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	policy, ok := object.(*policiesv1.Policy)
-	if !ok {
+	policy, isPolicy := object.(*policiesv1.Policy)
+	if !isPolicy {
 		return // do not handle objects other than policy
 	}
 
@@ -62,6 +62,11 @@ func (bundle *MinimalComplianceStatusBundle) UpdateObject(object Object) {
 func (bundle *MinimalComplianceStatusBundle) DeleteObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
+
+	_, isPolicy := object.(*policiesv1.Policy)
+	if !isPolicy {
+		return // do not handle objects other than policy
+	}
 
 	originPolicyID, found := object.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]
 	if !found {

@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	set "github.com/deckarep/golang-set"
-	v1 "github.com/open-cluster-management/governance-policy-propagator/api/v1"
+	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/api/v1"
 	statusbundle "github.com/stolostron/hub-of-hubs-data-types/bundle/status"
 )
 
@@ -65,9 +65,9 @@ func (bundle *DeltaComplianceStatusBundle) UpdateObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	policy, legal := object.(*v1.Policy)
-	if !legal {
-		return
+	policy, isPolicy := object.(*policiesv1.Policy)
+	if !isPolicy {
+		return // do not handle objects other than policy
 	}
 
 	originPolicyID, ok := bundle.extractObjIDFunc(object)
@@ -104,6 +104,11 @@ func (bundle *DeltaComplianceStatusBundle) UpdateObject(object Object) {
 func (bundle *DeltaComplianceStatusBundle) DeleteObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
+
+	_, isPolicy := object.(*policiesv1.Policy)
+	if !isPolicy {
+		return // do not handle objects other than policy
+	}
 
 	originPolicyID, ok := bundle.extractObjIDFunc(object)
 	if !ok {
@@ -192,7 +197,7 @@ func (bundle *DeltaComplianceStatusBundle) getObjectIndexByUID(uid string) (int,
 
 // getPolicyComplianceStatus gets compliance statuses of a new policy object (relative to this bundle).
 func (bundle *DeltaComplianceStatusBundle) getPolicyComplianceStatus(originPolicyID string,
-	policy *v1.Policy) (*statusbundle.PolicyGenericComplianceStatus, error) {
+	policy *policiesv1.Policy) (*statusbundle.PolicyGenericComplianceStatus, error) {
 	compliantClusters, nonCompliantClusters,
 		unknownComplianceClusters := bundle.getChangedClusters(policy, originPolicyID)
 
@@ -209,7 +214,7 @@ func (bundle *DeltaComplianceStatusBundle) getPolicyComplianceStatus(originPolic
 }
 
 // getChangedClusters returns arrays of changed compliance (cluster names).
-func (bundle *DeltaComplianceStatusBundle) getChangedClusters(policy *v1.Policy,
+func (bundle *DeltaComplianceStatusBundle) getChangedClusters(policy *policiesv1.Policy,
 	policyID string) ([]string, []string, []string) {
 	compliantClusters := make([]string, 0)
 	nonCompliantClusters := make([]string, 0)
@@ -217,7 +222,7 @@ func (bundle *DeltaComplianceStatusBundle) getChangedClusters(policy *v1.Policy,
 
 	for _, clusterCompliance := range policy.Status.Status {
 		switch clusterCompliance.ComplianceState {
-		case v1.Compliant:
+		case policiesv1.Compliant:
 			if bundle.complianceRecordsCache[policyID].compliantClustersSet.Contains(clusterCompliance.ClusterName) {
 				continue
 			}
@@ -227,7 +232,7 @@ func (bundle *DeltaComplianceStatusBundle) getChangedClusters(policy *v1.Policy,
 			bundle.complianceRecordsCache[policyID].unknownClustersSet.Remove(clusterCompliance.ClusterName)
 
 			compliantClusters = append(compliantClusters, clusterCompliance.ClusterName)
-		case v1.NonCompliant:
+		case policiesv1.NonCompliant:
 			if bundle.complianceRecordsCache[policyID].nonCompliantClustersSet.Contains(clusterCompliance.ClusterName) {
 				continue
 			}
@@ -261,11 +266,11 @@ func (bundle *DeltaComplianceStatusBundle) updatePolicyComplianceStatus(policyIn
 
 	// update the policy state above
 	for _, cluster := range newPolicyStatus.CompliantClusters {
-		existingPolicyState[cluster] = v1.Compliant
+		existingPolicyState[cluster] = policiesv1.Compliant
 	}
 
 	for _, cluster := range newPolicyStatus.NonCompliantClusters {
-		existingPolicyState[cluster] = v1.NonCompliant
+		existingPolicyState[cluster] = policiesv1.NonCompliant
 	}
 
 	for _, cluster := range newPolicyStatus.UnknownComplianceClusters {
@@ -279,9 +284,9 @@ func (bundle *DeltaComplianceStatusBundle) updatePolicyComplianceStatus(policyIn
 
 	for cluster, compliance := range existingPolicyState {
 		switch compliance {
-		case v1.Compliant:
+		case policiesv1.Compliant:
 			compliantClusters = append(compliantClusters, cluster)
-		case v1.NonCompliant:
+		case policiesv1.NonCompliant:
 			nonCompliantClusters = append(nonCompliantClusters, cluster)
 		default:
 			unknownComplianceClusters = append(unknownComplianceClusters, cluster)
@@ -295,15 +300,15 @@ func (bundle *DeltaComplianceStatusBundle) updatePolicyComplianceStatus(policyIn
 }
 
 // getExistingPolicyState returns a map of [cluster name -> compliance state] for the policy indexed by policyIndex.
-func (bundle *DeltaComplianceStatusBundle) getExistingPolicyState(policyIndex int) map[string]v1.ComplianceState {
-	existingPolicyState := make(map[string]v1.ComplianceState)
+func (bundle *DeltaComplianceStatusBundle) getExistingPolicyState(policyIndex int) map[string]policiesv1.ComplianceState {
+	existingPolicyState := make(map[string]policiesv1.ComplianceState)
 
 	for _, cluster := range bundle.Objects[policyIndex].CompliantClusters {
-		existingPolicyState[cluster] = v1.Compliant
+		existingPolicyState[cluster] = policiesv1.Compliant
 	}
 
 	for _, cluster := range bundle.Objects[policyIndex].NonCompliantClusters {
-		existingPolicyState[cluster] = v1.NonCompliant
+		existingPolicyState[cluster] = policiesv1.NonCompliant
 	}
 
 	for _, cluster := range bundle.Objects[policyIndex].UnknownComplianceClusters {

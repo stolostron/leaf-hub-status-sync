@@ -36,8 +36,8 @@ func (bundle *ComplianceStatusBundle) UpdateObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	policy, isOk := object.(*policiesv1.Policy)
-	if !isOk {
+	policy, isPolicy := object.(*policiesv1.Policy)
+	if !isPolicy {
 		return // do not handle objects other than policy
 	}
 
@@ -76,8 +76,8 @@ func (bundle *ComplianceStatusBundle) DeleteObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	_, isOk := object.(*policiesv1.Policy)
-	if !isOk {
+	_, isPolicy := object.(*policiesv1.Policy)
+	if !isPolicy {
 		return // do not handle objects other than policy
 	}
 
