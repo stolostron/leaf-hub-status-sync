@@ -74,6 +74,10 @@ func createBundleCollection(transportObj transport.Transport, leafHubName string
 	clustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.ClustersPerPolicyMsgKey)
 	clustersPerPolicyBundle := bundle.NewClustersPerPolicyBundle(leafHubName, incarnation, extractPolicyID)
 
+	// policy placement
+	policyPlacementTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.PolicyPlacementMsgKey)
+	policyPlacementBundle := bundle.NewPolicyPlacementStatusBundle(leafHubName, incarnation, extractPolicyID)
+
 	// minimal compliance status bundle
 	minimalComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
 		datatypes.MinimalPolicyComplianceMsgKey)
@@ -95,6 +99,7 @@ func createBundleCollection(transportObj transport.Transport, leafHubName string
 		generic.NewBundleCollectionEntry(clustersPerPolicyTransportKey, clustersPerPolicyBundle, fullStatusPredicate),
 		completeComplianceStatusBundleCollectionEntry,
 		deltaComplianceStatusBundleCollectionEntry,
+		generic.NewBundleCollectionEntry(policyPlacementTransportKey, policyPlacementBundle, fullStatusPredicate),
 		generic.NewBundleCollectionEntry(minimalComplianceStatusTransportKey, minimalComplianceStatusBundle,
 			minimalStatusPredicate),
 	}, nil

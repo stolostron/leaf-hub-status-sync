@@ -100,8 +100,8 @@ github.com/prometheus/procfs v0.6.0 h1:mxy4L2jP6qMonqmq+aTtOx1ifVWUgG/TAmntgbh3x
 github.com/prometheus/procfs v0.6.0/go.mod h1:cz+aTbrPOrUb4q7XlbU9ygM+/jj0fzG6c1xBZuNvfVA=
 github.com/spf13/pflag v1.0.5 h1:iy+VFUOCP1a+8yFto/drg2CJ5u0yRoB7fZw3DKv/JXA=
 github.com/spf13/pflag v1.0.5/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=
-github.com/stolostron/hub-of-hubs-data-types v0.3.2-0.20220324133930-58fb95d9793a h1:ZGYLMt6S+qzcIjSIuxMNWKyelVbVl6DNjkD32tioyeE=
-github.com/stolostron/hub-of-hubs-data-types v0.3.2-0.20220324133930-58fb95d9793a/go.mod h1:TBfuHiBN/KAEOR+8MB61NVfMLTsUAUaEBWtxA+ARYyY=
+github.com/stolostron/hub-of-hubs-data-types v0.3.2-0.20220324150240-460bd11e2ae0 h1:lraN36xUsqu+HouIbALMUFkOD7p2ItfsCdluCNzmz80=
+github.com/stolostron/hub-of-hubs-data-types v0.3.2-0.20220324150240-460bd11e2ae0/go.mod h1:TBfuHiBN/KAEOR+8MB61NVfMLTsUAUaEBWtxA+ARYyY=
 github.com/stolostron/hub-of-hubs-data-types/apis/config v0.3.1 h1:0fogAQm2+UxEcQ0yLKEB/f4UfzsR9vz2swE25u2ILEM=
 github.com/stolostron/hub-of-hubs-data-types/apis/config v0.3.1/go.mod h1:YWBM2mKXdSwvReJer3Q5aOHucDWPMXmhFLR7DRjRokc=
 github.com/stolostron/hub-of-hubs-kafka-transport v0.3.1 h1:9x9otVmtzBydhyIh4WYfQKEnVhnZYFFWqFAGc8X1jEU=
