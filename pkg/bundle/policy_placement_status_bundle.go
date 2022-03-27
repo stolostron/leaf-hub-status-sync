@@ -104,28 +104,47 @@ func (bundle *PolicyPlacementStatusBundle) getObjectIndexByUID(uid string) (int,
 
 func (bundle *PolicyPlacementStatusBundle) getPolicyPlacement(originPolicyID string,
 	policy *policiesv1.Policy) *statusbundle.PolicyPlacementStatus {
-	var placementRule, placementBinding string
-
-	if len(policy.Status.Placement) > 0 {
-		placementRule = policy.Status.Placement[0].PlacementRule
-		placementBinding = policy.Status.Placement[0].PlacementBinding
-	}
-
 	return &statusbundle.PolicyPlacementStatus{
-		PolicyID:         originPolicyID,
-		PlacementRule:    placementRule,
-		PlacementBinding: placementBinding,
+		PolicyID:  originPolicyID,
+		Placement: policy.Status.Placement,
 	}
 }
 
 // returns true if object was changed, otherwise returns false.
 func (bundle *PolicyPlacementStatusBundle) updateObjectIfChanged(index int, policy *policiesv1.Policy) bool {
-	latestPolicyPlacement := bundle.getPolicyPlacement(bundle.Objects[index].PolicyID, policy)
+	if bundle.equals(bundle.Objects[index].Placement, policy.Status.Placement) {
+		return false // if what's stored in the bundle equals to latest placement, do nothing.
+	}
 
-	if bundle.Objects[index].PlacementRule != latestPolicyPlacement.PlacementRule ||
-		bundle.Objects[index].PlacementBinding != latestPolicyPlacement.PlacementBinding {
-		bundle.Objects[index] = latestPolicyPlacement
-		return true
+	// otherwise, update the policy placement object in the bundle
+	bundle.Objects[index].Placement = policy.Status.Placement
+
+	return true
+}
+
+func (bundle *PolicyPlacementStatusBundle) equals(placement1 []*policiesv1.Placement,
+	placement2 []*policiesv1.Placement) bool {
+	if len(placement1) != len(placement2) {
+		return false
+	}
+	// length of the array equals. check for each item in placement array 1 if it exists in the placement array 2.
+	for _, placementItem1 := range placement1 {
+		if !bundle.contains(placement2, placementItem1) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (bundle *PolicyPlacementStatusBundle) contains(placement []*policiesv1.Placement,
+	item *policiesv1.Placement) bool {
+	for _, placementEntry := range placement {
+		if item.Placement == placementEntry.Placement &&
+			item.PlacementRule == placementEntry.PlacementRule &&
+			item.PlacementBinding == placementEntry.PlacementBinding {
+			return true
+		}
 	}
 
 	return false
