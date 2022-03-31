@@ -107,6 +107,7 @@ func (bundle *PolicyPlacementStatusBundle) getPolicyPlacement(originPolicyID str
 	return &statusbundle.PolicyPlacementStatus{
 		PolicyID:  originPolicyID,
 		Placement: policy.Status.Placement,
+		ResourceVersion: policy.GetResourceVersion(),
 	}
 }
 
@@ -118,6 +119,7 @@ func (bundle *PolicyPlacementStatusBundle) updateObjectIfChanged(index int, poli
 
 	// otherwise, update the policy placement object in the bundle
 	bundle.Objects[index].Placement = policy.Status.Placement
+	bundle.Objects[index].ResourceVersion = policy.GetResourceVersion()
 
 	return true
 }
