@@ -43,7 +43,7 @@ func AddSubscriptionStatusController(mgr ctrl.Manager, transport transport.Trans
 	if err := generic.NewGenericStatusSyncController(mgr, subscriptionStatusSyncLog, transport,
 		subscriptionCleanupFinalizer, bundleCollection, createObjFunction, isGlobalSubscription,
 		syncIntervalsData.GetPolicies); err != nil {
-		return fmt.Errorf("to add subscriptions controller to the manager - %w", err)
+		return fmt.Errorf("failed to add subscriptions controller to the manager - %w", err)
 	}
 
 	return nil
