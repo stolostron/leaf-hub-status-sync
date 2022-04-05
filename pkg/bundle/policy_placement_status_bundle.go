@@ -105,8 +105,8 @@ func (bundle *PolicyPlacementStatusBundle) getObjectIndexByUID(uid string) (int,
 func (bundle *PolicyPlacementStatusBundle) getPolicyPlacement(originPolicyID string,
 	policy *policiesv1.Policy) *statusbundle.PolicyPlacementStatus {
 	return &statusbundle.PolicyPlacementStatus{
-		PolicyID:  originPolicyID,
-		Placement: policy.Status.Placement,
+		PolicyID:        originPolicyID,
+		Placement:       policy.Status.Placement,
 		ResourceVersion: policy.GetResourceVersion(),
 	}
 }
