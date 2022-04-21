@@ -50,11 +50,6 @@ rules:
   - ""
   resources:
   - namespaces
-  verbs:
-  - create
-- apiGroups:
-  - ""
-  resources:
   - pods
   - configmaps
   - events
