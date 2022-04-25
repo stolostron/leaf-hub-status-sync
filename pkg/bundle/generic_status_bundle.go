@@ -87,5 +87,5 @@ func (bundle *GenericStatusBundle) getObjectIndexByUID(uid types.UID) (int, erro
 		}
 	}
 
-	return -1, errObjectNotFound
+	return -1, ErrObjectNotFound
 }

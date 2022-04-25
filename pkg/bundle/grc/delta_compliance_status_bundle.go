@@ -1,4 +1,4 @@
-package bundle
+package grc
 
 import (
 	"errors"
@@ -7,6 +7,7 @@ import (
 	set "github.com/deckarep/golang-set"
 	policyv1 "github.com/open-cluster-management/governance-policy-propagator/api/v1"
 	statusbundle "github.com/stolostron/hub-of-hubs-data-types/bundle/status"
+	bundlepkg "github.com/stolostron/leaf-hub-status-sync/pkg/bundle"
 )
 
 const unknownComplianceStatus = "unknown"
@@ -14,9 +15,9 @@ const unknownComplianceStatus = "unknown"
 var errPolicyStatusUnchanged = errors.New("policy status did not changed")
 
 // NewDeltaComplianceStatusBundle creates a new instance of DeltaComplianceStatusBundle.
-func NewDeltaComplianceStatusBundle(leafHubName string, baseBundle Bundle,
+func NewDeltaComplianceStatusBundle(leafHubName string, baseBundle bundlepkg.Bundle,
 	clustersPerPolicyBundle *ClustersPerPolicyBundle, incarnation uint64,
-	extractObjIDFunc ExtractObjIDFunc) DeltaStateBundle {
+	extractObjIDFunc bundlepkg.ExtractObjIDFunc) bundlepkg.DeltaStateBundle {
 	return &DeltaComplianceStatusBundle{
 		BaseDeltaComplianceStatusBundle: statusbundle.BaseDeltaComplianceStatusBundle{
 			Objects:           make([]*statusbundle.PolicyGenericComplianceStatus, 0),
@@ -37,10 +38,10 @@ func NewDeltaComplianceStatusBundle(leafHubName string, baseBundle Bundle,
 type DeltaComplianceStatusBundle struct {
 	statusbundle.BaseDeltaComplianceStatusBundle
 	cyclicTransportationBundleID int
-	baseBundle                   Bundle
+	baseBundle                   bundlepkg.Bundle
 	clustersPerPolicyBaseBundle  *ClustersPerPolicyBundle
 	complianceRecordsCache       map[string]*policyComplianceStatus
-	extractObjIDFunc             ExtractObjIDFunc
+	extractObjIDFunc             bundlepkg.ExtractObjIDFunc
 	lock                         sync.Mutex
 }
 
@@ -61,7 +62,7 @@ func (bundle *DeltaComplianceStatusBundle) GetTransportationID() int {
 }
 
 // UpdateObject function to update a single object inside a bundle.
-func (bundle *DeltaComplianceStatusBundle) UpdateObject(object Object) {
+func (bundle *DeltaComplianceStatusBundle) UpdateObject(object bundlepkg.Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
@@ -101,7 +102,7 @@ func (bundle *DeltaComplianceStatusBundle) UpdateObject(object Object) {
 }
 
 // DeleteObject function to delete all instances of a single object inside a bundle.
-func (bundle *DeltaComplianceStatusBundle) DeleteObject(object Object) {
+func (bundle *DeltaComplianceStatusBundle) DeleteObject(object bundlepkg.Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
@@ -192,7 +193,7 @@ func (bundle *DeltaComplianceStatusBundle) getObjectIndexByUID(uid string) (int,
 		}
 	}
 
-	return -1, errObjectNotFound
+	return -1, bundlepkg.ErrObjectNotFound
 }
 
 // getPolicyComplianceStatus gets compliance statuses of a new policy object (relative to this bundle).
@@ -320,8 +321,8 @@ func (bundle *DeltaComplianceStatusBundle) getExistingPolicyState(policyIndex in
 
 func (bundle *DeltaComplianceStatusBundle) syncGenericStatus(status *statusbundle.PolicyGenericComplianceStatus) {
 	bundle.complianceRecordsCache[status.PolicyID] = &policyComplianceStatus{
-		compliantClustersSet:    createSetFromSlice(status.CompliantClusters),
-		nonCompliantClustersSet: createSetFromSlice(status.NonCompliantClusters),
-		unknownClustersSet:      createSetFromSlice(status.UnknownComplianceClusters),
+		compliantClustersSet:    bundlepkg.CreateSetFromSlice(status.CompliantClusters),
+		nonCompliantClustersSet: bundlepkg.CreateSetFromSlice(status.NonCompliantClusters),
+		unknownClustersSet:      bundlepkg.CreateSetFromSlice(status.UnknownComplianceClusters),
 	}
 }

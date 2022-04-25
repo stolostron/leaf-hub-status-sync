@@ -7,6 +7,7 @@ import (
 	datatypes "github.com/stolostron/hub-of-hubs-data-types"
 	configv1 "github.com/stolostron/hub-of-hubs-data-types/apis/config/v1"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/bundle"
+	"github.com/stolostron/leaf-hub-status-sync/pkg/bundle/grc"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/controller/generic"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/controller/syncintervals"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/helpers"
@@ -49,13 +50,13 @@ func createBundleCollection(leafHubName string, incarnation uint64,
 	// clusters per policy (base bundle)
 	localClustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName,
 		datatypes.LocalClustersPerPolicyMsgKey)
-	localClustersPerPolicyBundle := bundle.NewClustersPerPolicyBundle(leafHubName, incarnation,
+	localClustersPerPolicyBundle := grc.NewClustersPerPolicyBundle(leafHubName, incarnation,
 		extractLocalPolicyIDFunc)
 
 	// compliance status bundle
 	localCompleteComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
 		datatypes.LocalPolicyCompleteComplianceMsgKey)
-	localCompleteComplianceStatusBundle := bundle.NewCompleteComplianceStatusBundle(leafHubName,
+	localCompleteComplianceStatusBundle := grc.NewCompleteComplianceStatusBundle(leafHubName,
 		localClustersPerPolicyBundle, incarnation, extractLocalPolicyIDFunc)
 
 	localPolicySpecTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.LocalPolicySpecMsgKey)

@@ -9,6 +9,7 @@ import (
 	datatypes "github.com/stolostron/hub-of-hubs-data-types"
 	configv1 "github.com/stolostron/hub-of-hubs-data-types/apis/config/v1"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/bundle"
+	"github.com/stolostron/leaf-hub-status-sync/pkg/bundle/controlinfo"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/controller/syncintervals"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/helpers"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/transport"
@@ -26,7 +27,7 @@ func AddControlInfoController(mgr ctrl.Manager, transport transport.Transport, l
 
 	controlInfoCtrl := &LeafHubControlInfoController{
 		log:                     ctrl.Log.WithName(controlInfoLogName),
-		bundle:                  bundle.NewControlInfoBundle(leafHubName, incarnation),
+		bundle:                  controlinfo.NewBundle(leafHubName, incarnation),
 		transportBundleKey:      transportBundleKey,
 		transport:               transport,
 		resolveSyncIntervalFunc: syncIntervalsData.GetControlInfo,

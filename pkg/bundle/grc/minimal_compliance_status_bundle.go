@@ -1,4 +1,4 @@
-package bundle
+package grc
 
 import (
 	"sync"
@@ -6,10 +6,11 @@ import (
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/api/v1"
 	datatypes "github.com/stolostron/hub-of-hubs-data-types"
 	statusbundle "github.com/stolostron/hub-of-hubs-data-types/bundle/status"
+	bundlepkg "github.com/stolostron/leaf-hub-status-sync/pkg/bundle"
 )
 
 // NewMinimalComplianceStatusBundle creates a new instance of MinimalComplianceStatusBundle.
-func NewMinimalComplianceStatusBundle(leafHubName string, incarnation uint64) Bundle {
+func NewMinimalComplianceStatusBundle(leafHubName string, incarnation uint64) bundlepkg.Bundle {
 	return &MinimalComplianceStatusBundle{
 		BaseMinimalComplianceStatusBundle: statusbundle.BaseMinimalComplianceStatusBundle{
 			Objects:       make([]*statusbundle.MinimalPolicyComplianceStatus, 0),
@@ -27,7 +28,7 @@ type MinimalComplianceStatusBundle struct {
 }
 
 // UpdateObject function to update a single object inside a bundle.
-func (bundle *MinimalComplianceStatusBundle) UpdateObject(object Object) {
+func (bundle *MinimalComplianceStatusBundle) UpdateObject(object bundlepkg.Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
@@ -59,7 +60,7 @@ func (bundle *MinimalComplianceStatusBundle) UpdateObject(object Object) {
 }
 
 // DeleteObject function to delete a single object inside a bundle.
-func (bundle *MinimalComplianceStatusBundle) DeleteObject(object Object) {
+func (bundle *MinimalComplianceStatusBundle) DeleteObject(object bundlepkg.Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
@@ -97,7 +98,7 @@ func (bundle *MinimalComplianceStatusBundle) getObjectIndexByUID(uid string) (in
 		}
 	}
 
-	return -1, errObjectNotFound
+	return -1, bundlepkg.ErrObjectNotFound
 }
 
 func (bundle *MinimalComplianceStatusBundle) getMinimalPolicyComplianceStatus(originPolicyID string,

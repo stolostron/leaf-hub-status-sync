@@ -8,7 +8,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-var errObjectNotFound = errors.New("object not found")
+// ErrObjectNotFound error to be used when an object is not found.
+var ErrObjectNotFound = errors.New("object not found")
 
 // ExtractObjIDFunc a function type used to get the id of an object.
 type ExtractObjIDFunc func(obj Object) (string, bool)

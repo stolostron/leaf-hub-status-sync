@@ -1,15 +1,16 @@
-package bundle
+package grc
 
 import (
 	"sync"
 
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/api/v1"
 	statusbundle "github.com/stolostron/hub-of-hubs-data-types/bundle/status"
+	bundlepkg "github.com/stolostron/leaf-hub-status-sync/pkg/bundle"
 )
 
 // NewClustersPerPolicyBundle creates a new instance of ClustersPerPolicyBundle.
 func NewClustersPerPolicyBundle(leafHubName string, incarnation uint64,
-	extractObjIDFunc ExtractObjIDFunc) Bundle {
+	extractObjIDFunc bundlepkg.ExtractObjIDFunc) bundlepkg.Bundle {
 	return &ClustersPerPolicyBundle{
 		BaseClustersPerPolicyBundle: statusbundle.BaseClustersPerPolicyBundle{
 			Objects:       make([]*statusbundle.PolicyGenericComplianceStatus, 0),
@@ -24,12 +25,12 @@ func NewClustersPerPolicyBundle(leafHubName string, incarnation uint64,
 // ClustersPerPolicyBundle abstracts management of clusters per policy bundle.
 type ClustersPerPolicyBundle struct {
 	statusbundle.BaseClustersPerPolicyBundle
-	extractObjIDFunc ExtractObjIDFunc
+	extractObjIDFunc bundlepkg.ExtractObjIDFunc
 	lock             sync.Mutex
 }
 
 // UpdateObject function to update a single object inside a bundle.
-func (bundle *ClustersPerPolicyBundle) UpdateObject(object Object) {
+func (bundle *ClustersPerPolicyBundle) UpdateObject(object bundlepkg.Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
@@ -62,7 +63,7 @@ func (bundle *ClustersPerPolicyBundle) UpdateObject(object Object) {
 }
 
 // DeleteObject function to delete a single object inside a bundle.
-func (bundle *ClustersPerPolicyBundle) DeleteObject(object Object) {
+func (bundle *ClustersPerPolicyBundle) DeleteObject(object bundlepkg.Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
@@ -100,7 +101,7 @@ func (bundle *ClustersPerPolicyBundle) getObjectIndexByUID(uid string) (int, err
 		}
 	}
 
-	return -1, errObjectNotFound
+	return -1, bundlepkg.ErrObjectNotFound
 }
 
 // getClusterStatuses returns (list of compliant clusters, list of nonCompliant clusters, list of unknown clusters,
@@ -171,7 +172,7 @@ func (bundle *ClustersPerPolicyBundle) updateObjectIfChanged(objectIndex int, po
 
 func (bundle *ClustersPerPolicyBundle) clusterListContains(subsetClusters []string, allClusters []string) bool {
 	for _, clusterName := range subsetClusters {
-		if !containsString(allClusters, clusterName) {
+		if !bundlepkg.ContainsString(allClusters, clusterName) {
 			return false
 		}
 	}

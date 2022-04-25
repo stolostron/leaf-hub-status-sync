@@ -13,6 +13,7 @@ import (
 	datatypes "github.com/stolostron/hub-of-hubs-data-types"
 	configv1 "github.com/stolostron/hub-of-hubs-data-types/apis/config/v1"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/bundle"
+	"github.com/stolostron/leaf-hub-status-sync/pkg/bundle/grc"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/controller/generic"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/controller/syncintervals"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/helpers"
@@ -72,16 +73,12 @@ func createBundleCollection(transportObj transport.Transport, leafHubName string
 
 	// clusters per policy (base bundle)
 	clustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.ClustersPerPolicyMsgKey)
-	clustersPerPolicyBundle := bundle.NewClustersPerPolicyBundle(leafHubName, incarnation, extractPolicyID)
-
-	// policy placement
-	policyPlacementTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.PolicyPlacementMsgKey)
-	policyPlacementBundle := bundle.NewPolicyPlacementStatusBundle(leafHubName, incarnation, extractPolicyID)
+	clustersPerPolicyBundle := grc.NewClustersPerPolicyBundle(leafHubName, incarnation, extractPolicyID)
 
 	// minimal compliance status bundle
 	minimalComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
 		datatypes.MinimalPolicyComplianceMsgKey)
-	minimalComplianceStatusBundle := bundle.NewMinimalComplianceStatusBundle(leafHubName, incarnation)
+	minimalComplianceStatusBundle := grc.NewMinimalComplianceStatusBundle(leafHubName, incarnation)
 
 	fullStatusPredicate := func() bool { return hubOfHubsConfig.Spec.AggregationLevel == configv1.Full }
 	minimalStatusPredicate := func() bool { return hubOfHubsConfig.Spec.AggregationLevel == configv1.Minimal }
@@ -99,7 +96,6 @@ func createBundleCollection(transportObj transport.Transport, leafHubName string
 		generic.NewBundleCollectionEntry(clustersPerPolicyTransportKey, clustersPerPolicyBundle, fullStatusPredicate),
 		completeComplianceStatusBundleCollectionEntry,
 		deltaComplianceStatusBundleCollectionEntry,
-		generic.NewBundleCollectionEntry(policyPlacementTransportKey, policyPlacementBundle, fullStatusPredicate),
 		generic.NewBundleCollectionEntry(minimalComplianceStatusTransportKey, minimalComplianceStatusBundle,
 			minimalStatusPredicate),
 	}, nil
@@ -129,13 +125,13 @@ func getHybridComplianceBundleCollectionEntries(transport transport.Transport, l
 	deltaCountSwitchFactor int) (*generic.BundleCollectionEntry, *generic.BundleCollectionEntry, error) {
 	// complete compliance status bundle
 	completeComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.PolicyCompleteComplianceMsgKey)
-	completeComplianceStatusBundle := bundle.NewCompleteComplianceStatusBundle(leafHubName, clustersPerPolicyBundle,
+	completeComplianceStatusBundle := grc.NewCompleteComplianceStatusBundle(leafHubName, clustersPerPolicyBundle,
 		incarnation, extractPolicyID)
 
 	// delta compliance status bundle
 	deltaComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName, datatypes.PolicyDeltaComplianceMsgKey)
-	deltaComplianceStatusBundle := bundle.NewDeltaComplianceStatusBundle(leafHubName, completeComplianceStatusBundle,
-		clustersPerPolicyBundle.(*bundle.ClustersPerPolicyBundle), incarnation, extractPolicyID)
+	deltaComplianceStatusBundle := grc.NewDeltaComplianceStatusBundle(leafHubName, completeComplianceStatusBundle,
+		clustersPerPolicyBundle.(*grc.ClustersPerPolicyBundle), incarnation, extractPolicyID)
 
 	completeComplianceBundleCollectionEntry := generic.NewBundleCollectionEntry(completeComplianceStatusTransportKey,
 		completeComplianceStatusBundle, fullStatusPredicate)

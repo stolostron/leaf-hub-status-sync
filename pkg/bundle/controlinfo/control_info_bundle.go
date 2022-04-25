@@ -1,29 +1,30 @@
-package bundle
+package controlinfo
 
 import (
 	"sync"
 
 	statusbundle "github.com/stolostron/hub-of-hubs-data-types/bundle/status"
+	"github.com/stolostron/leaf-hub-status-sync/pkg/bundle"
 )
 
-// NewControlInfoBundle creates a new instance of ControlInfoBundle.
-func NewControlInfoBundle(leafHubName string, incarnation uint64) *ControlInfoBundle {
-	return &ControlInfoBundle{
+// NewBundle creates a new instance of Bundle.
+func NewBundle(leafHubName string, incarnation uint64) *Bundle {
+	return &Bundle{
 		LeafHubName:   leafHubName,
 		BundleVersion: statusbundle.NewBundleVersion(incarnation, 0),
 		lock:          sync.Mutex{},
 	}
 }
 
-// ControlInfoBundle holds control info passed from LH to HoH.
-type ControlInfoBundle struct {
+// Bundle holds control info passed from LH to HoH.
+type Bundle struct {
 	LeafHubName   string                      `json:"leafHubName"`
 	BundleVersion *statusbundle.BundleVersion `json:"bundleVersion"`
 	lock          sync.Mutex
 }
 
 // UpdateObject function to update a single object inside a bundle.
-func (bundle *ControlInfoBundle) UpdateObject(Object) {
+func (bundle *Bundle) UpdateObject(bundle.Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
@@ -31,10 +32,10 @@ func (bundle *ControlInfoBundle) UpdateObject(Object) {
 }
 
 // DeleteObject function to delete a single object inside a bundle.
-func (bundle *ControlInfoBundle) DeleteObject(Object) {}
+func (bundle *Bundle) DeleteObject(bundle.Object) {}
 
 // GetBundleVersion function to get bundle version.
-func (bundle *ControlInfoBundle) GetBundleVersion() *statusbundle.BundleVersion {
+func (bundle *Bundle) GetBundleVersion() *statusbundle.BundleVersion {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 

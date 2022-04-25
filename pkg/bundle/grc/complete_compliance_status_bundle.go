@@ -1,15 +1,16 @@
-package bundle
+package grc
 
 import (
 	"sync"
 
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/api/v1"
 	statusbundle "github.com/stolostron/hub-of-hubs-data-types/bundle/status"
+	bundlepkg "github.com/stolostron/leaf-hub-status-sync/pkg/bundle"
 )
 
 // NewCompleteComplianceStatusBundle creates a new instance of ComplianceStatusBundle.
-func NewCompleteComplianceStatusBundle(leafHubName string, baseBundle Bundle, incarnation uint64,
-	extractObjIDFunc ExtractObjIDFunc) Bundle {
+func NewCompleteComplianceStatusBundle(leafHubName string, baseBundle bundlepkg.Bundle, incarnation uint64,
+	extractObjIDFunc bundlepkg.ExtractObjIDFunc) bundlepkg.Bundle {
 	return &ComplianceStatusBundle{
 		BaseCompleteComplianceStatusBundle: statusbundle.BaseCompleteComplianceStatusBundle{
 			Objects:           make([]*statusbundle.PolicyCompleteComplianceStatus, 0),
@@ -26,13 +27,13 @@ func NewCompleteComplianceStatusBundle(leafHubName string, baseBundle Bundle, in
 // ComplianceStatusBundle abstracts management of compliance status bundle.
 type ComplianceStatusBundle struct {
 	statusbundle.BaseCompleteComplianceStatusBundle
-	baseBundle       Bundle
-	extractObjIDFunc ExtractObjIDFunc
+	baseBundle       bundlepkg.Bundle
+	extractObjIDFunc bundlepkg.ExtractObjIDFunc
 	lock             sync.Mutex
 }
 
 // UpdateObject function to update a single object inside a bundle.
-func (bundle *ComplianceStatusBundle) UpdateObject(object Object) {
+func (bundle *ComplianceStatusBundle) UpdateObject(object bundlepkg.Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
@@ -72,7 +73,7 @@ func (bundle *ComplianceStatusBundle) UpdateObject(object Object) {
 }
 
 // DeleteObject function to delete a single object inside a bundle.
-func (bundle *ComplianceStatusBundle) DeleteObject(object Object) {
+func (bundle *ComplianceStatusBundle) DeleteObject(object bundlepkg.Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
@@ -110,7 +111,7 @@ func (bundle *ComplianceStatusBundle) getObjectIndexByUID(uid string) (int, erro
 		}
 	}
 
-	return -1, errObjectNotFound
+	return -1, bundlepkg.ErrObjectNotFound
 }
 
 func (bundle *ComplianceStatusBundle) getPolicyComplianceStatus(originPolicyID string,
@@ -167,7 +168,7 @@ func (bundle *ComplianceStatusBundle) clusterListsEqual(oldClusters []string, ne
 	}
 
 	for _, newClusterName := range newClusters {
-		if !containsString(oldClusters, newClusterName) {
+		if !bundlepkg.ContainsString(oldClusters, newClusterName) {
 			return false
 		}
 	}
