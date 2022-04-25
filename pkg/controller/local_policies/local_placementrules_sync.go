@@ -17,8 +17,7 @@ import (
 )
 
 const (
-	localPlacementRuleStatusSyncLog    = "local-placement-rule-status-sync"
-	localPlacementRuleCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/local-placement-rule-cleanup"
+	localPlacementRuleStatusSyncLog = "local-placement-rule-status-sync"
 )
 
 // AddLocalPlacementRulesController adds a new local placement rules controller.
@@ -40,9 +39,8 @@ func AddLocalPlacementRulesController(mgr ctrl.Manager, transport transport.Tran
 		return !helpers.HasAnnotation(object, datatypes.OriginOwnerReferenceAnnotation)
 	})
 
-	if err := generic.NewGenericStatusSyncController(mgr, localPlacementRuleStatusSyncLog, transport,
-		localPlacementRuleCleanupFinalizer, bundleCollection, createObjFunc, localPlacementRulePredicate,
-		syncIntervalsData.GetPolicies); err != nil {
+	if err := generic.NewGenericStatusSyncController(mgr, localPlacementRuleStatusSyncLog, transport, bundleCollection,
+		createObjFunc, localPlacementRulePredicate, syncIntervalsData.GetPolicies); err != nil {
 		return fmt.Errorf("failed to add local placement rules controller to the manager - %w", err)
 	}
 

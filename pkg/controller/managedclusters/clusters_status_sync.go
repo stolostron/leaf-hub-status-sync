@@ -19,7 +19,6 @@ import (
 
 const (
 	clusterStatusSyncLogName          = "clusters-status-sync"
-	managedClusterCleanupFinalizer    = "hub-of-hubs.open-cluster-management.io/managed-cluster-cleanup"
 	managedClusterManagedByAnnotation = "hub-of-hubs.open-cluster-management.io/managed-by"
 )
 
@@ -43,9 +42,8 @@ func AddClustersStatusController(mgr ctrl.Manager, transport transport.Transport
 			}), // at this point send all managed clusters even if aggregation level is minimal
 	}
 
-	if err := generic.NewGenericStatusSyncController(mgr, clusterStatusSyncLogName, transport,
-		managedClusterCleanupFinalizer, bundleCollection, createObjFunction, nil,
-		syncIntervalsData.GetManagerClusters); err != nil {
+	if err := generic.NewGenericStatusSyncController(mgr, clusterStatusSyncLogName, transport, bundleCollection,
+		createObjFunction, nil, syncIntervalsData.GetManagerClusters); err != nil {
 		return fmt.Errorf("failed to add managed clusters controller to the manager - %w", err)
 	}
 

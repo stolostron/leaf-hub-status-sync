@@ -20,8 +20,7 @@ import (
 )
 
 const (
-	subscriptionStatusSyncLog    = "subscriptions-status-sync"
-	subscriptionCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/subscription-cleanup"
+	subscriptionStatusSyncLog = "subscriptions-status-sync"
 )
 
 // AddSubscriptionStatusController adds subscriptions status controller to the manager.
@@ -40,9 +39,8 @@ func AddSubscriptionStatusController(mgr ctrl.Manager, transport transport.Trans
 		return helpers.HasAnnotation(object, datatypes.OriginOwnerReferenceAnnotation)
 	})
 
-	if err := generic.NewGenericStatusSyncController(mgr, subscriptionStatusSyncLog, transport,
-		subscriptionCleanupFinalizer, bundleCollection, createObjFunction, isGlobalSubscription,
-		syncIntervalsData.GetPolicies); err != nil {
+	if err := generic.NewGenericStatusSyncController(mgr, subscriptionStatusSyncLog, transport, bundleCollection,
+		createObjFunction, isGlobalSubscription, syncIntervalsData.GetPolicies); err != nil {
 		return fmt.Errorf("failed to add subscriptions controller to the manager - %w", err)
 	}
 

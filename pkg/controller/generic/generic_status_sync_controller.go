@@ -22,16 +22,20 @@ import (
 // CreateObjectFunction is a function for how to create an object that is stored inside the bundle.
 type CreateObjectFunction func() bundle.Object
 
+const (
+	hubOfHubsCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/resource-cleanup"
+)
+
 // NewGenericStatusSyncController creates a new instance of genericStatusSyncController and adds it to the manager.
 func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, transport transport.Transport,
-	finalizerName string, orderedBundleCollection []*BundleCollectionEntry, createObjFunc CreateObjectFunction,
-	predicate predicate.Predicate, resolveSyncIntervalFunc syncintervals.ResolveSyncIntervalFunc) error {
+	orderedBundleCollection []*BundleCollectionEntry, createObjFunc CreateObjectFunction, predicate predicate.Predicate,
+	resolveSyncIntervalFunc syncintervals.ResolveSyncIntervalFunc) error {
 	statusSyncCtrl := &genericStatusSyncController{
 		client:                  mgr.GetClient(),
 		log:                     ctrl.Log.WithName(logName),
 		transport:               transport,
 		orderedBundleCollection: orderedBundleCollection,
-		finalizerName:           finalizerName,
+		finalizerName:           hubOfHubsCleanupFinalizer,
 		createObjFunc:           createObjFunc,
 		resolveSyncIntervalFunc: resolveSyncIntervalFunc,
 		lock:                    sync.Mutex{},
