@@ -65,7 +65,9 @@ rules:
   - apps.open-cluster-management.io
   resources:
   - placementrules
-  - subscriptions
+  - appsubstatus
+  - appsubreport
+  - appsub
   verbs:
   - get
   - list

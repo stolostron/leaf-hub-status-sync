@@ -6,7 +6,6 @@ package managedclusters
 import (
 	"fmt"
 
-	clusterv1 "github.com/open-cluster-management/api/cluster/v1"
 	datatypes "github.com/stolostron/hub-of-hubs-data-types"
 	configv1 "github.com/stolostron/hub-of-hubs-data-types/apis/config/v1"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/bundle"
@@ -14,6 +13,7 @@ import (
 	"github.com/stolostron/leaf-hub-status-sync/pkg/controller/syncintervals"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/helpers"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/transport"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 

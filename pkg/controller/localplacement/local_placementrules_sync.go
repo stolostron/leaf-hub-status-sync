@@ -1,9 +1,8 @@
-package localpolicies
+package localplacement
 
 import (
 	"fmt"
 
-	placementrulesv1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 	datatypes "github.com/stolostron/hub-of-hubs-data-types"
 	configv1 "github.com/stolostron/hub-of-hubs-data-types/apis/config/v1"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/bundle"
@@ -11,6 +10,7 @@ import (
 	"github.com/stolostron/leaf-hub-status-sync/pkg/controller/syncintervals"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/helpers"
 	"github.com/stolostron/leaf-hub-status-sync/pkg/transport"
+	placementrulesv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
