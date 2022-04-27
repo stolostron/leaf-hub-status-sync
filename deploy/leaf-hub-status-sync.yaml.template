@@ -22,6 +22,10 @@ rules:
   resources:
   - managedclusters
   - managedclusters/finalizers
+  - placementdecisions
+  - placementdecisions/finalizers
+  - placements
+  - placements/finalizers
   verbs:
   - get
   - list
@@ -49,8 +53,8 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - namespaces
   - pods
+  - namespaces
   - configmaps
   - events
   verbs:
@@ -65,9 +69,11 @@ rules:
   - apps.open-cluster-management.io
   resources:
   - placementrules
-  - appsubstatus
-  - appsubreport
-  - appsub
+  - placementrules/finalizers
+  - subscriptionstatuses
+  - subscriptionstatuses/finalizers
+  - subscriptionreports
+  - subscriptionreports/finalizers
   verbs:
   - get
   - list
