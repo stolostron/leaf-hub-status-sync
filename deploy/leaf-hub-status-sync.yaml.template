@@ -18,76 +18,76 @@ metadata:
   name: leaf-hub-status-sync
 rules:
 - apiGroups:
-    - cluster.open-cluster-management.io
+  - cluster.open-cluster-management.io
   resources:
-    - managedclusters
-    - managedclusters/finalizers
-    - placementdecisions
-    - placementdecisions/finalizers
-    - placements
-    - placements/finalizers
+  - managedclusters
+  - managedclusters/finalizers
+  - placementdecisions
+  - placementdecisions/finalizers
+  - placements
+  - placements/finalizers
   verbs:
-    - get
-    - list
-    - watch
-    - update
+  - get
+  - list
+  - watch
+  - update
 - apiGroups:
-    - policy.open-cluster-management.io
+  - policy.open-cluster-management.io
   resources:
-    - policies
-    - policies/finalizers
+  - policies
+  - policies/finalizers
   verbs:
-    - get
-    - list
-    - watch
-    - update
+  - get
+  - list
+  - watch
+  - update
 - apiGroups:
-    - hub-of-hubs.open-cluster-management.io
+  - hub-of-hubs.open-cluster-management.io
   resources:
-    - configs
+  - configs
   verbs:
-    - get
-    - list
-    - watch
-    - update
+  - get
+  - list
+  - watch
+  - update
 - apiGroups:
-    - ""
+  - ""
   resources:
-    - namespaces
-    - pods
-    - configmaps
-    - events
+  - pods
+  - namespaces
+  - configmaps
+  - events
   verbs:
-    - create
-    - delete
-    - get
-    - list
-    - patch
-    - update
-    - watch
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
-    - apps.open-cluster-management.io
+  - apps.open-cluster-management.io
   resources:
-    - placementrules
-    - placementrules/finalizers
-    - subscriptionstatuses
-    - subscriptionstatuses/finalizers
-    - subscriptionreports
-    - subscriptionreports/finalizers
+  - placementrules
+  - placementrules/finalizers
+  - subscriptionstatuses
+  - subscriptionstatuses/finalizers
+  - subscriptionreports
+  - subscriptionreports/finalizers
   verbs:
-    - get
-    - list
-    - watch
-    - update
+  - get
+  - list
+  - watch
+  - update
 - apiGroups:
-    - coordination.k8s.io
+  - coordination.k8s.io
   resources:
-    - leases
+  - leases
   verbs:
-    - get
-    - create
-    - update
-    - delete
+  - get
+  - create
+  - update
+  - delete
 ---
 
 apiVersion: v1
